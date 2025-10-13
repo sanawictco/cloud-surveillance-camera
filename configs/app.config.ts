@@ -22,6 +22,14 @@ const AppConfig = () => ({
   mongodb: {
     url: `mongodb://${env.get('MONGO_DB_HOST').required().asString()}:${env.get('MONGO_DB_PORT').required().asPortNumber()}/${env.get('MONGO_DB_NAME').asString()}`,
   },
+  timeseriesDb: {
+    wsUrl: `ws://${env.get('TIME_SERIES_DB_HOST').required().asString()}:${env.get('TIME_SERIES_DB_REST_PORT').required().asPortNumber()}`,
+    user: env.get('TIME_SERIES_DB_USER').required().asString(),
+    password: env.get('TIME_SERIES_DB_PASSWORD').required().asString(),
+    dbName: env.get('TIME_SERIES_DB_NAME').required().asString(),
+    restUrl: `http://${env.get('TIME_SERIES_DB_HOST').required().asString()}:${env.get('TIME_SERIES_DB_REST_PORT').required().asPortNumber()}/rest/sql/${env.get('TIME_SERIES_DB_NAME').required().asString()}`,
+    token: `Basic ${Buffer.from(`${env.get('TIME_SERIES_DB_USER').required().asString()}:${env.get('TIME_SERIES_DB_PASSWORD').required().asString()}`).toString('base64')}`,
+  },
   redis: {
     host: env.get('REDIS_HOST').required().asString(),
     port: env.get('REDIS_PORT').required().asPortNumber(),
