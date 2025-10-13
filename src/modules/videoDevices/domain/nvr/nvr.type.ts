@@ -61,19 +61,16 @@ export interface UpdateNvrProps {
 }
 
 export class NvrCloudPubToFogMqttTopics {
-  nvrConfigs: string;
-  cameraSoftwareConfigs: string;
+  videoDeviceConfigs: string;
   cloudRecoveryDataAck: string; // this topic sufficient for cloud recovery
   cloudIsAvailable: string;
   pageConfig: string;
 }
 
 export const NvrCloudSubOnFogMqttTopics = {
-  nvrSoftwareConfigs: `+/nvr/softwareConfig/sub`,
-  cameraSoftwareConfigs: `+/camera/softwareConfig/sub`,
+  videoDeviceConfigs: `+/videoDevice/Config/sub`,
   cameraCommands: `+/camera/data/sub`,
-  nvrSystemLogs: `+/nvr/systemLogs/sub`,
-  cameraSystemLogs: `+/camera/systemLogs/sub`,
+  videoDevicesSystemLogs: `+/videoDevices/systemLogs/sub`,
   pageConfigs: `+/page/config/sub`,
 };
 

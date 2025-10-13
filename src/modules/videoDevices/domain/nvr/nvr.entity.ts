@@ -30,9 +30,10 @@ import { NvrActivatedDomainEvent } from './events/nvrActivated.domainEvent';
 import { NvrDeletedDomainEvent } from './events/nvrDeleted.domainEvent';
 import { CameraCloudSubOnFogMqttTopics } from 'src/modules/videoDevices/domain/camera/camera.type';
 import { BusinessId } from 'src/dddLib/core/businessId.vo';
-import { NvrConfigQueueMsgDto } from '../../applicationService/services/queues/nvrConfig/nvrConfigQueueMsg.dto';
 import { IsActive } from '../../shared/valueObjects/isActive.vo';
 import { MaxCameras } from './valueObjects/maxCameras.vo';
+import { VideoDeviceConfigQueueMsgDto } from '../../applicationService/services/queues/videoDeviceConfig/videoDeviceConfigQueueMsg.dto';
+import { VideoDeviceEntityTypes } from '../../shared/valueObjects/videoDeviceEntityTypes';
 
 export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
   protected readonly _id: AggregateID;
@@ -154,8 +155,7 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
 
   getCloudPubToFogMqttTopics(): NvrCloudPubToFogMqttTopics {
     const mqttPublishTopicsObject: NvrCloudPubToFogMqttTopics = {
-      nvrConfigs: `${this.id}/nvr/softwareConfig/pub`,
-      cameraSoftwareConfigs: `${this.id}/camera/softwareConfig/pub`,
+      videoDeviceConfigs: `${this.id}/videoDevice/Config/pub`,
       cloudRecoveryDataAck: `${this.id}/cloudRecoveryData/pub`,
       cloudIsAvailable: `${this.id}/cloudIsAvailable/pub`,
       pageConfig: `${this.id}/page/config/pub`,
@@ -185,15 +185,19 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
     return transformedTopics;
   }
 
-  generateFogConfig(configType: NvrConfigs, body?): NvrConfigQueueMsgDto {
-    const config: NvrConfigQueueMsgDto = {
+  generateFogConfig(
+    configType: NvrConfigs,
+    body?,
+  ): VideoDeviceConfigQueueMsgDto {
+    const config: VideoDeviceConfigQueueMsgDto = {
       msgId: generateRandomMsgId(),
       configType,
       nvrId: this.id,
       data: {},
       metadata: {
-        topic: this.getCloudPubToFogMqttTopics().nvrConfigs,
+        topic: this.getCloudPubToFogMqttTopics().videoDeviceConfigs,
         entityId: this.id,
+        entityType: VideoDeviceEntityTypes.NVR,
         retryCount: 3,
         retryPeriodInSecond: 10,
       },

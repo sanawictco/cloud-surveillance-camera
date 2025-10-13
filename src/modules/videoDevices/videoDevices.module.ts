@@ -31,8 +31,6 @@ import { FindNvrBySerialNumberQueryHandler } from './applicationService/queries/
 import { NVR_REPOSITORY } from './infra/nvr/nvr.diToken';
 import { NvrRepository } from './infra/nvr/nvr.repository';
 import { NvrMapper } from './infra/nvr/nvr.mapper';
-import { NvrConfigQueueService } from './applicationService/services/queues/nvrConfig/nvrQueue.service';
-import { CameraDataQueueService } from './applicationService/services/queues/cameraData/cameraDataQueue.service';
 import { CAMERA_REPOSITORY } from './infra/camera/camera.diToken';
 import { CameraMapper } from './infra/camera/camera.mapper';
 import { CameraRepository } from './infra/camera/camera.repository';
@@ -45,6 +43,8 @@ import { VideoDevicesApiForDashboardService } from './applicationService/service
 import { VideoDevicesApiForFogCommunicationManagerService } from './applicationService/services/apiForAnotherServices/videoDevicesApiForFogCommunicationManager.service';
 import { NvrValidator } from './applicationService/services/http/validators/nvr.validator';
 import { CameraValidator } from './applicationService/services/http/validators/camera.validator';
+import { VideoDeviceConfigQueueService } from './applicationService/services/queues/videoDeviceConfig/videoDeviceQueue.service';
+import { VideoDeviceDataQueueService } from './applicationService/services/queues/videoDeviceData/videoDeviceDataQueue.service';
 
 const commandHandlers: Provider[] = [
   ...[
@@ -93,7 +93,7 @@ const repositories: Provider[] = [
 const mappers: Provider[] = [NvrMapper, CameraMapper];
 
 const queueServices: Provider[] = [
-  ...[NvrConfigQueueService, CameraDataQueueService],
+  ...[VideoDeviceConfigQueueService, VideoDeviceDataQueueService],
 ];
 
 const services: Provider[] = [];

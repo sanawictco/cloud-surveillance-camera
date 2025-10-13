@@ -8,8 +8,6 @@ import { ActorLogTypes } from 'src/modules/shared/dtos/actor.dto';
 import { Name } from 'src/modules/shared/valueObjects/name.vo';
 import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.vo';
 
-import { CameraConfigQueueMsgDto } from '../../applicationService/services/queues/cameraConfig/cameraConfigQueueMsg.dto';
-import { CameraDataQueueMsgDto } from '../../applicationService/services/queues/cameraData/cameraDataQueueMsg.dto';
 import { IsActive } from '../../shared/valueObjects/isActive.vo';
 import {
   LiveSignalStatus,
@@ -39,6 +37,9 @@ import { ProductModel } from './valueObjects/productModel.vo';
 import { Streams } from './valueObjects/streams.vo';
 import { Username } from './valueObjects/username.vo';
 import { SerialNumber } from '../../shared/valueObjects/serialNumber.vo';
+import { VideoDeviceConfigQueueMsgDto } from '../../applicationService/services/queues/videoDeviceConfig/videoDeviceConfigQueueMsg.dto';
+import { VideoDeviceEntityTypes } from '../../shared/valueObjects/videoDeviceEntityTypes';
+import { VideoDeviceDataQueueMsgDto } from '../../applicationService/services/queues/videoDeviceData/videoDeviceDataQueueMsg.dto';
 
 export class CameraEntity extends AggregateRoot<
   CameraValueObjects,
@@ -158,15 +159,16 @@ export class CameraEntity extends AggregateRoot<
     nvrEntity: NvrEntity,
     configType: CameraSoftwareConfigs,
     body?,
-  ): CameraConfigQueueMsgDto {
-    const config: CameraConfigQueueMsgDto = {
+  ): VideoDeviceConfigQueueMsgDto {
+    const config: VideoDeviceConfigQueueMsgDto = {
       msgId: generateRandomMsgId(),
       configType,
       nvrId: nvrEntity.id,
       data: {},
       metadata: {
-        topic: nvrEntity.getCloudPubToFogMqttTopics().cameraSoftwareConfigs,
+        topic: nvrEntity.getCloudPubToFogMqttTopics().videoDeviceConfigs,
         entityId: this.id,
+        entityType: VideoDeviceEntityTypes.CAMERA,
         retryCount: 3,
         retryPeriodInSecond: 10,
       },
@@ -187,7 +189,7 @@ export class CameraEntity extends AggregateRoot<
     cmdKey: CameraHardwareSendCommands,
     data: number[],
     optionalProps?: { actorType: ActorLogTypes; actorId: string },
-  ): CameraDataQueueMsgDto {
+  ): VideoDeviceDataQueueMsgDto {
     const msgId = generateRandomMsgId();
     const command = this.createHardwareMsg({
       cameraId: this.id,
@@ -203,6 +205,7 @@ export class CameraEntity extends AggregateRoot<
       metadata: {
         topic: this.getCloudPubToFogMqttTopics().cameraData,
         entityId: this.id,
+        entityType: VideoDeviceEntityTypes.CAMERA,
         retryCount: 2,
         retryPeriodInSecond: 5,
         actorProps: optionalProps || undefined,

@@ -8,19 +8,19 @@ import {
 import { RequestContextService } from 'src/dddLib/utils/appRequestContext';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import { LanguageKeys } from 'src/extensions/translation/languageKeys.base';
-import { NvrConfigQueueService } from '../queues/nvrConfig/nvrQueue.service';
 import { FindNvrByIdQuery } from '../../queries/nvr/findNvrById.queryHandler';
 import { UpdateNvrCommand } from '../../commands/nvr/updateNvr.command';
 import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.vo';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
 import { NvrConfigs } from 'src/modules/videoDevices/domain/nvr/nvr.type';
+import { VideoDeviceConfigQueueService } from '../queues/videoDeviceConfig/videoDeviceQueue.service';
 
 @Injectable()
 export class NvrRunningConfigService {
   constructor(
     private readonly serviceProvider: ServiceProvider,
-    @Inject(forwardRef(() => NvrConfigQueueService))
-    private readonly nvrConfigQueueService: NvrConfigQueueService,
+    @Inject(forwardRef(() => VideoDeviceConfigQueueService))
+    private readonly videoDeviceConfigQueueService: VideoDeviceConfigQueueService,
   ) {}
 
   async runConfigIfNotDuplicated(
@@ -38,7 +38,7 @@ export class NvrRunningConfigService {
         );
       return '';
     } else {
-      const msgId = await this.nvrConfigQueueService.addRepeatableMsg(
+      const msgId = await this.videoDeviceConfigQueueService.addRepeatableMsg(
         nvrEntity.generateFogConfig(configType, data),
       );
 
@@ -74,7 +74,9 @@ export class NvrRunningConfigService {
     const { runningConfigs } = nvrEntity.getProps();
     for (const msgId of Object.values(runningConfigs)) {
       if (msgId) {
-        await this.nvrConfigQueueService.getAndDeleteRepeatableMsg(msgId);
+        await this.videoDeviceConfigQueueService.getAndDeleteRepeatableMsg(
+          msgId,
+        );
       }
     }
     await this.serviceProvider.commandBus.execute(

@@ -2,8 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { MqttService } from 'src/extensions/mqtt/mqtt.service';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import { NvrValidator } from '../http/validators/nvr.validator';
-import { NvrConfigQueueService } from '../queues/nvrConfig/nvrQueue.service';
-import { CameraConfigQueueService } from '../queues/cameraConfig/cameraConfigQueue.service';
 import { NvrSystemLogService } from '../systemLogs/nvrSystemLog.service';
 import { NvrLiveSignalService } from '../liveSignals/nvrLiveSignal.service';
 import { NvrRunningConfigService } from '../runningConfigs/nvrRunningConfig.service';
@@ -20,13 +18,13 @@ import {
 import { RestoreNvrsToCacheCommand } from '../../commands/nvr/restoreNvrsToCache.command';
 import { RestoreCamerasToCacheCommand } from '../../commands/camera/restoreCamerasToCache.command';
 import { DashboardApiForVideoDevicesService } from 'src/modules/dashboard/applicationService/apiForAnotherServices/dashboardApiForDevices.service';
+import { VideoDeviceConfigQueueService } from '../queues/videoDeviceConfig/videoDeviceQueue.service';
 
 @Injectable()
 export class VideoDevicesApiForFogCommunicationManagerService {
   constructor(
     private readonly nvrValidator: NvrValidator,
-    private readonly nvrConfigQueueService: NvrConfigQueueService,
-    private readonly cameraConfigQueueService: CameraConfigQueueService,
+    private readonly videoDeviceConfigQueueService: VideoDeviceConfigQueueService,
     private readonly serviceProvider: ServiceProvider,
     private readonly mqttService: MqttService,
     private readonly nvrSystemLogService: NvrSystemLogService,
@@ -42,10 +40,7 @@ export class VideoDevicesApiForFogCommunicationManagerService {
   }
 
   async getVideoDeviceConfigFromQueue(msgId: string) {
-    const msg =
-      (await this.nvrConfigQueueService.getRepeatableMsg(msgId)) ||
-      (await this.cameraConfigQueueService.getRepeatableMsg(msgId));
-    return msg;
+    return await this.videoDeviceConfigQueueService.getRepeatableMsg(msgId);
   }
 
   async sendCloudIsAvailableSignalToFog() {

@@ -18,16 +18,16 @@ import {
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
 import { UpdateCameraCommand } from '../../commands/camera/updateCamera.command';
 import { FindCameraByIdQuery } from '../../queries/camera/findCameraById.queryHandler';
-import { CameraConfigQueueService } from '../queues/cameraConfig/cameraConfigQueue.service';
-import { CameraDataQueueService } from '../queues/cameraData/cameraDataQueue.service';
+import { VideoDeviceConfigQueueService } from '../queues/videoDeviceConfig/videoDeviceQueue.service';
+import { VideoDeviceDataQueueService } from '../queues/videoDeviceData/videoDeviceDataQueue.service';
 
 @Injectable()
 export class CameraRunningConfigAndCommandService {
   constructor(
-    @Inject(forwardRef(() => CameraConfigQueueService))
-    private readonly cameraConfigQueueService: CameraConfigQueueService,
-    @Inject(forwardRef(() => CameraDataQueueService))
-    private readonly cameraDataQueueService: CameraDataQueueService,
+    @Inject(forwardRef(() => VideoDeviceConfigQueueService))
+    private readonly videoDeviceConfigQueueService: VideoDeviceConfigQueueService,
+    @Inject(forwardRef(() => VideoDeviceDataQueueService))
+    private readonly videoDeviceDataQueueService: VideoDeviceDataQueueService,
     private readonly serviceProvider: ServiceProvider,
   ) {}
   async runSoftwareConfigIfNotDuplicated(
@@ -45,7 +45,7 @@ export class CameraRunningConfigAndCommandService {
         );
       return '';
     } else {
-      const msgId = await this.cameraConfigQueueService.addRepeatableMsg(
+      const msgId = await this.videoDeviceConfigQueueService.addRepeatableMsg(
         cameraEntity.generateFogSoftwareConfig(nvrEntity, softwareConfig, data),
       );
       await this.runAndLockConfig(cameraEntity, softwareConfig, msgId);
@@ -68,7 +68,7 @@ export class CameraRunningConfigAndCommandService {
         );
       return '';
     } else {
-      const msgId = await this.cameraDataQueueService.addRepeatableMsg(
+      const msgId = await this.videoDeviceDataQueueService.addRepeatableMsg(
         cameraEntity.generateFogHardwareCommand(
           hardwareCommand,
           data,
@@ -108,8 +108,10 @@ export class CameraRunningConfigAndCommandService {
     const { runningConfigs } = cameraEntity.getProps();
     for (const msgId of Object.values(runningConfigs)) {
       if (msgId) {
-        await this.cameraConfigQueueService.getAndDeleteRepeatableMsg(msgId);
-        await this.cameraDataQueueService.getAndDeleteRepeatableMsg(msgId);
+        await this.videoDeviceConfigQueueService.getAndDeleteRepeatableMsg(
+          msgId,
+        );
+        await this.videoDeviceDataQueueService.getAndDeleteRepeatableMsg(msgId);
       }
     }
     await this.serviceProvider.commandBus.execute(
