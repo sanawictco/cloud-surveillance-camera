@@ -33,6 +33,7 @@
     "@nestjs/platform-socket.io": "^11.1.6",
     "@nestjs/swagger": "^11.2.0",
     "@nestjs/websockets": "^11.1.6",
+    "@tdengine/websocket": "^3.2.0",
     "axios": "^1.12.2",
     "bullmq": "^5.58.7",
     "class-transformer": "^0.5.1",

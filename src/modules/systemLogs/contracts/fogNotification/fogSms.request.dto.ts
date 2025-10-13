@@ -1,0 +1,42 @@
+import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsEnum,
+  IsPhoneNumber,
+  IsString,
+  IsUUID,
+  Length,
+  Validate,
+} from 'class-validator';
+import { NotificationLevel } from './notificationLevel.enum';
+import { AvoidUsingSpecialCharacters } from 'src/modules/shared/avoidUsingSpecialCharacters.validator';
+import { AvoidUsingWhiteSpaceCharacters } from 'src/modules/shared/avoidUsingWhiteSpaceCharacters.validator';
+
+export class FogSmsRequestDto {
+  @ApiProperty()
+  @IsString()
+  @Length(8, 8)
+  @Validate(AvoidUsingSpecialCharacters)
+  @Validate(AvoidUsingWhiteSpaceCharacters)
+  serialNumber: string;
+
+  @ApiProperty()
+  @IsString()
+  @Length(32, 32)
+  @Validate(AvoidUsingSpecialCharacters)
+  @Validate(AvoidUsingWhiteSpaceCharacters)
+  accessToken: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsUUID()
+  userId: string;
+
+  @ApiProperty()
+  @IsString()
+  @Length(1, 200)
+  message: string;
+
+  @ApiProperty({ enum: NotificationLevel, enumName: 'NotificationLevel' })
+  @IsEnum(NotificationLevel)
+  level: NotificationLevel;
+}
