@@ -1,8 +1,8 @@
 import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
-import { SanawApiDeviceService } from './services/sanawApiDevice.service';
 import { SanawApiNotificationService } from './services/sanawApiNotification.service';
 import { SanawApiEmployeeService } from './services/sanawApiEmployee.service';
+import { SanawApiVideoDeviceService } from './services/sanawApiVideoDevice.service';
 
 @Module({
   imports: [
@@ -12,12 +12,12 @@ import { SanawApiEmployeeService } from './services/sanawApiEmployee.service';
     }),
   ],
   providers: [
-    SanawApiDeviceService,
+    SanawApiVideoDeviceService,
     SanawApiNotificationService,
     SanawApiEmployeeService,
   ],
   exports: [
-    SanawApiDeviceService,
+    SanawApiVideoDeviceService,
     SanawApiNotificationService,
     SanawApiEmployeeService,
   ],

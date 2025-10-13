@@ -1,55 +1,17 @@
-export enum DeviceTypesEnum {
-  GATEWAY = 'gateway',
-  ACCESS_POINT = 'accessPoint',
-  END_DEVICE = 'endDevice',
-}
-export class AutoScanAllDevicesInformationResDto {
+export class AutoScanAllCamerasInformationResDto {
   statusCode: number;
-  data: { devices: ScanedDevices[] };
+  data: { cameras: ScanedCamera[] };
 }
 
-export class ScanedDevices {
-  accessPoint: ScanedAccessPoint;
-  endDevices: ScanedEndDevice[];
-}
-
-export class ScanedAccessPoint {
-  macAddress: number;
-  maxMsgRateInMsgCountPerMin: number;
+export class ScanedCamera {
+  id: number;
   productModel: string;
   serialNumber: string;
-  behavior: AccessPointBehavior;
-}
-
-export class ScanedEndDevice {
-  macAddress: number;
-  productModel: string;
-  serialNumber: string;
-  behavior: EndDeviceBehavior;
-}
-
-class AccessPointBehavior {
-  id: number;
-  name: string;
-  communicationStructures: AccessPointCommunicationStructureDto[];
-}
-
-class AccessPointCommunicationStructureDto {
-  id: number;
-  name: string;
-  commands: string;
-}
-
-class EndDeviceBehavior {
-  id: number;
-  name: string;
-  communicationStructures: EndDeviceCommunicationStructureDto[];
-}
-
-class EndDeviceCommunicationStructureDto {
-  id: number;
-  name: string;
-  analogInputIndex: number;
-  widgetStructure: string;
-  commands: string;
+  username: string;
+  password: string;
+  macAddress: string;
+  streams: string;
+  port: number;
+  hasPtz: boolean;
+  hasAudio: boolean;
 }

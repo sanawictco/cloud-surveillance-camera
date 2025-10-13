@@ -2,18 +2,18 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import axios from 'axios';
 import AppConfig from 'configs/app.config';
 import { AllDevicesAutoScanInformationReqDto } from '../dtos/devices/request/allDevicesAutoScanInformationReq.dto';
-import { AutoScanAllDevicesInformationResDto } from '../dtos/devices/response/allDevicesAutoScanInformation.response.dto';
+import { AutoScanAllCamerasInformationResDto } from '../dtos/devices/response/allDevicesAutoScanInformation.response.dto';
 import { SanawApiHeader } from '../dtos/sanawApi.header';
-import { GatewayAutoRegisterInformationResponseDto } from '../dtos/devices/response/gatewayAutoRegisterInformation.response.dto';
-import { GatewayAutoScanInformationResponseDto } from '../dtos/devices/response/gatewayAutoScanInformation.response.dto';
+import { NvrAutoScanInformationResponseDto } from '../dtos/devices/response/nvrAutoScanInformation.response.dto';
+
 @Injectable()
-export class SanawApiDeviceService {
-  async getAutoScanInformationOfGateway(
+export class SanawApiVideoDeviceService {
+  async getAutoScanInformationOfNvr(
     serialNumber: string,
-  ): Promise<GatewayAutoScanInformationResponseDto> {
+  ): Promise<NvrAutoScanInformationResponseDto> {
     const url = `${
       AppConfig().sanawApiURL
-    }/devices/manufacturedGateways/getAutoScanInformation`;
+    }/video-devices/manufactured-nvrs/get-auto-scan-information`;
 
     try {
       const res = await axios.post(
@@ -23,10 +23,6 @@ export class SanawApiDeviceService {
         },
         { headers: SanawApiHeader() },
       );
-      // remove commands from communicationStructures
-      for (const communicationStructure of res.data.communicationStructures) {
-        delete communicationStructure.commands;
-      }
       return {
         statusCode: 200,
         data: res.data,
@@ -38,19 +34,18 @@ export class SanawApiDeviceService {
     }
   }
 
-  async getAutoRegisterInformationOfGateway(
+  async getAutoRegisterInformationOfNvr(
     serialNumber: string,
     communicationStructureId: number,
-  ): Promise<GatewayAutoRegisterInformationResponseDto> {
+  ): Promise<NvrAutoScanInformationResponseDto> {
     const url = `${
       AppConfig().sanawApiURL
-    }/devices/manufacturedGateways/getAutoRegisterInformation`;
+    }/video-devices/manufactured-nvrs/get-auto-register-information`;
     try {
       const res = await axios.post(
         url,
         {
           serialNumber,
-          communicationStructureId,
         },
         { headers: SanawApiHeader() },
       );
@@ -65,18 +60,19 @@ export class SanawApiDeviceService {
       );
     }
   }
-  async useGateway(
-    manufacturedGatewayId: number,
-    gatewayId: string,
+  async useNvr(
+    serialNumber: string,
+    nvrId: string,
+    workstationId: string,
   ): Promise<void> {
-    const url = `${AppConfig().sanawApiURL}/devices/manufacturedGateways/use`;
+    const url = `${AppConfig().sanawApiURL}/video-devices/manufactured-nvrs/use`;
     try {
       await axios.post(
         url,
         {
-          manufacturedGatewayId,
-          workspaceUrl: AppConfig().workspaceUrl,
-          gatewayIdInWorkspace: gatewayId,
+          serialNumber,
+          workstationId,
+          nvrIdInWorkstation: nvrId,
         },
         { headers: SanawApiHeader() },
       );
@@ -87,13 +83,13 @@ export class SanawApiDeviceService {
     }
   }
 
-  async unUseGateway(manufacturedGatewayId: number): Promise<void> {
-    const url = `${AppConfig().sanawApiURL}/devices/manufacturedGateways/unUse`;
+  async unUseNvr(serialNumber: string): Promise<void> {
+    const url = `${AppConfig().sanawApiURL}/video-devices/manufactured-nvrs/un-use`;
     try {
       await axios.post(
         url,
         {
-          manufacturedGatewayId,
+          serialNumber,
         },
         { headers: SanawApiHeader() },
       );
@@ -104,12 +100,12 @@ export class SanawApiDeviceService {
     }
   }
 
-  async getAutoScanInformationOfAllDevices(
+  async getAutoScanInformationOfAllCameras(
     reqData: AllDevicesAutoScanInformationReqDto,
-  ): Promise<AutoScanAllDevicesInformationResDto> {
+  ): Promise<AutoScanAllCamerasInformationResDto> {
     const url = `${
       AppConfig().sanawApiURL
-    }/devices/manufacturedGateways/getAutoScanAllDevicesInformation`;
+    }/video-devices/manufactured-nvrs/get-auto-scan-all-cameras-information`;
 
     try {
       const res = await axios.post(
