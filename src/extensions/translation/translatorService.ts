@@ -1,18 +1,12 @@
-import {
-  BadRequestException,
-  forwardRef,
-  Inject,
-  Injectable,
-} from '@nestjs/common';
-import { LanguageCode } from './languageCode.enum';
-import { DictionarySections, TranslatorBase } from './translator.base';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { StringExtensions } from 'src/dddLib/utils/stringExtensions';
+import { LanguageCode } from './languageCode.enum';
+import { LanguageKeysBase } from './languageKeys.base';
+import { arabicValues } from './languages/arabicValues';
 import { englishValues } from './languages/englishValues';
 import { farsiValues } from './languages/farsiValues';
-import { arabicValues } from './languages/arabicValues';
-import { ServiceProvider } from '../serviceProvider/serviceProvider.service';
-import { LanguageKeysBase } from './languageKeys.base';
 import { kurdiValues } from './languages/kurdiValues';
+import { DictionarySections, TranslatorBase } from './translator.base';
 
 @Injectable()
 export class TranslatorService implements TranslatorBase {
