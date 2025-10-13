@@ -1,3 +1,5 @@
+import { FindDataParams } from '../infra/timeseriesRepository.base';
+
 /**
  * Base class for regular queries
  */
@@ -26,7 +28,32 @@ export abstract class PaginatedQueryBase<Props> extends QueryBase<Props> {
     this.page = props.page || 1;
   }
 }
+/**
+ * Base class for timeseries queries
+ */
+export abstract class TimeseriesQueryBase extends FindDataParams {
+  constructor(props: FindDataParams) {
+    super();
+    this.superTableName = props.superTableName;
+    this.subTableName = props.subTableName;
+    this.selectedColumns = props.selectedColumns;
+    this.timeRangeInUnix = props.timeRangeInUnix;
+    this.orderBy = props.orderBy;
+  }
+}
 
+/**
+ * Base class for timeseries queries
+ */
+export abstract class PaginatedTimeseriesQueryBase extends TimeseriesQueryBase {
+  limit: number;
+  page: number;
+  constructor(props: FindDataParams & { page: number; limit: number }) {
+    super(props);
+    this.limit = props.limit || 15;
+    this.page = props.page || 1;
+  }
+}
 export class OrderBySetting {
   column: string;
   status: OrderStates;
