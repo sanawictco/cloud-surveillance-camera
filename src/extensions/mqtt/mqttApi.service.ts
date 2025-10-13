@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import axios from 'axios';
 import AppConfig from 'configs/app.config';
-import { generateRandomId } from 'src/dddLib/utils/randomIdGenerator';
 import { MqttRuleDto } from './dtos/mqttRule.dto';
 
 @Injectable()
@@ -13,7 +12,7 @@ export class MqttApiService {
     },
   };
 
-  async createGatewayTopics(
+  async createNvrTopics(
     serialNumber: string,
     accessToken: string,
     topics: { pubs: object; subs: object },
@@ -25,7 +24,7 @@ export class MqttApiService {
       AppConfig().mqtt.api.apiUrl
     }/authorization/sources/built_in_database/rules/users`;
     try {
-      const gatewayAclRules = this.createAclRules(topics);
+      const nvrAclRules = this.createAclRules(topics);
       await axios.post(
         createUserUrl,
         {
@@ -40,7 +39,7 @@ export class MqttApiService {
         [
           {
             username: serialNumber,
-            rules: gatewayAclRules,
+            rules: nvrAclRules,
           },
         ],
         this.basicAuth,
@@ -67,28 +66,6 @@ export class MqttApiService {
       return { statusCode: 200, data: response.data };
     } catch (err) {
       throw err;
-    }
-  }
-
-  async unSubscribeClientIdsFromPrevTopics(username: string, topicList) {
-    const clients = await this.getAllConnectedClientIds(username);
-    const topics = topicList.map((topic) => ({ topic }));
-    for (const client of clients) {
-      const { clientid } = client;
-      const unSubscribeClientIdUrl = `${
-        AppConfig().mqtt.api.apiUrl
-      }/clients/${clientid}/unsubscribe/bulk`;
-      try {
-        const response = await axios.post(
-          unSubscribeClientIdUrl,
-          topics,
-          this.basicAuth,
-        );
-
-        return { statusCode: 200, data: response.data };
-      } catch (err) {
-        throw err;
-      }
     }
   }
 
@@ -127,56 +104,7 @@ export class MqttApiService {
     }
   }
 
-  async updateExternalUserApiAclRules(username: string, topicList: string[]) {
-    const updateExternalUserAclRulesUrl = `${AppConfig().mqtt.api.apiUrl}/authorization/sources/built_in_database/rules/users/${username}`;
-    try {
-      const topics = { pubs: {}, subs: {} };
-      for (const item of topicList) {
-        topics.pubs[generateRandomId(6)] = item;
-      }
-      const externalUserAclRules = this.createAclRules(topics);
-
-      const response = await axios.put(
-        updateExternalUserAclRulesUrl,
-        {
-          rules: externalUserAclRules,
-          username: username,
-        },
-        this.basicAuth,
-      );
-      return { statusCode: 200, data: response.data };
-    } catch (err) {
-      throw err;
-    }
-  }
-
-  async disconnectClients(username) {
-    const clients = await this.getAllConnectedClientIds(username);
-    for (const client of clients) {
-      const { clientid } = client;
-      const disconnectClientIdUrl = `${AppConfig().mqtt.api.apiUrl}/clients/${clientid}`;
-      try {
-        await axios.delete(disconnectClientIdUrl, this.basicAuth);
-      } catch (err) {
-        throw err;
-      }
-    }
-  }
-
-  async createExternalUserTopics(
-    username: string,
-    password: string,
-    topicList: string[],
-  ) {
-    const topics = { pubs: {}, subs: {} };
-    for (const item of topicList) {
-      topics.pubs[generateRandomId(6)] = item;
-    }
-    // as createGatewayTopics create user & its topics, i reuse this function
-    return this.createGatewayTopics(username, password, topics);
-  }
-
-  async deleteGatewayTopics(serialNumber: string, gatewayId: string) {
+  async deleteNvrTopics(serialNumber: string, nvrId: string) {
     const deleteUserUrl = `${
       AppConfig().mqtt.api.apiUrl
     }/authentication/password_based:built_in_database/users/${serialNumber}`;
@@ -186,7 +114,7 @@ export class MqttApiService {
     try {
       await axios.delete(deleteUserUrl, this.basicAuth);
       const response = await axios.delete(deleteAclRulesUrl, this.basicAuth);
-      await this.deleteAutoSubscribeTopics(gatewayId);
+      await this.deleteAutoSubscribeTopics(nvrId);
 
       return { statusCode: 200, data: response.data };
     } catch (err) {
@@ -194,27 +122,27 @@ export class MqttApiService {
     }
   }
 
-  async createAccessPointTopics(
-    gatewaySerialNumber: string,
+  async createCameraTopics(
+    nvrSerialNumber: string,
     topics: { pubs: object; subs: object },
   ) {
     const getAllUserAclRulesUrl = `${
       AppConfig().mqtt.api.apiUrl
-    }/authorization/sources/built_in_database/rules/users/${gatewaySerialNumber}`;
+    }/authorization/sources/built_in_database/rules/users/${nvrSerialNumber}`;
 
     const updateUserAclRulesUrl = `${
       AppConfig().mqtt.api.apiUrl
-    }/authorization/sources/built_in_database/rules/users/${gatewaySerialNumber}`;
+    }/authorization/sources/built_in_database/rules/users/${nvrSerialNumber}`;
 
-    const accessPointAclRules = this.createAclRules(topics);
+    const cameraAclRules = this.createAclRules(topics);
 
     try {
       const res1 = await axios.get(getAllUserAclRulesUrl, this.basicAuth);
       const res2 = await axios.put(
         updateUserAclRulesUrl,
         {
-          rules: [...res1.data.rules, ...accessPointAclRules],
-          username: gatewaySerialNumber,
+          rules: [...res1.data.rules, ...cameraAclRules],
+          username: nvrSerialNumber,
         },
         this.basicAuth,
       );
@@ -228,109 +156,34 @@ export class MqttApiService {
     }
   }
 
-  async deleteAccessPointTopics(
-    gatewaySerialNumber: string,
-    gatewayId: string,
-    accessPointId: string,
+  async deleteCameraTopics(
+    nvrSerialNumber: string,
+    nvrId: string,
+    cameraId: string,
   ) {
     const getAllUserAclRulesUrl = `${
       AppConfig().mqtt.api.apiUrl
-    }/authorization/sources/built_in_database/rules/users/${gatewaySerialNumber}`;
+    }/authorization/sources/built_in_database/rules/users/${nvrSerialNumber}`;
 
     const updateUserAclRulesUrl = `${
       AppConfig().mqtt.api.apiUrl
-    }/authorization/sources/built_in_database/rules/users/${gatewaySerialNumber}`;
+    }/authorization/sources/built_in_database/rules/users/${nvrSerialNumber}`;
 
     try {
       const res1 = await axios.get(getAllUserAclRulesUrl, this.basicAuth);
       const updatedRules = this.deleteRulesIfMatch(
         res1.data.rules,
-        `${gatewayId}/${accessPointId}`,
+        `${nvrId}/${cameraId}`,
       );
       const res2 = await axios.put(
         updateUserAclRulesUrl,
         {
           rules: updatedRules,
-          username: gatewaySerialNumber,
+          username: nvrSerialNumber,
         },
         this.basicAuth,
       );
-      await this.deleteAutoSubscribeTopics(`${gatewayId}/${accessPointId}`);
-      return {
-        statusCode: 200,
-        data: res2.data,
-      };
-    } catch (err) {
-      throw err;
-    }
-  }
-
-  async createEndDeviceTopics(
-    gatewaySerialNumber: string,
-    topics: { pubs: object; subs: object },
-  ) {
-    const getAllUserAclRulesUrl = `${
-      AppConfig().mqtt.api.apiUrl
-    }/authorization/sources/built_in_database/rules/users/${gatewaySerialNumber}`;
-
-    const updateUserAclRulesUrl = `${
-      AppConfig().mqtt.api.apiUrl
-    }/authorization/sources/built_in_database/rules/users/${gatewaySerialNumber}`;
-
-    const endDeviceAclRules = this.createAclRules(topics);
-
-    try {
-      const res1 = await axios.get(getAllUserAclRulesUrl, this.basicAuth);
-      const res2 = await axios.put(
-        updateUserAclRulesUrl,
-        {
-          rules: [...res1.data.rules, ...endDeviceAclRules],
-          username: gatewaySerialNumber,
-        },
-        this.basicAuth,
-      );
-      // await this.addAutoSubscribeTopics(topics);
-      return {
-        statusCode: 200,
-        data: res2.data,
-      };
-    } catch (err) {
-      throw err;
-    }
-  }
-
-  async deleteEndDeviceTopics(
-    gatewaySerialNumber: string,
-    gatewayId: string,
-    accessPointId: string,
-    endDeviceId: string,
-  ) {
-    const getAllUserAclRulesUrl = `${
-      AppConfig().mqtt.api.apiUrl
-    }/authorization/sources/built_in_database/rules/users/${gatewaySerialNumber}`;
-
-    const updateUserAclRulesUrl = `${
-      AppConfig().mqtt.api.apiUrl
-    }/authorization/sources/built_in_database/rules/users/${gatewaySerialNumber}`;
-
-    try {
-      const res1 = await axios.get(getAllUserAclRulesUrl, this.basicAuth);
-      const updatedRules = this.deleteRulesIfMatch(
-        res1.data.rules,
-        `${gatewayId}/${accessPointId}/${endDeviceId}`,
-      );
-      const res2 = await axios.put(
-        updateUserAclRulesUrl,
-        {
-          rules: updatedRules,
-          username: gatewaySerialNumber,
-        },
-        this.basicAuth,
-      );
-
-      await this.deleteAutoSubscribeTopics(
-        `${gatewayId}/${accessPointId}/${endDeviceId}`,
-      );
+      await this.deleteAutoSubscribeTopics(`${nvrId}/${cameraId}`);
       return {
         statusCode: 200,
         data: res2.data,
@@ -341,7 +194,7 @@ export class MqttApiService {
   }
 
   private createAclRules(topics: { pubs: object; subs: object }) {
-    // create topics from point of view of gateway
+    // create topics from point of view of nvr
     const subscribeTopics = [...Object.values(topics.pubs)];
     const publishTopics = [...Object.values(topics.subs)];
 
