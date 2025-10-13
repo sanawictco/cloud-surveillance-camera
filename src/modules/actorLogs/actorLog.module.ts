@@ -1,0 +1,47 @@
+import { forwardRef, Module, Provider } from '@nestjs/common';
+import { CqrsModule } from '@nestjs/cqrs';
+import { ActorLogApiService } from './applicationService/services/actorLogApi.service';
+import { ACTOR_LOG_REPOSITORY } from './infra/actorLog.diToken';
+import { ActorLogRepository } from './infra/actorLog.timeseriesRepository';
+import { CreateActorLogCommandHandler } from './applicationService/commands/createActorLog.command';
+import { CreateActorLogSubTableCommandHandler } from './applicationService/commands/createActorLogSubTable.command';
+import { DeleteActorLogSubTableCommandHandler } from './applicationService/commands/deleteActorLogSubTable.command';
+import { FindAllActorLogsQueryHandler } from './applicationService/queries/findAllActorLogs.queryHandler';
+import { FindAllPaginatedActorLogsQueryHandler } from './applicationService/queries/findAllPaginatedActorLogs.queryHandler';
+import { CountAllActorLogsQueryHandler } from './applicationService/queries/countAllActorLogs.queryHandler';
+import { AppModule } from 'src/app.module';
+import { ActorLogController } from './actorLog.controller';
+import { ActorLogsService } from './applicationService/services/actorLog.service';
+import { EmployeeModule } from '../employees/employees.module';
+
+const commandHandlers: Provider[] = [
+  CreateActorLogCommandHandler,
+  CreateActorLogSubTableCommandHandler,
+  DeleteActorLogSubTableCommandHandler,
+];
+const queryHandlers: Provider[] = [
+  FindAllActorLogsQueryHandler,
+  FindAllPaginatedActorLogsQueryHandler,
+  CountAllActorLogsQueryHandler,
+];
+const apiServicesForAnotherModules: Provider[] = [ActorLogApiService];
+const repositories: Provider[] = [
+  { provide: ACTOR_LOG_REPOSITORY, useClass: ActorLogRepository },
+];
+@Module({
+  imports: [
+    CqrsModule,
+    forwardRef(() => AppModule),
+    forwardRef(() => EmployeeModule),
+  ],
+  providers: [
+    ActorLogsService,
+    ...queryHandlers,
+    ...repositories,
+    ...commandHandlers,
+    ...apiServicesForAnotherModules,
+  ],
+  controllers: [ActorLogController],
+  exports: [ActorLogApiService],
+})
+export class ActorLogModule {}
