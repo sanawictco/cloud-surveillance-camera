@@ -9,7 +9,6 @@ import { Streams, StreamsProps } from './valueObjects/streams.vo';
 import { Username } from './valueObjects/username.vo';
 import { Name } from 'src/modules/shared/valueObjects/name.vo';
 import { BusinessId } from 'src/dddLib/core/businessId.vo';
-import { IsDeleted } from 'src/modules/videoDevices/shared/valueObjects/isDeleted.vo';
 import { IsActive } from '../../shared/valueObjects/isActive.vo';
 import {
   LiveSignalStatus,
@@ -100,6 +99,10 @@ export enum CameraHardwareReceiveCommands {
 }
 export class CameraCloudPubToFogMqttTopics {
   cameraData: string;
+
+  constructor(cameraData: string) {
+    this.cameraData = cameraData;
+  }
 }
 
 export const CameraCloudSubOnFogMqttTopics = {

@@ -22,7 +22,6 @@ export class DashboardApiForVideoDevicesService {
 
     for (const pageEntity of pageEntities) {
       const pageProps = pageEntity.getProps();
-      const { type } = pageProps;
       const content = pageProps.content as Widget[];
       const newContent: Widget[] = [];
       let updatable = false;

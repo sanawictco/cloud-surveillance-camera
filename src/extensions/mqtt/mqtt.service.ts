@@ -1,13 +1,13 @@
 import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import AppConfig from 'configs/app.config';
-import { connect } from 'mqtt';
+import { connect, MqttClient } from 'mqtt';
 import { ServiceProvider } from '../serviceProvider/serviceProvider.service';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
 const MqttPattern = require('mqtt-pattern');
 
 @Injectable()
 export class MqttService implements OnApplicationBootstrap {
-  private mqttClient;
+  private mqttClient!: MqttClient;
   constructor(private readonly serviceProvider: ServiceProvider) {}
 
   async onApplicationBootstrap() {
@@ -23,7 +23,7 @@ export class MqttService implements OnApplicationBootstrap {
       );
     });
 
-    this.mqttClient.on('error', (err) => {
+    this.mqttClient.on('error', (err: Error) => {
       this.serviceProvider.logger.error(`mqtt connection error !!! ${err}`);
       process.exit(1);
     });
@@ -65,27 +65,35 @@ export class MqttService implements OnApplicationBootstrap {
     data: string | object,
     qos: 0 | 1 | 2 = 2,
   ): Promise<void> {
-    this.mqttClient.publish(topic, data, { qos }, (err) => {
-      if (err) console.error('Error', `mqtt client.publish failed => ${err}`);
-    });
+    this.mqttClient.publish(
+      topic,
+      typeof data === 'string' ? data : JSON.stringify(data),
+      { qos },
+      (err?: Error) => {
+        if (err) console.error('Error', `mqtt client.publish failed => ${err}`);
+      },
+    );
     console.log('Publish message on mqtt => ', { topic, data });
   }
 
-  async subscribe(topic, qos: 0 | 1 | 2 = 2) {
-    this.mqttClient.subscribe(topic, { qos }, (err) => {
+  async subscribe(topic: string, qos: 0 | 1 | 2 = 2) {
+    this.mqttClient.subscribe(topic, { qos }, (err?: Error | null) => {
       if (err) console.error('Error', `mqtt client.subscribe failed => ${err}`);
     });
   }
 
-  async handleMqttMessages(topicsPatterns) {
-    this.mqttClient.on('message', async (topic, message) => {
-      message = message.toString();
-      console.log('Receive message on mqtt => ', { topic, message });
+  async handleMqttMessages(topicsPatterns: string[]) {
+    this.mqttClient.on('message', async (topic: string, message: Buffer) => {
+      const messageText = message.toString();
+      console.log('Receive message on mqtt => ', {
+        topic,
+        message: messageText,
+      });
       for (const pattern of topicsPatterns)
         if (MqttPattern.matches(pattern, topic)) {
           await this.serviceProvider.eventEmitter.emit(pattern, {
             topic,
-            message,
+            message: messageText,
           });
         }
     });

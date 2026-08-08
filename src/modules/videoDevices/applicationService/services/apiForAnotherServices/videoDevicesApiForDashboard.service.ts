@@ -21,7 +21,6 @@ export class VideoDevicesApiForDashboardService extends VideoDevicesApiBaseServi
   }
 
   async sendMoveData(id: string, data: number[]): Promise<string> {
-    const cmdStructuresValue = data;
     const cameraEntity: CameraEntity =
       await this.cameraValidator.checkExistsCameraWihtId(id);
     await this.cameraValidator.checkCameraShouldBeActiveAndHasConnectedStatus(
@@ -34,12 +33,11 @@ export class VideoDevicesApiForDashboardService extends VideoDevicesApiBaseServi
       nvrEntity,
       cameraEntity,
       CameraHardwareSendCommands.MOVE,
-      [], //TODO
+      data,
     );
   }
 
   async sendZoomData(id: string, data: number[]): Promise<string> {
-    const cmdStructuresValue = data;
     const cameraEntity: CameraEntity =
       await this.cameraValidator.checkExistsCameraWihtId(id);
     await this.cameraValidator.checkCameraShouldBeActiveAndHasConnectedStatus(
@@ -52,7 +50,7 @@ export class VideoDevicesApiForDashboardService extends VideoDevicesApiBaseServi
       nvrEntity,
       cameraEntity,
       CameraHardwareSendCommands.ZOOM,
-      [], //TODO
+      data,
     );
   }
 

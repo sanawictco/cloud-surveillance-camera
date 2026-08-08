@@ -28,6 +28,7 @@ export class EmployeeApiForSystemLogsService {
           updatedAt: new Date(employee.updatedAt),
         });
     }
+    return undefined;
   }
 
   async getAllSmsNotifiers(): Promise<SmsNotifierResponseDto[]> {

@@ -30,7 +30,9 @@ export class SanawApiNotificationService {
       );
     } catch (err) {
       throw new BadRequestException(
-        err.response?.data || AppConfig().internalServerError,
+        axios.isAxiosError(err) && err.response?.data
+          ? err.response.data
+          : AppConfig().internalServerError,
       );
     }
   }
@@ -52,7 +54,9 @@ export class SanawApiNotificationService {
       );
     } catch (err) {
       throw new BadRequestException(
-        err.response?.data || AppConfig().internalServerError,
+        axios.isAxiosError(err) && err.response?.data
+          ? err.response.data
+          : AppConfig().internalServerError,
       );
     }
   }
@@ -74,7 +78,9 @@ export class SanawApiNotificationService {
       );
     } catch (err) {
       throw new BadRequestException(
-        err.response?.data || AppConfig().internalServerError,
+        axios.isAxiosError(err) && err.response?.data
+          ? err.response.data
+          : AppConfig().internalServerError,
       );
     }
   }
@@ -96,7 +102,9 @@ export class SanawApiNotificationService {
       );
     } catch (err) {
       throw new BadRequestException(
-        err.response?.data || AppConfig().internalServerError,
+        axios.isAxiosError(err) && err.response?.data
+          ? err.response.data
+          : AppConfig().internalServerError,
       );
     }
   }

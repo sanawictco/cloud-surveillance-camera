@@ -1,3 +1,3 @@
 export class PageMqttRequestDto {
-  msgId: string;
+  constructor(public msgId: string) {}
 }

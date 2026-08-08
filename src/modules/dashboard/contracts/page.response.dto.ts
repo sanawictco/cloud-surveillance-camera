@@ -3,13 +3,18 @@ import { PageTypes } from '../domain/valueObjects/pageType.vo';
 import { Widget } from '../domain/valueObjects/pageContent.vo';
 
 export class GetAllPagesResponseDto {
-  widgetPages: PageResponseDto[];
+  constructor(public widgetPages: PageResponseDto[]) {}
 }
 
 export class PageResponseDto extends ResponseBase {
-  name: string;
-  type: PageTypes;
-  pageIndex: number;
-  nvrId: string;
-  content: Widget[];
+  constructor(
+    props: ConstructorParameters<typeof ResponseBase>[0],
+    public name: string,
+    public type: PageTypes,
+    public pageIndex: number,
+    public nvrId: string,
+    public content: Widget[],
+  ) {
+    super(props);
+  }
 }

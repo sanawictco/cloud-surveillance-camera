@@ -6,7 +6,6 @@ import { SYSTEM_LOG_REPOSITORY } from 'src/modules/systemLogs/infra/diToken/syst
 import { SystemLogRepository } from 'src/modules/systemLogs/infra/repositories/systemLog.timeseriesRepository';
 import {
   SYSTEM_LOG_SUPER_TABLE,
-  systemLogColumnNames,
   SystemLogTypes,
 } from 'src/modules/systemLogs/domain/systemLog.type';
 import { FindDataParams } from 'src/dddLib/infra/timeseriesRepository.base';
@@ -19,13 +18,11 @@ export class FindAllPaginatedSystemLogsQuery extends PaginatedTimeseriesQueryBas
     },
   ) {
     super(props);
-    if (props.types) this.types = props.types;
+    this.types = props.types;
   }
 }
 @QueryHandler(FindAllPaginatedSystemLogsQuery)
-export class FindAllPaginatedSystemLogsQueryHandler
-  implements IQueryHandler<FindAllPaginatedSystemLogsQuery>
-{
+export class FindAllPaginatedSystemLogsQueryHandler implements IQueryHandler<FindAllPaginatedSystemLogsQuery> {
   constructor(
     @Inject(SYSTEM_LOG_REPOSITORY)
     protected readonly systemLogRepo: SystemLogRepository,

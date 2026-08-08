@@ -14,5 +14,12 @@ export class WorkstationModel implements WorkstationProps {
 
   @Prop({ default: new Date() })
   updatedAt: Date;
+
+  constructor(props: Partial<WorkstationModel> = {}) {
+    this.id = props.id ?? '';
+    this.name = props.name ?? '';
+    this.createdAt = props.createdAt ?? new Date();
+    this.updatedAt = props.updatedAt ?? new Date();
+  }
 }
 export const WorkstationSchema = SchemaFactory.createForClass(WorkstationModel);

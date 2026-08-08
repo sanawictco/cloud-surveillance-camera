@@ -112,7 +112,7 @@ export class SystemLogService {
       },
     );
 
-    const translateKey = (key, params) => {
+    const translateKey = (key: string, params?: (number | string)[]) => {
       return params ? translateByPattern(key, params) : translateByName(key);
     };
     await this.handleSmsNotifiers(
@@ -133,7 +133,7 @@ export class SystemLogService {
     for (const smsNotifier of smsNotifiers) {
       if (smsNotifier.systemLogTypes.includes(systemLogType)) {
         const level: string = systemLogType;
-        let notificationLevel;
+        let notificationLevel: NotificationLevel;
         switch (level) {
           case NotificationLevel.ERROR:
             notificationLevel = NotificationLevel.ERROR;

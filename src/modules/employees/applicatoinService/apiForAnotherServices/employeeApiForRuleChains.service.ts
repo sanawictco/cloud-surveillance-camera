@@ -30,6 +30,7 @@ export class EmployeeApiForRuleChainsService {
           updatedAt: new Date(employee.updatedAt),
         });
     }
+    return undefined;
   }
 
   async getSoftDeletedEmployees() {

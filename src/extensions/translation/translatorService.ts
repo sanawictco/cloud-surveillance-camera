@@ -15,7 +15,7 @@ export class TranslatorService implements TranslatorBase {
   prepareDictionaryFormatForEachSection(
     lang: LanguageCode,
     section: DictionarySections,
-  ) {
+  ): Partial<LanguageKeysBase> {
     let dictionary: Partial<LanguageKeysBase>;
     if (lang === LanguageCode.FA) {
       dictionary = structuredClone(farsiValues);
@@ -29,11 +29,14 @@ export class TranslatorService implements TranslatorBase {
       throw new BadRequestException('not supported');
     }
 
-    for (const key in dictionary) {
-      for (const innerKey in dictionary[key]) {
-        if (innerKey !== section) delete dictionary[key][innerKey];
+    for (const key of Object.keys(dictionary) as (keyof LanguageKeysBase)[]) {
+      const dictionarySection = dictionary[key];
+      if (!dictionarySection) continue;
+      const sectionValues = dictionarySection as Record<string, unknown>;
+      for (const innerKey in sectionValues) {
+        if (innerKey !== section) delete sectionValues[innerKey];
       }
-      if (Object.keys(dictionary[key]).length === 0) delete dictionary[key];
+      if (Object.keys(dictionarySection).length === 0) delete dictionary[key];
     }
     // delete dictionary.exposedApi;
     // delete dictionary.others;
@@ -90,11 +93,19 @@ export class TranslatorService implements TranslatorBase {
   }
 }
 
-const getObjectPropertyByStringKeyChain = (object, keychain) => {
-  if (!keychain) return;
+const getObjectPropertyByStringKeyChain = (
+  object: object,
+  keychain: string,
+): string => {
+  if (!keychain) return '';
   try {
-    return keychain.split('.').reduce((p, prop) => p[prop], object);
+    const value = keychain.split('.').reduce<unknown>((current, property) => {
+      if (!current || typeof current !== 'object') return undefined;
+      return (current as Record<string, unknown>)[property];
+    }, object);
+    return typeof value === 'string' ? value : '';
   } catch (e) {
     console.log('>>>>>>>>', keychain, e);
+    return '';
   }
 };

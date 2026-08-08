@@ -4,7 +4,7 @@ import { VideoDeviceEntityTypes } from 'src/modules/videoDevices/shared/valueObj
 export class VideoDeviceConfigQueueMsgDto {
   msgId: string;
   configType: string;
-  data: object;
+  data: object | string;
   nvrId: string;
   metadata: {
     topic: string;
@@ -15,4 +15,12 @@ export class VideoDeviceConfigQueueMsgDto {
     actorProps?: ActorDto;
     issuedAt?: number;
   };
+
+  constructor(props: VideoDeviceConfigQueueMsgDto) {
+    this.msgId = props.msgId;
+    this.configType = props.configType;
+    this.data = props.data;
+    this.nvrId = props.nvrId;
+    this.metadata = props.metadata;
+  }
 }

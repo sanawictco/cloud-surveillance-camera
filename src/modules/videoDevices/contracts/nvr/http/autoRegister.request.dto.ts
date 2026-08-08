@@ -11,19 +11,19 @@ export class AutoRegisterRequestDto {
   @ApiProperty()
   @IsString()
   @IsUUID()
-  nvrId: string;
+  nvrId!: string;
 
   @ApiProperty({ isArray: true })
   @IsArray()
   @ArrayMaxSize(100)
   @IsMACAddress({ each: true })
-  addedCameras: string[];
+  addedCameras!: string[];
 
   @ApiProperty({ isArray: true })
   @IsArray()
   @ArrayMaxSize(100)
   @IsMACAddress({ each: true })
-  deletedCameras: string[];
+  deletedCameras!: string[];
 }
 
 export type AutoRegisterFullContent = {

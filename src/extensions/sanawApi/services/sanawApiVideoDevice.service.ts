@@ -29,14 +29,16 @@ export class SanawApiVideoDeviceService {
       };
     } catch (err) {
       throw new BadRequestException(
-        err.response?.data || AppConfig().internalServerError,
+        axios.isAxiosError(err) && err.response?.data
+          ? err.response.data
+          : AppConfig().internalServerError,
       );
     }
   }
 
   async getAutoRegisterInformationOfNvr(
     serialNumber: string,
-    communicationStructureId: number,
+    _communicationStructureId: number,
   ): Promise<NvrAutoScanInformationResponseDto> {
     const url = `${
       AppConfig().sanawApiURL
@@ -56,7 +58,9 @@ export class SanawApiVideoDeviceService {
       };
     } catch (err) {
       throw new BadRequestException(
-        err.response?.data || AppConfig().internalServerError,
+        axios.isAxiosError(err) && err.response?.data
+          ? err.response.data
+          : AppConfig().internalServerError,
       );
     }
   }
@@ -78,7 +82,9 @@ export class SanawApiVideoDeviceService {
       );
     } catch (err) {
       throw new BadRequestException(
-        err.response?.data || AppConfig().internalServerError,
+        axios.isAxiosError(err) && err.response?.data
+          ? err.response.data
+          : AppConfig().internalServerError,
       );
     }
   }
@@ -95,7 +101,9 @@ export class SanawApiVideoDeviceService {
       );
     } catch (err) {
       throw new BadRequestException(
-        err.response?.data || AppConfig().internalServerError,
+        axios.isAxiosError(err) && err.response?.data
+          ? err.response.data
+          : AppConfig().internalServerError,
       );
     }
   }
@@ -122,7 +130,9 @@ export class SanawApiVideoDeviceService {
     } catch (err) {
       console.log(err);
       throw new BadRequestException(
-        err.response?.data || AppConfig().internalServerError,
+        axios.isAxiosError(err) && err.response?.data
+          ? err.response.data
+          : AppConfig().internalServerError,
       );
     }
   }

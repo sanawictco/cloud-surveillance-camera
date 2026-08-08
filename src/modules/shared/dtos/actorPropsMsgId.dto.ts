@@ -1,6 +1,8 @@
 import { ActorDto } from './actor.dto';
 
 export class ActorPropsMsgIdDto {
-  actorProps: ActorDto | undefined;
-  msgId: string;
+  constructor(
+    public actorProps: ActorDto | undefined,
+    public msgId: string,
+  ) {}
 }

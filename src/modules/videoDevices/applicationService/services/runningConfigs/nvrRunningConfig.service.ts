@@ -26,7 +26,7 @@ export class NvrRunningConfigService {
   async runConfigIfNotDuplicated(
     nvrEntity: NvrEntity,
     configType: NvrConfigs,
-    data?,
+    data?: Record<string, unknown> | NvrConfigs | { id: string } | unknown[],
   ): Promise<string> {
     if (await this.isConfigRunning(nvrEntity, configType)) {
       if (RequestContextService.getContext())

@@ -6,9 +6,14 @@ import {
 } from '../../domain/systemLog.type';
 
 export class SystemLogResponseDto extends ResponseBase {
-  type: SystemLogTypes;
-  message: string;
-  section: SystemLogSections;
-  details: object;
-  systemLogNofityReport: SystemLogNotifyStatus[];
+  constructor(
+    props: ConstructorParameters<typeof ResponseBase>[0],
+    public type: SystemLogTypes,
+    public message: string,
+    public section: SystemLogSections,
+    public details: object,
+    public systemLogNofityReport: SystemLogNotifyStatus[],
+  ) {
+    super(props);
+  }
 }

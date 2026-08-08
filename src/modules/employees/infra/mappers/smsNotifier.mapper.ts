@@ -7,10 +7,11 @@ import { SmsNotifierSystemLogTypes } from 'src/modules/employees/domain/valueObj
 import { UserId } from '../../domain/valueObjects/userId.vo';
 
 @Injectable()
-export class SmsNotifierMapper
-  implements
-    Mapper<SmsNotifierEntity, SmsNotifierModel, SmsNotifierResponseDto>
-{
+export class SmsNotifierMapper implements Mapper<
+  SmsNotifierEntity,
+  SmsNotifierModel,
+  SmsNotifierResponseDto
+> {
   toPersistence(entity: SmsNotifierEntity): SmsNotifierModel {
     const copy = entity.getProps();
     const record: SmsNotifierModel = {
@@ -41,11 +42,12 @@ export class SmsNotifierMapper
     externalProps: any,
   ): SmsNotifierResponseDto {
     const props = entity.getProps();
-    const response = new SmsNotifierResponseDto(entity);
-    response.phoneNumber = externalProps.phoneNumber;
-    response.systemLogTypes = props.systemLogTypes;
-    response.userId = props.userId;
-    return response;
+    return new SmsNotifierResponseDto(
+      props,
+      externalProps.phoneNumber,
+      props.systemLogTypes,
+      props.userId,
+    );
   }
 
   toResponseAll(
@@ -53,13 +55,12 @@ export class SmsNotifierMapper
     externalProps: any[],
   ): SmsNotifierResponseDto[] {
     const responseArr: SmsNotifierResponseDto[] = [];
-    for (let i = 0; i < entities.length; i++) {
-      const props = entities[i].getProps();
-      const response = new SmsNotifierResponseDto(entities[i]);
-      response.phoneNumber = externalProps[i].phoneNumber;
-      response.systemLogTypes = props.systemLogTypes;
-      response.userId = props.userId;
-      responseArr.push(response);
+    for (const [i, entity] of entities.entries()) {
+      const externalProp = externalProps[i];
+      if (!externalProp) {
+        throw new Error(`Missing employee response data at index ${i}`);
+      }
+      responseArr.push(this.toResponse(entity, externalProp));
     }
     return responseArr;
   }

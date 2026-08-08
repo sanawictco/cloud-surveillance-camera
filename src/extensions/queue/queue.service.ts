@@ -1,17 +1,13 @@
 import { Queue, Worker } from 'bullmq';
 import { IQueue, QueueMsg, QueueMsgOptions } from './queue.interface';
 import Redis from 'ioredis';
-import {
-  Injectable,
-  OnApplicationBootstrap,
-  OnModuleDestroy,
-} from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import AppConfig from 'configs/app.config';
 import { isValidCron } from 'cron-validator';
 @Injectable()
 export class QueueService<T> implements IQueue<T>, OnApplicationBootstrap {
-  public queueName: string;
-  public queue: Queue;
+  public queueName!: string;
+  public queue!: Queue;
   static workers: Map<string, Worker> = new Map();
   static eventListeners: Map<string, (msg: QueueMsg) => Promise<void>> =
     new Map();
@@ -62,15 +58,18 @@ export class QueueService<T> implements IQueue<T>, OnApplicationBootstrap {
     QueueService.workers.set(this.queueName, worker);
 
     if (expiredMsgHandler)
-      worker.on('completed', async (msg: QueueMsg) => {
-        if (msg.opts.repeat && msg.opts.repeat.limit == msg.opts.repeat.count) {
-          await this.getAndDeleteMsg(msg.name);
-          await expiredMsgHandler(msg);
+      worker.on('completed', async (msg) => {
+        const queueMsg = msg as QueueMsg;
+        const repeat = queueMsg.opts.repeat;
+        if (repeat && repeat.limit === repeat.count) {
+          await this.getAndDeleteMsg(queueMsg.name);
+          await expiredMsgHandler(queueMsg);
         }
       });
     if (failureMsgHandler)
-      worker.on('failed', async (msg: QueueMsg, err: Error) => {
-        await failureMsgHandler(msg, err);
+      worker.on('failed', async (msg, err: Error) => {
+        if (!msg) return;
+        await failureMsgHandler(msg as QueueMsg, err);
       });
 
     return this;
@@ -195,6 +194,7 @@ export class QueueService<T> implements IQueue<T>, OnApplicationBootstrap {
   async getMsg(msgId: string): Promise<T | undefined> {
     const msg = await this.queue.getJobScheduler(`${msgId}`);
     if (msg?.template?.data) return msg.template.data as T | undefined;
+    return undefined;
   }
 
   async getAndDeleteMsg(msgId: string): Promise<T | undefined> {
@@ -204,6 +204,7 @@ export class QueueService<T> implements IQueue<T>, OnApplicationBootstrap {
       await this.queue.removeJobScheduler(msgId);
       return msg;
     }
+    return undefined;
   }
 
   async deleteOneTimeMsg(queueName: string, msgId: string): Promise<boolean> {

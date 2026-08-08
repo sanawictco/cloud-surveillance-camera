@@ -20,6 +20,15 @@ export class EmployeeEntity extends AggregateRoot<
   EmployeeProps
 > {
   protected readonly _id: AggregateID;
+  constructor(
+    props: ConstructorParameters<
+      typeof AggregateRoot<EmployeeValueObjects, EmployeeProps>
+    >[0],
+  ) {
+    super(props);
+    this._id = props.id;
+  }
+
   static create(createEmployeeProps: CreateEmployeeProps): EmployeeEntity {
     const id = v4();
     const props: EmployeeValueObjects = {

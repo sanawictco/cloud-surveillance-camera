@@ -7,7 +7,7 @@ import { UpdateCameraRequestDto } from '../../../contracts/camera/http/updateCam
 export class CameraActorLogService {
   constructor(private readonly actorLogApiService: ActorLogApiService) {}
 
-  async update(props: {
+  async update(_props: {
     cameraEntity: CameraEntity;
     actorId?: string;
     updateCameraProps: {
@@ -16,7 +16,7 @@ export class CameraActorLogService {
     };
   }) {}
 
-  async create(props: { cameraEntity: CameraEntity; actorId?: string }) {}
+  async create(_props: { cameraEntity: CameraEntity; actorId?: string }) {}
 
   async delete(props: { cameraEntity: CameraEntity; actorId?: string }) {
     const { cameraEntity, actorId } = props;

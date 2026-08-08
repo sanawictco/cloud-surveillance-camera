@@ -5,9 +5,9 @@ import { CacheService } from 'src/extensions/caching/cache.service';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import { ParentRepository } from 'src/modules/shared/parent.repository';
 import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.vo';
-import { NvrResponseDto } from '../../contracts/nvr/http/nvr.response.dto';
-import { NvrValueObjects } from '../../domain/nvr/nvr.type';
-import { NvrEntity } from '../../domain/nvr/nvr.entity';
+import { NvrResponseDto } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/contracts/nvr/http/nvr.response.dto';
+import { NvrValueObjects } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/domain/nvr/nvr.type';
+import { NvrEntity } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/domain/nvr/nvr.entity';
 import { NvrModel } from './nvr.schema';
 import { NvrMapper } from './nvr.mapper';
 

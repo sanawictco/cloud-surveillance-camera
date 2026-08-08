@@ -65,6 +65,13 @@ export class NvrCloudPubToFogMqttTopics {
   cloudRecoveryDataAck: string; // this topic sufficient for cloud recovery
   cloudIsAvailable: string;
   pageConfig: string;
+
+  constructor(props: NvrCloudPubToFogMqttTopics) {
+    this.videoDeviceConfigs = props.videoDeviceConfigs;
+    this.cloudRecoveryDataAck = props.cloudRecoveryDataAck;
+    this.cloudIsAvailable = props.cloudIsAvailable;
+    this.pageConfig = props.pageConfig;
+  }
 }
 
 export const NvrCloudSubOnFogMqttTopics = {

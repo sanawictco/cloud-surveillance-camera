@@ -57,10 +57,10 @@ export class ActorLogApiService {
   }
 
   async actorLogsDataReport(
-    reportCase: string,
-    actorType: any, //TODO
-    fromDateTimeInUnix: number,
-    toDateTimeInUnix: number,
-    paginationOptions?: { page: number; limit: number },
+    _reportCase: string,
+    _actorType: unknown,
+    _fromDateTimeInUnix: number,
+    _toDateTimeInUnix: number,
+    _paginationOptions?: { page: number; limit: number },
   ) {}
 }

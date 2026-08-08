@@ -6,5 +6,5 @@ export class UpdateCameraRequestDto {
   @ApiProperty()
   @IsString()
   @Validate(AvoidUsingSpecialCharacters)
-  name: string;
+  name!: string;
 }

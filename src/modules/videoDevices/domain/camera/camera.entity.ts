@@ -1,4 +1,4 @@
-import { AggregateID, AggregateRoot } from 'src/dddLib/core';
+import { AggregateID, AggregateRoot, CreateEntityProps } from 'src/dddLib/core';
 import { v4 } from 'uuid';
 
 import { NotFoundException } from '@nestjs/common';
@@ -46,6 +46,11 @@ export class CameraEntity extends AggregateRoot<
   CameraProps
 > {
   protected readonly _id: AggregateID;
+
+  constructor(props: CreateEntityProps<CameraValueObjects>) {
+    super(props);
+    this._id = props.id;
+  }
   static create(createCameraProps: CreateCameraProps): CameraEntity {
     let id;
     if (createCameraProps.id) id = createCameraProps.id;
@@ -158,7 +163,7 @@ export class CameraEntity extends AggregateRoot<
   generateFogSoftwareConfig(
     nvrEntity: NvrEntity,
     configType: CameraSoftwareConfigs,
-    body?,
+    body?: UpdateCameraProps,
   ): VideoDeviceConfigQueueMsgDto {
     const config: VideoDeviceConfigQueueMsgDto = {
       msgId: generateRandomMsgId(),
@@ -176,7 +181,10 @@ export class CameraEntity extends AggregateRoot<
     let data;
     switch (configType) {
       case CameraSoftwareConfigs.UPDATE_CAMERA:
-        data = { ...this.update(body).getProps(), runningConfigs: undefined };
+        data = {
+          ...this.update(body ?? {}).getProps(),
+          runningConfigs: undefined,
+        };
         break;
       default:
         throw new NotFoundException(`${configType} config is not exist`);

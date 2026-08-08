@@ -18,5 +18,13 @@ export class SmsNotifierModel implements SmsNotifierProps {
 
   @Prop({ default: new Date() })
   updatedAt: Date;
+
+  constructor(props: Partial<SmsNotifierModel> = {}) {
+    this.id = props.id ?? '';
+    this.userId = props.userId ?? '';
+    this.systemLogTypes = props.systemLogTypes ?? [];
+    this.createdAt = props.createdAt ?? new Date();
+    this.updatedAt = props.updatedAt ?? new Date();
+  }
 }
 export const SmsNotifierSchema = SchemaFactory.createForClass(SmsNotifierModel);

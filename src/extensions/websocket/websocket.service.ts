@@ -43,7 +43,7 @@ export class WebsocketService
   ) {}
   public readonly channels = WsChannels;
   @WebSocketServer()
-  private server: Server;
+  private server!: Server;
 
   async handleDisconnect(client: Socket) {
     // room deleted automatically when it has no active user
@@ -57,7 +57,10 @@ export class WebsocketService
 
   async handleConnection(client: Socket) {
     const userInfo = await this.wsAuthService.validateWsClient(client);
-    if (!userInfo) return client.disconnect();
+    if (!userInfo) {
+      client.disconnect();
+      return;
+    }
     // create room
     client.join(client.id);
     await this.cache.set(client.id, userInfo);

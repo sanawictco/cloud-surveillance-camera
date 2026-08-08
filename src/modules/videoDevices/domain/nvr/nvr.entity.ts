@@ -1,4 +1,4 @@
-import { AggregateID, AggregateRoot } from 'src/dddLib/core';
+import { AggregateID, AggregateRoot, CreateEntityProps } from 'src/dddLib/core';
 import { NotFoundException } from 'src/dddLib/core/exceptions';
 import { generateRandomMsgId } from 'src/dddLib/utils/randomIdGenerator';
 import { LanguageCode } from 'src/extensions/translation/languageCode.enum';
@@ -37,6 +37,11 @@ import { VideoDeviceEntityTypes } from '../../shared/valueObjects/videoDeviceEnt
 
 export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
   protected readonly _id: AggregateID;
+
+  constructor(props: CreateEntityProps<NvrValueObjects>) {
+    super(props);
+    this._id = props.id;
+  }
   static create(createNvrProps: CreateNvrProps): NvrEntity {
     const id = v4();
     const props: NvrValueObjects = {
@@ -187,7 +192,7 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
 
   generateFogConfig(
     configType: NvrConfigs,
-    body?,
+    body?: unknown,
   ): VideoDeviceConfigQueueMsgDto {
     const config: VideoDeviceConfigQueueMsgDto = {
       msgId: generateRandomMsgId(),
@@ -202,20 +207,23 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
         retryPeriodInSecond: 10,
       },
     };
-    let data;
+    let data: object | string = {};
     switch (configType) {
       case NvrConfigs.ACTIVE_NVR:
-        data = body;
+        data = (body ?? {}) as object;
         break;
 
       case NvrConfigs.REGISTER:
-        data = body;
+        data = (body ?? {}) as object;
         config.metadata.retryCount = 2;
         config.metadata.retryPeriodInSecond = 40;
         break;
 
       case NvrConfigs.UPDATE_NVR:
-        data = { ...this.update(body).getProps(), runningConfigs: undefined };
+        data = {
+          ...this.update((body ?? {}) as UpdateNvrProps).getProps(),
+          runningConfigs: undefined,
+        };
         break;
 
       case NvrConfigs.IN_ACTIVE_NVR:

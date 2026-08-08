@@ -5,5 +5,5 @@ export class OnlyIdParamRequestDto {
   @ApiProperty()
   @IsString()
   @IsUUID()
-  id: string;
+  id!: string;
 }

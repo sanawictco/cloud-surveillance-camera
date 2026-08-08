@@ -12,7 +12,7 @@ import {
 export class SendDataRequestDto {
   @ApiProperty()
   @IsUUID()
-  cameraId: string;
+  cameraId!: string;
 
   @ApiProperty({ type: 'number', isArray: true })
   @IsArray()
@@ -21,5 +21,5 @@ export class SendDataRequestDto {
   @Max(2147483647, { each: true })
   @Min(-2147483647, { each: true })
   @IsNumber({}, { each: true })
-  data: number[];
+  data!: number[];
 }

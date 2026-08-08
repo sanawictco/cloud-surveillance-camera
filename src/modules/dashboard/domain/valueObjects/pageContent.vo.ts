@@ -3,7 +3,7 @@ import { ArgumentOutOfRangeException } from 'src/dddLib/core/exceptions';
 import { Guard } from 'src/dddLib/utils';
 
 export class Widget {
-  id: string;
+  constructor(public id: string) {}
 }
 
 export const MAX_LIVE_DIAGRAM_PARAMS_COUNT = 10;

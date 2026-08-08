@@ -18,9 +18,11 @@ import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.v
  */
 
 @Injectable()
-export class PageMapper
-  implements Mapper<PageEntity, PageModel, PageResponseDto>
-{
+export class PageMapper implements Mapper<
+  PageEntity,
+  PageModel,
+  PageResponseDto
+> {
   toPersistence(entity: PageEntity): PageModel {
     const copy = entity.getProps();
     const record: PageModel = {
@@ -56,26 +58,28 @@ export class PageMapper
 
   toResponse(entity: PageEntity): PageResponseDto {
     const props = entity.getProps();
-    const response = new PageResponseDto(entity);
-    response.name = props.name;
-    response.nvrId = props.nvrId;
-    response.type = props.type;
-    response.pageIndex = props.pageIndex;
-    response.content = props.content;
-
-    return response;
+    return new PageResponseDto(
+      entity,
+      props.name,
+      props.type,
+      props.pageIndex,
+      props.nvrId,
+      props.content,
+    );
   }
 
   toResponseAll(entities: PageEntity[]): PageResponseDto[] {
     const responseArr: PageResponseDto[] = [];
     for (const entity of entities) {
       const props = entity.getProps();
-      const response = new PageResponseDto(entity);
-      response.name = props.name;
-      response.nvrId = props.nvrId;
-      response.type = props.type;
-      response.pageIndex = props.pageIndex;
-      response.content = props.content;
+      const response = new PageResponseDto(
+        entity,
+        props.name,
+        props.type,
+        props.pageIndex,
+        props.nvrId,
+        props.content,
+      );
       responseArr.push(response);
     }
     return responseArr;

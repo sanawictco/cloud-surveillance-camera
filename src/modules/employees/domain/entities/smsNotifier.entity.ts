@@ -17,6 +17,15 @@ export class SmsNotifierEntity extends AggregateRoot<
   SmsNotifierProps
 > {
   protected readonly _id: AggregateID;
+  constructor(
+    props: ConstructorParameters<
+      typeof AggregateRoot<SmsNotifierValueObjects, SmsNotifierProps>
+    >[0],
+  ) {
+    super(props);
+    this._id = props.id;
+  }
+
   static create(
     createSmsNotifierProps: CreateSmsNotifierProps,
   ): SmsNotifierEntity {

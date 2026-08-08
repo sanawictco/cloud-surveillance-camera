@@ -12,7 +12,6 @@ import { Port } from '../../domain/camera/valueObjects/port.vo';
 import { Streams } from '../../domain/camera/valueObjects/streams.vo';
 import { HasPtz } from '../../domain/camera/valueObjects/hasPtz.vo';
 import { HasAudio } from '../../domain/camera/valueObjects/hasAudio';
-import { IsDeleted } from 'src/modules/videoDevices/shared/valueObjects/isDeleted.vo';
 import { CameraResponseDto } from '../../contracts/camera/http/camera.response.dto';
 import { IsActive } from '../../shared/valueObjects/isActive.vo';
 import { LiveSignalStatus } from '../../shared/valueObjects/liveSignalStatus.vo';
@@ -20,9 +19,11 @@ import { CameraModel } from './camera.schema';
 import { SerialNumber } from '../../shared/valueObjects/serialNumber.vo';
 
 @Injectable()
-export class CameraMapper
-  implements Mapper<CameraEntity, CameraModel, CameraResponseDto>
-{
+export class CameraMapper implements Mapper<
+  CameraEntity,
+  CameraModel,
+  CameraResponseDto
+> {
   toPersistence(entity: CameraEntity): CameraModel {
     const copy = entity.getProps();
     const record: CameraModel = {
@@ -74,30 +75,13 @@ export class CameraMapper
 
   toResponse(entity: CameraEntity): CameraResponseDto {
     const props = entity.getProps();
-    const response = new CameraResponseDto(entity);
-    response.name = props.name;
-    response.productModel = props.productModel;
-    response.macAddress = props.macAddress;
-    response.port = props.port;
-    response.streams = props.streams;
-    response.hasPtz = props.hasPtz;
-    response.hasAudio = props.hasAudio;
-    return response;
+    return new CameraResponseDto(props);
   }
 
   toResponseAll(entities: CameraEntity[]): CameraResponseDto[] {
     const responseArr: CameraResponseDto[] = [];
     for (const entity of entities) {
-      const props = entity.getProps();
-      const response = new CameraResponseDto(entity);
-      response.name = props.name;
-      response.productModel = props.productModel;
-      response.macAddress = props.macAddress;
-      response.port = props.port;
-      response.streams = props.streams;
-      response.hasPtz = props.hasPtz;
-      response.hasAudio = props.hasAudio;
-      responseArr.push(response);
+      responseArr.push(this.toResponse(entity));
     }
     return responseArr;
   }

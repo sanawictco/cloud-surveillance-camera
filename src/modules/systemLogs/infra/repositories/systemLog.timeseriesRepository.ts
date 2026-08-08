@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   DeleteDataParams,
   InsertDataParams,
@@ -17,15 +17,27 @@ import {
   SYSTEM_LOG_SUPER_TABLE,
   SystemLogRecordFormat,
 } from '../../domain/systemLog.type';
-import { TimeseriesRepository } from 'src/modules/shared/timeseriesRepository';
+import {
+  TDENGINE_CLIENT,
+  TDENGINE_RESTFULL_OPTIONS,
+  TimeseriesRepository,
+} from 'src/modules/shared/timeseriesRepository';
+import type {
+  TdengineClient,
+  TdengineRestOptions,
+} from 'src/modules/shared/timeseriesRepository';
 
 @Injectable()
 export class SystemLogRepository
   extends TimeseriesRepository
   implements TimeseriesRepositoryBase<SystemLogRecordFormat>
 {
-  constructor() {
-    super();
+  constructor(
+    @Inject(TDENGINE_CLIENT) tdengineClient: TdengineClient,
+    @Inject(TDENGINE_RESTFULL_OPTIONS)
+    tdengineRestOptions: TdengineRestOptions,
+  ) {
+    super(tdengineClient, tdengineRestOptions);
   }
 
   async insert(params: InsertDataParams<SystemLogRecordFormat>): Promise<void> {

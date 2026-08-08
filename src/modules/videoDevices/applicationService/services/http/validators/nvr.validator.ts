@@ -79,7 +79,9 @@ export class NvrValidator {
     let scanedCameras: ScanedCamera[] = [];
     if (existAddedCamera) {
       const apiResult: AutoScanAllCamerasInformationResDto | undefined =
-        await this.cacheService.get(nvrEntity.getCacheKeys().autoSearchNvrData);
+        await this.cacheService.get(
+          nvrEntity.getCacheKeys().autoSearchNvrData ?? '',
+        );
       if (!apiResult)
         throw new BadRequestException(
           this.serviceProvider.translatorService.translateByName(
@@ -87,7 +89,7 @@ export class NvrValidator {
             this.serviceProvider.userInfoService.getProps().lang,
           ),
         );
-      scanedCameras = apiResult?.data?.cameras;
+      scanedCameras = apiResult.data.cameras;
     }
     // check addedCamerasMacAddresses, deletedCamerasMacAddresses
     const addedCamerasMacAddressesAreValid = this.isValidAddedCameras(
@@ -168,7 +170,7 @@ export class NvrValidator {
         throw new BadRequestException('scanedCamera not found1');
       finalAddedCameras.push({
         id: v4(),
-        name: cameraNames[serialNumber],
+        name: cameraNames[serialNumber] ?? '',
         serialNumber: serialNumber,
         productModel: scanedCamera.productModel,
         macAddress: scanedCamera.macAddress,
@@ -201,7 +203,7 @@ export class NvrValidator {
       body.deletedCameras,
     );
     const camerasNames = await this.CamerasNamesCacheService.get(
-      nvrEntity.getCacheKeys().namingCamerasData,
+      nvrEntity.getCacheKeys().namingCamerasData ?? '',
     );
     if (!camerasNames) throw new Error('camerasNames is not exist');
     const result = await this.createAutoRegisterFullContent(
@@ -232,8 +234,8 @@ export class NvrValidator {
       );
   }
 
-  checkNvrHatShouldBeConnected(nvrEnity) {
-    if (!nvrEnity.getProps().isHatConnected)
+  checkNvrHatShouldBeConnected(nvrEnity: NvrEntity) {
+    if (!(nvrEnity.getProps() as { isHatConnected?: boolean }).isHatConnected)
       throw new BadRequestException('nvr hat is disconnected');
   }
 

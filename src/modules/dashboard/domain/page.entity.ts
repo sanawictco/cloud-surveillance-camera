@@ -1,5 +1,6 @@
 import { v4 } from 'uuid';
 import { AggregateID, AggregateRoot } from 'src/dddLib/core';
+import { CreateEntityProps } from 'src/dddLib/core/entity.base';
 
 import { PageCreatedDomainEvent } from './events/pageCreated.domainEvent';
 import { PageUpdatedDomainEvent } from './events/pageUpdated.domainEvent';
@@ -22,6 +23,11 @@ import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.v
 
 export class PageEntity extends AggregateRoot<PageValueObjects, PageProps> {
   protected readonly _id: AggregateID;
+
+  constructor(props: CreateEntityProps<PageValueObjects>) {
+    super(props);
+    this._id = props.id;
+  }
   static create(createPageProps: CreatePageProps): PageEntity {
     let id;
     if (createPageProps.originId) id = createPageProps.originId;
@@ -94,7 +100,10 @@ export class PageEntity extends AggregateRoot<PageValueObjects, PageProps> {
     };
     return Object.freeze(mqttPublishTopicsObject);
   }
-  getConfigForFog(configType: PageConfigs, body?): PageConfigQueueMsgDto {
+  getConfigForFog(
+    configType: PageConfigs,
+    body?: UpdatePageProps,
+  ): PageConfigQueueMsgDto {
     const config: PageConfigQueueMsgDto = {
       msgId: generateRandomMsgId(),
       configType,
@@ -107,13 +116,16 @@ export class PageEntity extends AggregateRoot<PageValueObjects, PageProps> {
         retryPeriodInSecond: 10,
       },
     };
-    let data;
+    let data: object = {};
     switch (configType) {
       case PageConfigs.CREATE_PAGE:
-        data = body;
+        data = body ?? {};
         break;
       case PageConfigs.UPDATE_PAGE:
-        data = { ...this.update(body).getProps(), runningConfigs: undefined };
+        data = {
+          ...this.update(body ?? {}).getProps(),
+          runningConfigs: undefined,
+        };
         break;
 
       case PageConfigs.DELETE_PAGE:

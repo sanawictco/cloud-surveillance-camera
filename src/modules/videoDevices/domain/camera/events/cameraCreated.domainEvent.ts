@@ -30,5 +30,6 @@ export class CameraCreatedDomainEvent
     this.streams = props.streams;
     this.hasPtz = props.hasPtz;
     this.hasAudio = props.hasAudio;
+    this.nvrId = props.nvrId;
   }
 }

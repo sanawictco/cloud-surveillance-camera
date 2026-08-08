@@ -28,6 +28,7 @@ export class CreateNvrCommand extends Command implements CreateNvrProps {
     this.serialNumber = props.serialNumber;
     this.accessToken = props.accessToken;
     this.password = props.password;
+    this.maxCameras = props.maxCameras;
   }
 }
 

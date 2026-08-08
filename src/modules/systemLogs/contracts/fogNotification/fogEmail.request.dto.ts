@@ -1,12 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  IsEmail,
-  IsEnum,
-  IsString,
-  IsUUID,
-  Length,
-  Validate,
-} from 'class-validator';
+import { IsEnum, IsString, IsUUID, Length, Validate } from 'class-validator';
 import { NotificationLevel } from './notificationLevel.enum';
 import { AvoidUsingSpecialCharacters } from 'src/modules/shared/avoidUsingSpecialCharacters.validator';
 import { AvoidUsingWhiteSpaceCharacters } from 'src/modules/shared/avoidUsingWhiteSpaceCharacters.validator';
@@ -17,25 +10,25 @@ export class FogEmailRequestDto {
   @Length(8, 8)
   @Validate(AvoidUsingSpecialCharacters)
   @Validate(AvoidUsingWhiteSpaceCharacters)
-  serialNumber: string;
+  serialNumber!: string;
 
   @ApiProperty()
   @IsString()
   @Length(32, 32)
   @Validate(AvoidUsingSpecialCharacters)
   @Validate(AvoidUsingWhiteSpaceCharacters)
-  accessToken: string;
+  accessToken!: string;
 
   @ApiProperty()
   @IsUUID()
-  userId: string;
+  userId!: string;
 
   @ApiProperty()
   @IsString()
   @Length(1, 200)
-  message: string;
+  message!: string;
 
   @ApiProperty()
   @IsEnum(NotificationLevel)
-  level: NotificationLevel;
+  level!: NotificationLevel;
 }

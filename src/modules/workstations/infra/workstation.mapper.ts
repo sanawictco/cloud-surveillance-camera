@@ -6,9 +6,11 @@ import { WorkstationModel } from './workstation.schema';
 import { WorkstationResponseDto } from '../contracts/workstation.response.dto';
 
 @Injectable()
-export class WorkstationMapper
-  implements Mapper<WorkstationEntity, WorkstationModel, WorkstationResponseDto>
-{
+export class WorkstationMapper implements Mapper<
+  WorkstationEntity,
+  WorkstationModel,
+  WorkstationResponseDto
+> {
   toPersistence(entity: WorkstationEntity): WorkstationModel {
     const copy = entity.getProps();
     const record: WorkstationModel = {
@@ -34,19 +36,13 @@ export class WorkstationMapper
 
   toResponse(entity: WorkstationEntity): WorkstationResponseDto {
     const props = entity.getProps();
-    const response = new WorkstationResponseDto(entity);
-    response.name = props.name;
-
-    return response;
+    return new WorkstationResponseDto(props, props.name);
   }
 
   toResponseAll(entities: WorkstationEntity[]): WorkstationResponseDto[] {
     const responseArr: WorkstationResponseDto[] = [];
-    for (let i = 0; i < entities.length; i++) {
-      const props = entities[i].getProps();
-      const response = new WorkstationResponseDto(entities[i]);
-      response.name = props.name;
-      responseArr.push(response);
+    for (const entity of entities) {
+      responseArr.push(this.toResponse(entity));
     }
     return responseArr;
   }

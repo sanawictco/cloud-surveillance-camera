@@ -1,4 +1,3 @@
-import { config } from 'process';
 import { LanguageKeysBase } from '../languageKeys.base';
 
 export const kurdiValues: LanguageKeysBase = {

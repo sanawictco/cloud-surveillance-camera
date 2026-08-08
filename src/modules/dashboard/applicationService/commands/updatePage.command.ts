@@ -33,9 +33,7 @@ export class UpdatePageCommand
 }
 
 @CommandHandler(UpdatePageCommand)
-export class UpdatePageCommandHandler
-  implements ICommandHandler<UpdatePageCommand>
-{
+export class UpdatePageCommandHandler implements ICommandHandler<UpdatePageCommand> {
   constructor(
     @Inject(PAGE_REPOSITORY)
     private readonly pageRepo: PageRepository,
@@ -55,10 +53,10 @@ export class UpdatePageCommandHandler
       const currPageIndex = pageEntity.getProps().pageIndex;
       pageEntities.splice(currPageIndex, 1);
       pageEntities.splice(newPageIndex, 0, pageEntity);
-      for (const i in pageEntities) {
-        if (+i !== pageEntities[+i].getProps().pageIndex) {
-          pageEntities[+i].update({ pageIndex: +i });
-          await this.pageRepo.update(pageEntities[+i]);
+      for (const [index, page] of pageEntities.entries()) {
+        if (index !== page.getProps().pageIndex) {
+          page.update({ pageIndex: index });
+          await this.pageRepo.update(page);
         }
       }
     }

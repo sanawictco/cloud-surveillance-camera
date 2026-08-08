@@ -38,7 +38,6 @@ export class SmsNotifierService {
 
   async create(body: CreateSmsNotifierRequestDto) {
     const employeesProps = await this.employeeService.findAll();
-    const isValidPhoneNumber = false;
     for (const employee of employeesProps) {
       if (employee.phoneNumber === body.phoneNumber) {
         const duplicatedSmsNotifierEntity: SmsNotifierEntity =
@@ -73,14 +72,13 @@ export class SmsNotifierService {
         };
       }
     }
-    if (!isValidPhoneNumber)
-      throw new BadRequestException(
-        this.serviceProvider.translatorService.translateByName(
-          LanguageKeys.smsNotifier.errorResponse.badRequest
-            .phoneNumberShouldBelongToWorkspaceEmployees,
-          this.serviceProvider.userInfoService.getProps().lang,
-        ),
-      );
+    throw new BadRequestException(
+      this.serviceProvider.translatorService.translateByName(
+        LanguageKeys.smsNotifier.errorResponse.badRequest
+          .phoneNumberShouldBelongToWorkspaceEmployees,
+        this.serviceProvider.userInfoService.getProps().lang,
+      ),
+    );
   }
 
   async update(id: string, body: UpdateSmsNotifierRequestDto) {
@@ -100,12 +98,20 @@ export class SmsNotifierService {
 
     const employeesProps: EmployeeResponseDto[] =
       await this.employeeService.findAll([smsNotifierEntity.getProps().userId]);
+    const employee = employeesProps[0];
+    if (!employee)
+      throw new BadRequestException(
+        this.serviceProvider.translatorService.translateByName(
+          LanguageKeys.smsNotifier.errorResponse.badRequest.doesNotExists,
+          this.serviceProvider.userInfoService.getProps().lang,
+        ),
+      );
 
     await this.serviceProvider.commandBus.execute(
       new UpdateSmsNotifierCommand({
         id,
         systemLogTypes: body.systemLogTypes,
-        phoneNumber: employeesProps[0].phoneNumber,
+        phoneNumber: employee.phoneNumber,
       }),
     );
 
@@ -114,7 +120,7 @@ export class SmsNotifierService {
         new FindSmsNotifierByIdQuery(id),
       );
     return {
-      data: this.mapper.toResponse(updatedSmsNotifierEntity, employeesProps[0]),
+      data: this.mapper.toResponse(updatedSmsNotifierEntity, employee),
       message: this.serviceProvider.translatorService.translateByName(
         LanguageKeys.smsNotifier.response.http.updated,
       ),
@@ -137,11 +143,19 @@ export class SmsNotifierService {
     const employeesProps = await this.employeeService.findAll([
       smsNotifierEntity.getProps().userId,
     ]);
+    const employee = employeesProps[0];
+    if (!employee)
+      throw new BadRequestException(
+        this.serviceProvider.translatorService.translateByName(
+          LanguageKeys.smsNotifier.errorResponse.badRequest.doesNotExists,
+          this.serviceProvider.userInfoService.getProps().lang,
+        ),
+      );
 
     await this.serviceProvider.commandBus.execute(
       new DeleteSmsNotifierCommand({
         id,
-        phoneNumber: employeesProps[0].phoneNumber,
+        phoneNumber: employee.phoneNumber,
       }),
     );
     return {

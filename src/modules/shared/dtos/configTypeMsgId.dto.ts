@@ -1,4 +1,6 @@
 export class ConfigTypeMsgIdDto {
-  configType: string;
-  msgId: string;
+  constructor(
+    public configType: string,
+    public msgId: string,
+  ) {}
 }

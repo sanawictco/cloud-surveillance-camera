@@ -8,9 +8,11 @@ import { IsEmployeeDeleted } from '../../domain/valueObjects/isEmployeeDeleted.v
 import { Roles } from '../../domain/valueObjects/employeeRole.vo';
 
 @Injectable()
-export class EmployeeMapper
-  implements Mapper<EmployeeEntity, EmployeeModel, EmployeeResponseDto>
-{
+export class EmployeeMapper implements Mapper<
+  EmployeeEntity,
+  EmployeeModel,
+  EmployeeResponseDto
+> {
   toPersistence(entity: EmployeeEntity): EmployeeModel {
     const copy = entity.getProps();
     const record: EmployeeModel = {
@@ -40,16 +42,19 @@ export class EmployeeMapper
 
   toResponse(entity: EmployeeEntity, externalProps: any): EmployeeResponseDto {
     const props = entity.getProps();
-    const response = new EmployeeResponseDto(entity);
-    response.userId = props.userId;
-    response.roles = props.roles;
-    response.isDeleted = props.isDeleted;
-    response.firstName = externalProps.firstName;
-    response.lastName = externalProps.lastName;
-    response.phoneNumber = externalProps.phoneNumber;
-    response.isOwner = externalProps.isOwner;
-
-    return response;
+    return new EmployeeResponseDto(
+      props.id,
+      props.userId,
+      props.roles,
+      externalProps.firstName,
+      externalProps.lastName,
+      externalProps.phoneNumber,
+      props.isDeleted,
+      externalProps.isOwner,
+      externalProps.lang,
+      props.createdAt,
+      props.updatedAt,
+    );
   }
 
   toResponseAll(
@@ -57,17 +62,12 @@ export class EmployeeMapper
     externalProps: any,
   ): EmployeeResponseDto[] {
     const responseArr: EmployeeResponseDto[] = [];
-    for (let i = 0; i < entities.length; i++) {
-      const props = entities[i].getProps();
-      const response = new EmployeeResponseDto(entities[i]);
-      response.userId = props.userId;
-      response.roles = props.roles;
-      response.isDeleted = props.isDeleted;
-      response.firstName = externalProps[i].firstName;
-      response.lastName = externalProps[i].lastName;
-      response.phoneNumber = externalProps[i].phoneNumber;
-      response.isOwner = externalProps[i].isOwner;
-      responseArr.push(response);
+    for (const [i, entity] of entities.entries()) {
+      const externalProp = externalProps[i];
+      if (!externalProp) {
+        throw new Error(`Missing employee response data at index ${i}`);
+      }
+      responseArr.push(this.toResponse(entity, externalProp));
     }
     return responseArr;
   }

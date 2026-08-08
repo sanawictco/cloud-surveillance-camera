@@ -9,7 +9,7 @@ const jwt = require('jsonwebtoken');
 
 @Injectable()
 export class WsAuthService {
-  constructor(private readonly cache: CacheService<WsClientCachedModel>) {}
+  constructor(_cache: CacheService<WsClientCachedModel>) {}
 
   async validateWsClient(
     client: Socket,

@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { CameraProps } from '../../domain/camera/camera.type';
+import type { CameraProps } from '../../domain/camera/camera.type';
 import { StreamsProps } from '../../domain/camera/valueObjects/streams.vo';
 import { LiveSignalStatuses } from '../../shared/valueObjects/liveSignalStatus.vo';
 
@@ -55,5 +55,31 @@ export class CameraModel implements CameraProps {
 
   @Prop({ type: Object, required: true })
   runningConfigs: Record<string, string>;
+
+  constructor(props?: CameraProps) {
+    this.id = '';
+    this.name = props?.name ?? '';
+    this.productModel = props?.productModel ?? '';
+    this.serialNumber = props?.serialNumber ?? '';
+    this.username = props?.username ?? '';
+    this.password = props?.password ?? '';
+    this.macAddress = props?.macAddress ?? '';
+    this.port = props?.port ?? 0;
+    this.streams =
+      props?.streams ??
+      ({
+        recordStream: { token: '', path: '', resolutions: [] },
+        liveStream: { token: '', path: '', resolutions: [] },
+      } as StreamsProps);
+    this.hasPtz = props?.hasPtz ?? false;
+    this.hasAudio = props?.hasAudio ?? false;
+    this.nvrId = props?.nvrId ?? '';
+    this.isActive = props?.isActive ?? false;
+    this.liveSignalStatus =
+      props?.liveSignalStatus ?? LiveSignalStatuses.DIS_CONNECTED;
+    this.createdAt = new Date();
+    this.updatedAt = new Date();
+    this.runningConfigs = props?.runningConfigs ?? {};
+  }
 }
 export const CameraSchema = SchemaFactory.createForClass(CameraModel);

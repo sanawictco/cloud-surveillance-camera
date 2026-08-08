@@ -1,5 +1,5 @@
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
-import { Inject, Query } from '@nestjs/common';
+import { Inject } from '@nestjs/common';
 import { EmployeeRepository } from '../../../infra/repositories/employee.repository';
 import { EMPLOYEE_REPOSITORY } from '../../../infra/diTokens/employee.diToken';
 
@@ -9,9 +9,7 @@ export class FindEmployeeByIdQuery {
   }
 }
 @QueryHandler(FindEmployeeByIdQuery)
-export class FindEmployeeByIdQueryHandler
-  implements IQueryHandler<FindEmployeeByIdQuery>
-{
+export class FindEmployeeByIdQueryHandler implements IQueryHandler<FindEmployeeByIdQuery> {
   constructor(
     @Inject(EMPLOYEE_REPOSITORY)
     protected readonly employeeRepo: EmployeeRepository,

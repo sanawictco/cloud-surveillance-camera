@@ -13,6 +13,7 @@ import { DeletePageCommand } from '../commands/deletePage.command';
 import { UpdatePageCommand } from '../commands/updatePage.command';
 import { FindPageByIdQuery } from '../queries/findPageById.queryHandler';
 import { ActorPropsMsgIdDto } from 'src/modules/shared/dtos/actorPropsMsgId.dto';
+import { CreatePageProps, UpdatePageProps } from '../../domain/page.type';
 
 @Injectable()
 export class PagesMqttService {
@@ -22,7 +23,10 @@ export class PagesMqttService {
     private readonly pageMapper: PageMapper,
   ) {}
 
-  async create(data, metadata: ActorPropsMsgIdDto) {
+  async create(
+    data: CreatePageProps & { id: string },
+    metadata: ActorPropsMsgIdDto,
+  ) {
     const { actorProps, msgId } = metadata;
     const id = await this.serviceProvider.commandBus.execute(
       new CreatePageCommand({ ...data, originId: data.id, actorProps }),
@@ -45,7 +49,10 @@ export class PagesMqttService {
     );
   }
 
-  async update(data, metadata: ActorPropsMsgIdDto) {
+  async update(
+    data: UpdatePageProps & { id: string },
+    metadata: ActorPropsMsgIdDto,
+  ) {
     const { actorProps, msgId } = metadata;
     await this.serviceProvider.commandBus.execute(
       new UpdatePageCommand({ ...data, actorProps }),
@@ -72,7 +79,11 @@ export class PagesMqttService {
     );
   }
 
-  async delete(pageEntity: PageEntity, data, metadata: ActorPropsMsgIdDto) {
+  async delete(
+    pageEntity: PageEntity,
+    data: { id: string },
+    metadata: ActorPropsMsgIdDto,
+  ) {
     const { actorProps, msgId } = metadata;
     if (!pageEntity) return;
     await this.serviceProvider.commandBus.execute(

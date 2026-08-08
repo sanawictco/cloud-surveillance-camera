@@ -11,7 +11,7 @@ export interface TranslatorBase {
   prepareDictionaryFormatForEachSection(
     lang: LanguageCode,
     section: DictionarySections,
-  );
+  ): Partial<LanguageKeysBase>;
   translateByName(name: keyof LanguageKeysBase, lang: LanguageCode): string;
   translateByPattern(
     pattern: string,

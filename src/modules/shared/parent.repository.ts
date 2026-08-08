@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Model as DbModel, FilterQuery } from 'mongoose';
+import { Model as DbModel, QueryFilter } from 'mongoose';
 import {
   OrderStates,
   PaginatedQueryBase,
@@ -17,8 +17,7 @@ export class ParentRepository<
   ValueObject,
   Entity extends AggregateRoot<ValueObject, Model>,
   EntityResponseDto,
-> implements RepositoryBase<Entity>
-{
+> implements RepositoryBase<Entity> {
   constructor(
     protected readonly entityModel: DbModel<Model>,
     protected readonly ModelClass: new (...args: any[]) => Model,
@@ -31,7 +30,7 @@ export class ParentRepository<
     const _id = props.id.replace(/-/g, '').substring(0, 24); // for cloudRecovery and use --upsert in mongorestore
     const newEntity = new this.entityModel({ ...props, _id });
     await newEntity.save();
-    await this.cache.set(`${this.ModelClass.name}:${newEntity.id}`, props);
+    await this.cache.set(`${this.ModelClass.name}:${props.id}`, props);
     entity.publishEvents(
       this.serviceProvider.logger,
       this.serviceProvider.eventEmitter,
@@ -48,9 +47,10 @@ export class ParentRepository<
 
     const entity = await this.entityModel.findOne({ id }).lean();
     if (entity) return this.mapper.toDomain(entity);
+    return undefined;
   }
 
-  async findOne(filter: FilterQuery<any>): Promise<Entity | undefined> {
+  async findOne(filter: QueryFilter<any>): Promise<Entity | undefined> {
     if (Object.keys(filter).length === 1 && filter.id !== undefined) {
       const cachedEntity: Model | undefined = await this.cache.get(
         `${this.ModelClass.name}:${filter.id}`,
@@ -59,6 +59,7 @@ export class ParentRepository<
     }
     const entity = await this.entityModel.findOne(filter).lean();
     if (entity) return this.mapper.toDomain(entity);
+    return undefined;
   }
 
   async findAll(params: QueryBase<any>): Promise<Entity[]> {

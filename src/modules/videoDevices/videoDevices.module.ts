@@ -28,9 +28,6 @@ import { FindAllNvrsQueryHandler } from './applicationService/queries/nvr/findAl
 import { FindNvrByIdQueryHandler } from './applicationService/queries/nvr/findNvrById.queryHandler';
 import { FindNvrByNameQueryHandler } from './applicationService/queries/nvr/findNvrByName.queryHandler';
 import { FindNvrBySerialNumberQueryHandler } from './applicationService/queries/nvr/findNvrBySerialNumber.queryHandler';
-import { NVR_REPOSITORY } from './infra/nvr/nvr.diToken';
-import { NvrRepository } from './infra/nvr/nvr.repository';
-import { NvrMapper } from './infra/nvr/nvr.mapper';
 import { CAMERA_REPOSITORY } from './infra/camera/camera.diToken';
 import { CameraMapper } from './infra/camera/camera.mapper';
 import { CameraRepository } from './infra/camera/camera.repository';
@@ -45,6 +42,9 @@ import { NvrValidator } from './applicationService/services/http/validators/nvr.
 import { CameraValidator } from './applicationService/services/http/validators/camera.validator';
 import { VideoDeviceConfigQueueService } from './applicationService/services/queues/videoDeviceConfig/videoDeviceQueue.service';
 import { VideoDeviceDataQueueService } from './applicationService/services/queues/videoDeviceData/videoDeviceDataQueue.service';
+import { NVR_REPOSITORY } from './infra/nvr/nvr.diToken';
+import { NvrMapper } from './infra/nvr/nvr.mapper';
+import { NvrRepository } from './infra/nvr/nvr.repository';
 
 const commandHandlers: Provider[] = [
   ...[

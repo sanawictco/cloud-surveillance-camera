@@ -1,5 +1,4 @@
 import { ValueObject } from 'src/dddLib/core';
-import { ArgumentInvalidException } from 'src/dddLib/core/exceptions';
 import { ArgumentOutOfRangeException } from 'src/dddLib/core/exceptions';
 import { Guard } from 'src/dddLib/utils';
 import { LanguageCode } from 'src/extensions/translation/languageCode.enum';

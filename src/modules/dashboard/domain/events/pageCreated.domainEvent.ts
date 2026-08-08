@@ -16,6 +16,7 @@ export class PageCreatedDomainEvent
 
   constructor(props: DomainEventProps<PageCreatedDomainEvent>) {
     super(props);
+    this.nvrId = props.nvrId;
     this.name = props.name;
     this.type = props.type;
     this.pageIndex = props.pageIndex;

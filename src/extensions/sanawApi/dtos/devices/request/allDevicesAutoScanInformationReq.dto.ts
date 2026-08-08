@@ -1,13 +1,13 @@
 export class AllDevicesAutoScanInformationReqDto {
-  autoScanReqObjects: AllDevicesAutoScanReqObjectDto[];
+  autoScanReqObjects!: AllDevicesAutoScanReqObjectDto[];
 }
 
 export class AllDevicesAutoScanReqObjectDto {
-  accessPointMacAddress: number;
-  accessPointBehaviorId: number;
-  endDevices: EndDevicesReqObjectDto[];
+  accessPointMacAddress!: number;
+  accessPointBehaviorId!: number;
+  endDevices!: EndDevicesReqObjectDto[];
 }
 class EndDevicesReqObjectDto {
-  macAddress: number;
-  behaviorId: number;
+  macAddress!: number;
+  behaviorId!: number;
 }

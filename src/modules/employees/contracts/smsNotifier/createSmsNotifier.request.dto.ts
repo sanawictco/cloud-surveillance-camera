@@ -43,7 +43,7 @@ export class CheckSystemLogTypes implements ValidatorConstraintInterface {
 export class CreateSmsNotifierRequestDto {
   @ApiProperty()
   @IsPhoneNumber('IR')
-  phoneNumber: string;
+  phoneNumber!: string;
 
   // eslint-disable-next-line @darraghor/nestjs-typed/api-property-returning-array-should-set-array
   @ApiProperty()
@@ -52,5 +52,5 @@ export class CreateSmsNotifierRequestDto {
   @ArrayMaxSize(3)
   @IsEnum(SystemLogTypes, { each: true })
   @Validate(CheckSystemLogTypes)
-  systemLogTypes: SystemLogTypes[];
+  systemLogTypes!: SystemLogTypes[];
 }

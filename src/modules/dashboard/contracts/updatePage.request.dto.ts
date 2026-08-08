@@ -18,7 +18,7 @@ import { AvoidUsingSpecialCharacters } from 'src/modules/shared/avoidUsingSpecia
 class WidgetDto {
   @ApiProperty()
   @IsUUID()
-  id: string;
+  id!: string;
 }
 
 export class UpdatePageRequestDto {

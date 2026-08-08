@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import { PageEntity } from '../../domain/page.entity';
 import { Widget } from '../../domain/valueObjects/pageContent.vo';
-import { PageTypes } from '../../domain/valueObjects/pageType.vo';
 import { UpdatePageCommand } from '../commands/updatePage.command';
 import { FindAllPagesQuery } from '../queries/findAllPages.queryHandler';
 
@@ -16,7 +15,6 @@ export class DashboardApiForRuleChainsService {
 
     for (const pageEntity of pageEntities) {
       const pageProps = pageEntity.getProps();
-      const { type } = pageProps;
       const content = pageProps.content as Widget[];
       const newContent: Widget[] = [];
       let updatable = false;

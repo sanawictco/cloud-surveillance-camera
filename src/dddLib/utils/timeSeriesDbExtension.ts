@@ -17,7 +17,7 @@ export class TimeSeriesDbExtension {
 
     let tableDefinitionStr = '(';
     for (let i = 0; i < columnNames.length; i++) {
-      let columnName = columnNames[i];
+      let columnName = columnNames[i]!;
 
       columnName = columnName.replaceAll('-', '_');
       tableDefinitionStr += `${columnName} ${columnDataTypes[i]},`;

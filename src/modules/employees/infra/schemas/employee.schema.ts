@@ -21,5 +21,14 @@ export class EmployeeModel implements EmployeeProps {
 
   @Prop({ default: new Date() })
   updatedAt: Date;
+
+  constructor(props: Partial<EmployeeModel> = {}) {
+    this.id = props.id ?? '';
+    this.userId = props.userId ?? '';
+    this.isDeleted = props.isDeleted ?? false;
+    this.roles = props.roles ?? [];
+    this.createdAt = props.createdAt ?? new Date();
+    this.updatedAt = props.updatedAt ?? new Date();
+  }
 }
 export const EmployeeSchema = SchemaFactory.createForClass(EmployeeModel);

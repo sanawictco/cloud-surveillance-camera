@@ -14,4 +14,11 @@ export class VideoDeviceDataQueueMsgDto {
     actorProps?: ActorDto;
     issuedAt?: number;
   };
+
+  constructor(props: VideoDeviceDataQueueMsgDto) {
+    this.msgId = props.msgId;
+    this.configType = props.configType;
+    this.data = props.data;
+    this.metadata = props.metadata;
+  }
 }

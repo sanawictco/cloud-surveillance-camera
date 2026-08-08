@@ -47,5 +47,5 @@ export class UpdateSmsNotifierRequestDto {
   @ArrayMaxSize(3)
   @IsEnum(SystemLogTypes, { each: true })
   @Validate(CheckSystemLogTypes)
-  systemLogTypes: SystemLogTypes[];
+  systemLogTypes!: SystemLogTypes[];
 }

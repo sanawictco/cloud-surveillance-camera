@@ -1,7 +1,6 @@
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { Inject } from '@nestjs/common';
 import { QueryBase } from 'src/dddLib/applicationService';
-import { CameraProps } from '../../../domain/camera/camera.type';
 import { CAMERA_REPOSITORY } from 'src/modules/videoDevices/infra/camera/camera.diToken';
 import { CameraRepository } from 'src/modules/videoDevices/infra/camera/camera.repository';
 import { LiveSignalStatuses } from 'src/modules/videoDevices/shared/valueObjects/liveSignalStatus.vo';
@@ -15,9 +14,7 @@ interface CameraQueryFilter {
 
 export class FindAllCamerasQuery extends QueryBase<CameraQueryFilter> {}
 @QueryHandler(FindAllCamerasQuery)
-export class FindAllCamerasQueryHandler
-  implements IQueryHandler<FindAllCamerasQuery>
-{
+export class FindAllCamerasQueryHandler implements IQueryHandler<FindAllCamerasQuery> {
   constructor(
     @Inject(CAMERA_REPOSITORY)
     protected readonly cameraRepo: CameraRepository,

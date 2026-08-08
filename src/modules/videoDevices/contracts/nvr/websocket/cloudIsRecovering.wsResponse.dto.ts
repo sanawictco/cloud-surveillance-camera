@@ -11,4 +11,10 @@ export class CloudIsRecoveringWsResponseDto implements WebsocketMsgBaseDto {
   metadata: {
     dataType: NvrWebSocketDataTypes.CLOUD_IS_RECOVERING;
   };
+
+  constructor(props: CloudIsRecoveringWsResponseDto) {
+    this.type = props.type;
+    this.data = props.data;
+    this.metadata = props.metadata;
+  }
 }

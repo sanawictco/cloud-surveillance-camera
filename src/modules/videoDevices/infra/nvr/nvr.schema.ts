@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { LanguageCode } from 'src/extensions/translation/languageCode.enum';
-import { NvrProps } from '../../domain/nvr/nvr.type';
-import { LiveSignalStatuses } from '../../shared/valueObjects/liveSignalStatus.vo';
+import type { NvrProps } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/domain/nvr/nvr.type';
+import { LiveSignalStatuses } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/shared/valueObjects/liveSignalStatus.vo';
 
 @Schema({ collection: 'nvrs' })
 export class NvrModel implements NvrProps {
@@ -46,5 +46,23 @@ export class NvrModel implements NvrProps {
 
   @Prop({ type: Object, required: true })
   runningConfigs: Record<string, string>;
+
+  constructor(props?: NvrProps) {
+    this.id = '';
+    this.name = props?.name ?? '';
+    this.workstationId = props?.workstationId ?? '';
+    this.maxCameras = props?.maxCameras ?? 0;
+    this.serialNumber = props?.serialNumber ?? '';
+    this.accessToken = props?.accessToken ?? '';
+    this.password = props?.password ?? '';
+    this.lang = props?.lang ?? LanguageCode.FA;
+    this.isActive = props?.isActive ?? false;
+    this.liveSignalStatus =
+      props?.liveSignalStatus ?? LiveSignalStatuses.DIS_CONNECTED;
+    this.cloudIsRecovering = props?.cloudIsRecovering ?? false;
+    this.createdAt = new Date();
+    this.updatedAt = new Date();
+    this.runningConfigs = props?.runningConfigs ?? {};
+  }
 }
 export const NvrSchema = SchemaFactory.createForClass(NvrModel);

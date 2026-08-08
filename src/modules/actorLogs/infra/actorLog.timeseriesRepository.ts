@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   InsertDataParams,
   TimeseriesRepositoryBase,
@@ -8,22 +8,33 @@ import {
   ACTOR_LOG_ACTOR_LOG_TYPE_COLUMN_SIZE,
   ACTOR_LOG_MESSAGE_KEY_COLUMN_SIZE,
   ACTOR_LOG_MESSAGE_PARAMS_COLUMN_SIZE,
-  ACTOR_LOG_SUPER_TABLE,
   ActorLogRecordFormat,
 } from '../domain/actorLog.type';
 
 import { ArgumentInvalidException } from 'src/dddLib/core/exceptions';
 import { Guard } from 'src/dddLib/utils';
 import { TimeSeriesDbExtension } from 'src/dddLib/utils/timeSeriesDbExtension';
-import { TimeseriesRepository } from 'src/modules/shared/timeseriesRepository';
+import {
+  TDENGINE_CLIENT,
+  TDENGINE_RESTFULL_OPTIONS,
+  TimeseriesRepository,
+} from 'src/modules/shared/timeseriesRepository';
+import type {
+  TdengineClient,
+  TdengineRestOptions,
+} from 'src/modules/shared/timeseriesRepository';
 
 @Injectable()
 export class ActorLogRepository
   extends TimeseriesRepository
   implements TimeseriesRepositoryBase<ActorLogRecordFormat>
 {
-  constructor() {
-    super();
+  constructor(
+    @Inject(TDENGINE_CLIENT) tdengineClient: TdengineClient,
+    @Inject(TDENGINE_RESTFULL_OPTIONS)
+    tdengineRestOptions: TdengineRestOptions,
+  ) {
+    super(tdengineClient, tdengineRestOptions);
   }
 
   async insert(params: InsertDataParams<ActorLogRecordFormat>): Promise<void> {

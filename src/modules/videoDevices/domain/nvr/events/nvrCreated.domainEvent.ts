@@ -18,6 +18,7 @@ export class NvrCreatedDomainEvent
     this.accessToken = props.accessToken;
     this.password = props.password;
     this.workstationId = props.workstationId;
+    this.maxCameras = props.maxCameras;
   }
   maxCameras: number;
 }

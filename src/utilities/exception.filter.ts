@@ -118,7 +118,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     if (httpException?.getResponse()) {
       correlationId = exception.correlationId;
     }
-    response.status(status).json(
+    return response.status(status).json(
       new ApiErrorResponse({
         statusCode: status,
         timestamp: Date.now(),

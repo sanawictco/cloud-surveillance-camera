@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Paginated, RepositoryBase } from 'src/dddLib/infra';
-import { FilterQuery, Model } from 'mongoose';
+import { Model, QueryFilter } from 'mongoose';
 import { SmsNotifierModel } from '../schemas/smsNotifier.schema';
 import { SmsNotifierEntity } from '../../domain/entities/smsNotifier.entity';
 import { SmsNotifierMapper } from '../mappers/smsNotifier.mapper';
@@ -13,9 +13,7 @@ import {
 } from 'src/dddLib/applicationService';
 
 @Injectable()
-export class SmsNotifierRepository
-  implements RepositoryBase<SmsNotifierEntity>
-{
+export class SmsNotifierRepository implements RepositoryBase<SmsNotifierEntity> {
   constructor(
     @InjectModel(SmsNotifierModel.name)
     private readonly smsNotifierModel: Model<SmsNotifierModel>,
@@ -35,13 +33,15 @@ export class SmsNotifierRepository
   async findById(id: string): Promise<SmsNotifierEntity | undefined> {
     const smsNotifier = await this.smsNotifierModel.findOne({ id }).lean();
     if (smsNotifier) return this.mapper.toDomain(smsNotifier);
+    return undefined;
   }
 
   async findOne(
-    filter: FilterQuery<any>,
+    filter: QueryFilter<any>,
   ): Promise<SmsNotifierEntity | undefined> {
     const smsNotifier = await this.smsNotifierModel.findOne(filter).lean();
     if (smsNotifier) return this.mapper.toDomain(smsNotifier);
+    return undefined;
   }
 
   async findAll(params: QueryBase<any>): Promise<SmsNotifierEntity[]> {

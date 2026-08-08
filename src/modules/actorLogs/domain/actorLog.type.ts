@@ -5,8 +5,10 @@ export enum ActorLogTypes {
 }
 
 export class ActorLogMessageProps {
-  key: string;
-  params: (number | string)[];
+  constructor(
+    public key: string,
+    public params: (number | string)[],
+  ) {}
 }
 export interface CreateActorLogProps {
   createdAt: number;

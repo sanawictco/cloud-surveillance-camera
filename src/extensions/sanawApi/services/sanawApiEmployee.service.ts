@@ -33,8 +33,8 @@ export class SanawApiEmployeeService {
         data: res.data,
       };
     } catch (err) {
-      if (err?.response?.status === 400)
-        throw new BadRequestException(err.response?.data);
+      if (axios.isAxiosError(err) && err.response?.status === 400)
+        throw new BadRequestException(err.response.data);
       else {
         console.log('---------ApiWorkspaces is not avaiable---------');
         console.log(err);
@@ -51,8 +51,8 @@ export class SanawApiEmployeeService {
         data: res.data,
       };
     } catch (err) {
-      if (err?.response?.status === 400)
-        throw new BadRequestException(err.response?.data);
+      if (axios.isAxiosError(err) && err.response?.status === 400)
+        throw new BadRequestException(err.response.data);
       else
         throw new InternalServerErrorException(AppConfig().internalServerError);
     }
@@ -77,8 +77,8 @@ export class SanawApiEmployeeService {
         data: res.data,
       };
     } catch (err) {
-      if (err?.response?.status === 400)
-        throw new BadRequestException(err.response?.data);
+      if (axios.isAxiosError(err) && err.response?.status === 400)
+        throw new BadRequestException(err.response.data);
       else
         throw new InternalServerErrorException(AppConfig().internalServerError);
     }
@@ -102,8 +102,8 @@ export class SanawApiEmployeeService {
         data: res.data,
       };
     } catch (err) {
-      if (err?.response?.status === 400)
-        throw new BadRequestException(err.response?.data);
+      if (axios.isAxiosError(err) && err.response?.status === 400)
+        throw new BadRequestException(err.response.data);
       else
         throw new InternalServerErrorException(AppConfig().internalServerError);
     }
@@ -113,8 +113,8 @@ export class SanawApiEmployeeService {
     try {
       await axios.delete(url, { headers: SanawApiHeader() });
     } catch (err) {
-      if (err?.response?.status === 400)
-        throw new BadRequestException(err.response?.data);
+      if (axios.isAxiosError(err) && err.response?.status === 400)
+        throw new BadRequestException(err.response.data);
       else
         throw new InternalServerErrorException(AppConfig().internalServerError);
     }

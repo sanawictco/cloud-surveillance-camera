@@ -6,6 +6,6 @@ export class UpdateEmployeeRolesRequestDto {
   @ApiProperty()
   @IsEnum(EmployeeRoles, { each: true })
   @ArrayMinSize(0)
-  @ArrayMaxSize(5)
-  roles: EmployeeRoles[];
+  @ArrayMaxSize(6)
+  roles!: EmployeeRoles[];
 }

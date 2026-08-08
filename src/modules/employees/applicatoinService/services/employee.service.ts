@@ -1,14 +1,8 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  forwardRef,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { Request } from 'express';
 import { SanawApiEmployeeService } from 'src/extensions/sanawApi/services/sanawApiEmployee.service';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import { LanguageKeys } from 'src/extensions/translation/languageKeys.base';
-import { ActorLogTypes } from 'src/modules/actorLogs/domain/actorLog.type';
 import { AddEmployeeRequestDto } from '../../contracts/employee/addEmployee.request.dto';
 import { FindEmployeeRequestDto } from '../../contracts/employee/findEmployee.request.dto';
 import { UpdateEmployeeRolesRequestDto } from '../../contracts/employee/updateEmployeeRoles.request.dto';
@@ -26,7 +20,6 @@ import { FindAllExistingEmployeesByUserIdsQuery } from '../queries/employee/find
 import { FindEmployeeByIdQuery } from '../queries/employee/findEmployeById.queryHandler';
 import { FindEmployeeByUserIdQuery } from '../queries/employee/findEmployeByUserId.queryHandler';
 import { FindSmsNotifierByUserIdQuery } from '../queries/smsNotifier/findSmsNotifierByUserId.queryHandler';
-import { ActorDto } from 'src/modules/shared/dtos/actor.dto';
 
 @Injectable()
 export class EmployeeService {
@@ -182,18 +175,15 @@ export class EmployeeService {
     const result = await this.sanawApiEmployeeService.findAll([
       employeeEntity.getProps().userId,
     ]);
+    const employee = result.data[0];
+    if (!employee) throw new BadRequestException('employee is not exist');
 
     await this.serviceProvider.commandBus.execute(
       new HardDeleteEmployeeCommand({
         id: employeeEntity.getProps().userId,
-        phoneNumber: result.data[0].phoneNumber,
+        phoneNumber: employee.phoneNumber,
       }),
     );
-    const userInfo = this.serviceProvider.userInfoService.getProps();
-    const actorProps: ActorDto = {
-      actorId: userInfo.id,
-      actorType: ActorLogTypes.EMPLOYEE,
-    };
 
     return {
       data: {
@@ -225,11 +215,13 @@ export class EmployeeService {
     const result = await this.sanawApiEmployeeService.findAll([
       employeeEntity.getProps().userId,
     ]);
+    const employee = result.data[0];
+    if (!employee) throw new BadRequestException('employee is not exist');
     if (smsNotifierEntity) {
       await this.serviceProvider.commandBus.execute(
         new DeleteSmsNotifierCommand({
           id: smsNotifierEntity.getProps().id,
-          phoneNumber: result.data[0].phoneNumber,
+          phoneNumber: employee.phoneNumber,
         }),
       );
     }
@@ -237,7 +229,7 @@ export class EmployeeService {
     await this.serviceProvider.commandBus.execute(
       new SoftDeleteEmployeeCommand({
         id,
-        phoneNumber: result.data[0].phoneNumber,
+        phoneNumber: employee.phoneNumber,
       }),
     );
     return {

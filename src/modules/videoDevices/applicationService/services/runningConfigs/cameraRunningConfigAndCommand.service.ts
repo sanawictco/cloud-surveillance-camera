@@ -34,7 +34,7 @@ export class CameraRunningConfigAndCommandService {
     nvrEntity: NvrEntity,
     cameraEntity: CameraEntity,
     softwareConfig: CameraSoftwareConfigs,
-    data?,
+    data?: Record<string, unknown>,
   ): Promise<string> {
     if (await this.isConfigRunning(cameraEntity, softwareConfig)) {
       if (RequestContextService.getContext())
@@ -53,7 +53,7 @@ export class CameraRunningConfigAndCommandService {
     }
   }
   async runHardwareCommandIfNotDuplicated(
-    nvrEntity: NvrEntity,
+    _nvrEntity: NvrEntity,
     cameraEntity: CameraEntity,
     hardwareCommand: CameraHardwareSendCommands,
     data: number[],

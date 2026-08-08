@@ -8,16 +8,16 @@ export class CreatePageRequestDto {
   @IsString()
   @Length(1, 60)
   @Validate(AvoidUsingSpecialCharacters)
-  name: string;
+  name!: string;
 
   @ApiProperty()
   @IsUUID()
-  nvrId: string;
+  nvrId!: string;
 
   @ApiProperty({
     enum: PageTypes,
     enumName: 'PageTypes',
   })
   @IsEnum(PageTypes)
-  type: PageTypes;
+  type!: PageTypes;
 }

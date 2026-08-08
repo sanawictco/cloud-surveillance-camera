@@ -7,8 +7,10 @@ export interface SystemLogProps {
 }
 
 export class SystemLogMessageProps {
-  key: string;
-  params?: (number | string)[];
+  constructor(
+    public key: string,
+    public params?: (number | string)[],
+  ) {}
 }
 
 export interface CreateSystemLogProps {
@@ -33,13 +35,14 @@ export enum SystemLogTypes {
 export enum SystemLogSections {
   VIDEO_DEVICES_CONFIG = 'SYSTEM_LOG_SECTION_VIDEO_DEVICES_CONFIG',
   VIDEO_DEVICES_LIVE_SIGNAL = 'SYSTEM_LOG_SECTION_VIDEO_DEVICES_LIVE_SIGNAL',
-  CAMERA_CONFIG = 'SYSTEM_LOG_SECTION_CAMERA_CONFIG',
   PAGE = 'SYSTEM_LOG_SECTION_PAGE',
 }
 
 export class SystemLogNotifyStatus {
-  phoneNumber: string;
-  delivered: boolean;
+  constructor(
+    public phoneNumber: string,
+    public delivered: boolean,
+  ) {}
 }
 
 export type SystemLogRecordFormat = [

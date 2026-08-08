@@ -6,7 +6,7 @@ export type SchedulerMsg = Job;
 const SCHEDULER_ID_POSTFIX = '-schedulerId';
 @Injectable()
 export class SchedulerService {
-  private schedulerQueue: QueueService<string>;
+  private schedulerQueue!: QueueService<string>;
   static schedulerQueueName = 'schedulerQueue';
   static initialize = false;
   constructor(private readonly queue: QueueService<string>) {

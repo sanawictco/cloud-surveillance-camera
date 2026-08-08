@@ -4,7 +4,7 @@ import { RequestContextService } from 'src/dddLib/utils/appRequestContext';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import { LanguageKeys } from 'src/extensions/translation/languageKeys.base';
 import { PageEntity } from '../../domain/page.entity';
-import { PageConfigs } from '../../domain/page.type';
+import { PageConfigs, UpdatePageProps } from '../../domain/page.type';
 import { UpdatePageCommand } from '../commands/updatePage.command';
 import { FindPageByIdQuery } from '../queries/findPageById.queryHandler';
 import { PageConfigQueueService } from './queues/pageConfigQueue.service';
@@ -20,7 +20,7 @@ export class PageRunningConfigService {
   async runConfigIfNotDuplicated(
     pageEntity: PageEntity,
     configType: PageConfigs,
-    data?,
+    data?: UpdatePageProps,
   ): Promise<string> {
     if (await this.isConfigRunning(pageEntity, configType)) {
       if (RequestContextService.getContext())

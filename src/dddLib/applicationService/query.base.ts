@@ -57,6 +57,11 @@ export abstract class PaginatedTimeseriesQueryBase extends TimeseriesQueryBase {
 export class OrderBySetting {
   column: string;
   status: OrderStates;
+
+  constructor(column: string, status: OrderStates) {
+    this.column = column;
+    this.status = status;
+  }
 }
 
 export enum OrderStates {
@@ -67,4 +72,9 @@ export enum OrderStates {
 export class TimeRangeInUnix {
   start: number;
   end: number;
+
+  constructor(start: number, end: number) {
+    this.start = start;
+    this.end = end;
+  }
 }

@@ -69,10 +69,10 @@ export class MqttApiService {
     }
   }
 
-  async subscribeClientIdsOnNewTopics(username: string, topicList) {
+  async subscribeClientIdsOnNewTopics(username: string, topicList: string[]) {
     const clients = await this.getAllConnectedClientIds(username);
-    const topics = topicList.map((topic) => ({ topic }));
-    for (const client of clients) {
+    const topics = topicList.map((topic: string) => ({ topic }));
+    for (const client of clients as { clientid: string }[]) {
       const { clientid } = client;
       const subscribeClientIdUrl = `${
         AppConfig().mqtt.api.apiUrl
@@ -89,15 +89,18 @@ export class MqttApiService {
         throw err;
       }
     }
+    return;
   }
 
-  async getAllConnectedClientIds(username) {
+  async getAllConnectedClientIds(
+    username: string,
+  ): Promise<{ clientid: string }[]> {
     const url = `${AppConfig().mqtt.api.apiUrl}/clients`;
     try {
       const response = await axios.get(url, this.basicAuth);
       const clients = response.data.data
-        .filter((client) => client.username === username)
-        .map(({ clientid }) => ({ clientid }));
+        .filter((client: { username: string }) => client.username === username)
+        .map(({ clientid }: { clientid: string }) => ({ clientid }));
       return clients;
     } catch (err) {
       throw err;
@@ -203,7 +206,7 @@ export class MqttApiService {
     return [...publishRules, ...subscribeRules];
   }
 
-  private createPublishTopicRules(topics) {
+  private createPublishTopicRules(topics: string[]) {
     const publishTopicRules: MqttRuleDto[] = [];
     for (const topic of topics)
       publishTopicRules.push({
@@ -214,7 +217,7 @@ export class MqttApiService {
     return publishTopicRules;
   }
 
-  private createSubscribeTopicRules(topics) {
+  private createSubscribeTopicRules(topics: string[]) {
     const subscribeTopicRules: MqttRuleDto[] = [];
     for (const topic of topics)
       subscribeTopicRules.push({
@@ -225,9 +228,9 @@ export class MqttApiService {
     return subscribeTopicRules;
   }
 
-  private deleteRulesIfMatch(rules, topicPattern) {
+  private deleteRulesIfMatch(rules: { topic: string }[], topicPattern: string) {
     for (let i = rules.length - 1; i >= 0; i--) {
-      if (rules[i].topic.includes(topicPattern)) {
+      if (rules[i]?.topic.includes(topicPattern)) {
         rules.splice(i, 1);
       }
     }

@@ -9,8 +9,8 @@ export class VideoDevicesApiBaseService {
     protected serviceProvider: ServiceProvider,
   ) {}
   async checkSendDataCommandIsValid(
-    cameraEntity: CameraEntity,
-    cmdStructuresValue: number[],
+    _cameraEntity: CameraEntity,
+    _cmdStructuresValue: number[],
   ) {
     //TODO
     return true;

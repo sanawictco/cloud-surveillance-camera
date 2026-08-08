@@ -4,17 +4,17 @@ import { Injectable } from '@nestjs/common';
 import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.vo';
 import { BusinessId } from 'src/dddLib/core/businessId.vo';
 import { Name } from 'src/modules/shared/valueObjects/name.vo';
-import { NvrResponseDto } from '../../contracts/nvr/http/nvr.response.dto';
-import { NvrEntity } from '../../domain/nvr/nvr.entity';
-import { AccessToken } from '../../domain/nvr/valueObjects/accessToken.vo';
-import { CloudIsRecovering } from '../../domain/nvr/valueObjects/cloudIsRecovering.vo';
-import { NvrLanguage } from '../../domain/nvr/valueObjects/NvrLanguage.vo';
-import { NvrPassword } from '../../domain/nvr/valueObjects/nvrPassword.vo';
-import { IsActive } from '../../shared/valueObjects/isActive.vo';
-import { LiveSignalStatus } from '../../shared/valueObjects/liveSignalStatus.vo';
-import { SerialNumber } from '../../shared/valueObjects/serialNumber.vo';
+import { NvrResponseDto } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/contracts/nvr/http/nvr.response.dto';
+import { NvrEntity } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/domain/nvr/nvr.entity';
+import { AccessToken } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/domain/nvr/valueObjects/accessToken.vo';
+import { CloudIsRecovering } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/domain/nvr/valueObjects/cloudIsRecovering.vo';
+import { NvrLanguage } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/domain/nvr/valueObjects/NvrLanguage.vo';
+import { NvrPassword } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/domain/nvr/valueObjects/nvrPassword.vo';
+import { IsActive } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/shared/valueObjects/isActive.vo';
+import { LiveSignalStatus } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/shared/valueObjects/liveSignalStatus.vo';
+import { SerialNumber } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/shared/valueObjects/serialNumber.vo';
 import { NvrModel } from './nvr.schema';
-import { MaxCameras } from '../../domain/nvr/valueObjects/maxCameras.vo';
+import { MaxCameras } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/domain/nvr/valueObjects/maxCameras.vo';
 
 @Injectable()
 export class NvrMapper implements Mapper<NvrEntity, NvrModel, NvrResponseDto> {
@@ -63,34 +63,13 @@ export class NvrMapper implements Mapper<NvrEntity, NvrModel, NvrResponseDto> {
 
   toResponse(entity: NvrEntity): NvrResponseDto {
     const props = entity.getProps();
-    const response = new NvrResponseDto(entity);
-    response.name = props.name;
-    response.workstationId = props.workstationId;
-    response.serialNumber = props.serialNumber;
-    response.password = props.password;
-    response.lang = props.lang;
-    response.isActive = props.isActive;
-    response.liveSignalStatus = props.liveSignalStatus;
-    response.cloudIsRecovering = props.cloudIsRecovering;
-
-    return response;
+    return new NvrResponseDto(props);
   }
 
   toResponseAll(entities: NvrEntity[]): NvrResponseDto[] {
     const responseArr: NvrResponseDto[] = [];
     for (const entity of entities) {
-      const props = entity.getProps();
-      const response = new NvrResponseDto(entity);
-      response.name = props.name;
-      response.workstationId = props.workstationId;
-      response.serialNumber = props.serialNumber;
-      response.password = props.password;
-      response.lang = props.lang;
-      response.isActive = props.isActive;
-      response.liveSignalStatus = props.liveSignalStatus;
-      response.cloudIsRecovering = props.cloudIsRecovering;
-
-      responseArr.push(response);
+      responseArr.push(this.toResponse(entity));
     }
     return responseArr;
   }

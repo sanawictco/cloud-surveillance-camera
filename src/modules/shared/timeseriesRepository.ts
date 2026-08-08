@@ -22,11 +22,23 @@ const axios = require('axios');
 export const TDENGINE_CLIENT = Symbol('TDENGINE_CLIENT');
 export const TDENGINE_RESTFULL_OPTIONS = Symbol('TDENGINE_RESTFULL_OPTIONS');
 
+export interface TdengineClient {
+  exec(query: string): Promise<unknown>;
+}
+
+export interface TdengineRestOptions {
+  restUrl: string;
+  token: string;
+}
+
 @Injectable()
 export class TimeseriesRepository implements OnApplicationBootstrap {
-  @Inject(TDENGINE_CLIENT) protected readonly tdengineClient;
-  @Inject(TDENGINE_RESTFULL_OPTIONS) protected readonly tdengineRestOptions;
-  constructor() {}
+  constructor(
+    @Inject(TDENGINE_CLIENT)
+    protected readonly tdengineClient: TdengineClient,
+    @Inject(TDENGINE_RESTFULL_OPTIONS)
+    protected readonly tdengineRestOptions: TdengineRestOptions,
+  ) {}
   async onApplicationBootstrap() {
     await this.tdengineClient.exec(
       TimeSeriesDbExtension.createSuperTableQuery(
@@ -57,7 +69,11 @@ export class TimeseriesRepository implements OnApplicationBootstrap {
   }
 
   async findAll(params: FindDataParams): Promise<any> {
-    if (ObjectExtension.isObjectEmpty(params))
+    if (
+      ObjectExtension.isObjectEmpty(
+        params as unknown as Record<string, unknown>,
+      )
+    )
       throw new Error('params in find method is empty');
     return new Promise((resolve) => {
       setTimeout(async () => {
@@ -72,7 +88,11 @@ export class TimeseriesRepository implements OnApplicationBootstrap {
   async findAllPaginated(
     params: PaginatedTimeseriesQueryBase,
   ): Promise<Paginated<any>> {
-    if (ObjectExtension.isObjectEmpty(params))
+    if (
+      ObjectExtension.isObjectEmpty(
+        params as unknown as Record<string, unknown>,
+      )
+    )
       throw new Error('params in find method is empty');
     if (!params.orderBy) {
       params.orderBy = { column: 'createdAt', status: OrderStates.DESCENDING };

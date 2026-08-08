@@ -5,6 +5,20 @@ import { PageTypes } from '../../domain/valueObjects/pageType.vo';
 
 @Schema({ collection: 'pages' })
 export class PageModel implements PageProps {
+  constructor(
+    props: PageProps & { id: string; createdAt: Date; updatedAt: Date },
+  ) {
+    this.id = props.id;
+    this.name = props.name;
+    this.nvrId = props.nvrId;
+    this.type = props.type;
+    this.pageIndex = props.pageIndex;
+    this.content = props.content;
+    this.createdAt = props.createdAt;
+    this.updatedAt = props.updatedAt;
+    this.runningConfigs = props.runningConfigs;
+  }
+
   @Prop({ unique: true, required: true })
   id: string;
 

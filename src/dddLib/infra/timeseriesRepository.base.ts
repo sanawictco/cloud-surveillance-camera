@@ -19,11 +19,26 @@ export class CreateSuperTableParams {
   superTableName: string;
   columnNames: string[];
   columnDataTypes: string[];
+
+  constructor(
+    superTableName: string,
+    columnNames: string[],
+    columnDataTypes: string[],
+  ) {
+    this.superTableName = superTableName;
+    this.columnNames = columnNames;
+    this.columnDataTypes = columnDataTypes;
+  }
 }
 
 export class CreateSubTableParams {
   superTableName: string;
   subTableName: string;
+
+  constructor(superTableName: string, subTableName: string) {
+    this.superTableName = superTableName;
+    this.subTableName = subTableName;
+  }
 }
 
 export class InsertDataParams<RecordFormat> {
@@ -31,6 +46,18 @@ export class InsertDataParams<RecordFormat> {
   subTableName: string;
   data: RecordFormat;
   createdAt?: number;
+
+  constructor(
+    superTableName: string,
+    subTableName: string,
+    data: RecordFormat,
+    createdAt?: number,
+  ) {
+    this.superTableName = superTableName;
+    this.subTableName = subTableName;
+    this.data = data;
+    this.createdAt = createdAt;
+  }
 }
 
 export class UpdateDataParams<RecordFormat> {
@@ -38,15 +65,36 @@ export class UpdateDataParams<RecordFormat> {
   subTableName: string;
   data: RecordFormat;
   createdAt: number;
+
+  constructor(
+    superTableName: string,
+    subTableName: string,
+    data: RecordFormat,
+    createdAt: number,
+  ) {
+    this.superTableName = superTableName;
+    this.subTableName = subTableName;
+    this.data = data;
+    this.createdAt = createdAt;
+  }
 }
 
 export class DeleteDataParams {
   superTableName: string;
   createdAt: number;
+
+  constructor(superTableName: string, createdAt: number) {
+    this.superTableName = superTableName;
+    this.createdAt = createdAt;
+  }
 }
 
 export class DeleteAllDataParams {
   superTableName: string;
+
+  constructor(superTableName: string) {
+    this.superTableName = superTableName;
+  }
 }
 
 export class CountDataParams {
@@ -68,12 +116,24 @@ export class AggrigateDataParams {
   subTableName: string;
   columnIndex: number;
   timeRangeInUnix: TimeRangeInUnix;
+
+  constructor(
+    func: AggrigateMathFunctions,
+    subTableName: string,
+    columnIndex: number,
+    timeRangeInUnix: TimeRangeInUnix,
+  ) {
+    this.func = func;
+    this.subTableName = subTableName;
+    this.columnIndex = columnIndex;
+    this.timeRangeInUnix = timeRangeInUnix;
+  }
 }
 
 export interface TimeseriesRepositoryBase<RecordFormat, Entity = unknown> {
-  createSuperTable?(entity?: Entity);
-  createSubTable(params: CreateSubTableParams, entity?: Entity);
-  deleteSubTable(subTableName: string);
+  createSuperTable?(entity?: Entity): Promise<void>;
+  createSubTable(params: CreateSubTableParams, entity?: Entity): Promise<void>;
+  deleteSubTable(subTableName: string): Promise<void>;
   findAll(params: FindDataParams): Promise<any>;
   findAllPaginated(
     params: PaginatedTimeseriesQueryBase,

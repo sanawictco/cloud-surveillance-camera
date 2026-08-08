@@ -4,5 +4,5 @@ import { IsPhoneNumber } from 'class-validator';
 export class FindEmployeeRequestDto {
   @ApiProperty()
   @IsPhoneNumber('IR')
-  phoneNumber: string;
+  phoneNumber!: string;
 }

@@ -16,6 +16,15 @@ export class WorkstationEntity extends AggregateRoot<
   WorkstationProps
 > {
   protected readonly _id: AggregateID;
+  constructor(
+    props: ConstructorParameters<
+      typeof AggregateRoot<WorkstationValueObjects, WorkstationProps>
+    >[0],
+  ) {
+    super(props);
+    this._id = props.id;
+  }
+
   static create(
     createWorkstationProps: CreateWorkstationProps,
   ): WorkstationEntity {

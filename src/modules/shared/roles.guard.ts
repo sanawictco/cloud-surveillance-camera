@@ -6,7 +6,7 @@ import { UserInfoService } from 'src/extensions/userInfo/userInfo.service';
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(
-    private reflector: Reflector,
+    _reflector: Reflector,
     private role: EmployeeRoles,
   ) {}
 
