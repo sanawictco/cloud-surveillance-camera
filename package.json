@@ -35,7 +35,7 @@
     "@nestjs/websockets": "^11.1.28",
     "@tdengine/websocket": "^3.5.0",
     "axios": "^1.19.0",
-    "bullmq": "^6.0.8",
+    "bullmq": "^6.0.9",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "cookie-parser": "^1.4.7",
@@ -71,11 +71,11 @@
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
-    "@types/node": "^26.1.2",
+    "@types/node": "^26.2.0",
     "@types/supertest": "^7.2.1",
     "@typescript-eslint/eslint-plugin": "^8.66.0",
     "@typescript-eslint/parser": "^8.66.0",
-    "eslint": "^10.8.0",
+    "eslint": "^10.8.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-jest": "^29.16.0",
     "eslint-plugin-prettier": "^5.5.6",
@@ -103,6 +103,10 @@
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "moduleNameMapper": {
+      "^src/(.*)$": "<rootDir>/$1",
+      "^configs/(.*)$": "<rootDir>/../configs/$1"
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"

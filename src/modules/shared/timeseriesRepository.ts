@@ -1,4 +1,4 @@
-import { Inject, Injectable, OnApplicationBootstrap } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   OrderStates,
   PaginatedTimeseriesQueryBase,
@@ -11,6 +11,10 @@ import {
 } from 'src/dddLib/infra/timeseriesRepository.base';
 import { ObjectExtension } from 'src/dddLib/utils/objectExtension';
 import { TimeSeriesDbExtension } from 'src/dddLib/utils/timeSeriesDbExtension';
+import {
+  TDENGINE_EXECUTOR,
+  TDENGINE_RESTFULL_OPTIONS as TDENGINE_REST_OPTIONS,
+} from 'src/extensions/tdengine/tdeinge.tokens';
 
 import {
   SYSTEM_LOG_SUPER_TABLE,
@@ -19,8 +23,8 @@ import {
   systemlogSubTableNames,
 } from 'src/modules/systemLogs/domain/systemLog.type';
 const axios = require('axios');
-export const TDENGINE_CLIENT = Symbol('TDENGINE_CLIENT');
-export const TDENGINE_RESTFULL_OPTIONS = Symbol('TDENGINE_RESTFULL_OPTIONS');
+export const TDENGINE_CLIENT = TDENGINE_EXECUTOR;
+export const TDENGINE_RESTFULL_OPTIONS = TDENGINE_REST_OPTIONS;
 
 export interface TdengineClient {
   exec(query: string): Promise<unknown>;
@@ -32,14 +36,14 @@ export interface TdengineRestOptions {
 }
 
 @Injectable()
-export class TimeseriesRepository implements OnApplicationBootstrap {
+export class TimeseriesRepository {
   constructor(
     @Inject(TDENGINE_CLIENT)
     protected readonly tdengineClient: TdengineClient,
     @Inject(TDENGINE_RESTFULL_OPTIONS)
     protected readonly tdengineRestOptions: TdengineRestOptions,
   ) {}
-  async onApplicationBootstrap() {
+  async initSuperTables(): Promise<void> {
     await this.tdengineClient.exec(
       TimeSeriesDbExtension.createSuperTableQuery(
         {
@@ -58,6 +62,23 @@ export class TimeseriesRepository implements OnApplicationBootstrap {
           subTableName,
         }),
       );
+    }
+  }
+
+  async restHealthCheck(): Promise<boolean> {
+    try {
+      const response = await axios({
+        method: 'POST',
+        url: this.tdengineRestOptions.restUrl,
+        headers: {
+          'Content-Type': 'text/plain',
+          Authorization: this.tdengineRestOptions.token,
+        },
+        data: 'SELECT SERVER_VERSION()',
+      });
+      return Array.isArray(response.data?.data);
+    } catch {
+      return false;
     }
   }
 
