@@ -48,7 +48,7 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
       name: new Name(createNvrProps.name),
       serialNumber: new SerialNumber(createNvrProps.serialNumber),
       accessToken: new AccessToken(createNvrProps.accessToken),
-      workstationId: new BusinessId(createNvrProps.workstationId),
+      tenantId: new BusinessId(createNvrProps.tenantId),
       password: new NvrPassword(createNvrProps.password),
       maxCameras: new MaxCameras(createNvrProps.maxCameras),
       lang: new NvrLanguage(LanguageCode.FA),

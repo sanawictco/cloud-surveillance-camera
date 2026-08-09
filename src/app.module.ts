@@ -20,7 +20,7 @@ import { TranslatorModule } from './extensions/translation/translator.module';
 import { UserInfoModule } from './extensions/userInfo/userInfo.module';
 import { WsModule } from './extensions/websocket/ws.module';
 import { AppController } from './app.controller';
-import { WorkstationsModule } from './modules/workstations/workstaions.module';
+import { TenantsModule } from './modules/tenants/tenants.module';
 import { ContextInterceptor } from './utilities/context.interceptor';
 import { GlobalExceptionFilter } from './utilities/exception.filter';
 
@@ -47,6 +47,7 @@ import { GlobalExceptionFilter } from './utilities/exception.filter';
     CachingModule,
     TDengineModule,
     MongoModule,
+    TenantsModule,
   ],
   controllers: [AppController],
   providers: [
@@ -59,7 +60,6 @@ import { GlobalExceptionFilter } from './utilities/exception.filter';
       useClass: ContextInterceptor,
     },
     ServiceProvider,
-    WorkstationsModule,
   ],
 })
 export class AppModule {}

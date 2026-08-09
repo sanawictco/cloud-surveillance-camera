@@ -4,15 +4,14 @@ import { QueryBase } from 'src/dddLib/applicationService';
 import { NVR_REPOSITORY } from '../../../infra/nvr/nvr.diToken';
 import { NvrRepository } from '../../../infra/nvr/nvr.repository';
 interface NvrQueryFilter {
+  tenantId: string;
   name: string | RegExp;
   isActive: boolean;
 }
 
 export class FindAllNvrsQuery extends QueryBase<NvrQueryFilter> {}
 @QueryHandler(FindAllNvrsQuery)
-export class FindAllNvrsQueryHandler
-  implements IQueryHandler<FindAllNvrsQuery>
-{
+export class FindAllNvrsQueryHandler implements IQueryHandler<FindAllNvrsQuery> {
   constructor(
     @Inject(NVR_REPOSITORY)
     protected readonly nvrRepo: NvrRepository,

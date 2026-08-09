@@ -1,7 +1,7 @@
 import { CameraLanguageKeys } from 'src/modules/videoDevices/domain/camera/camera.type';
 import { EmployeeLanguageKeys } from 'src/modules/employees/domain/types/employee.type';
 import { SmsNotifierLanguageKeys } from 'src/modules/employees/domain/types/smsNotifier.type';
-import { WorkstationLanguageKeys } from 'src/modules/workstations/domain/workstation.type';
+import { TenantLanguageKeys } from 'src/modules/tenants/domain/tenant.type';
 import { PageLanguageKeys } from 'src/modules/dashboard/domain/page.type';
 import { NvrLanguageKeys } from 'src/modules/videoDevices/domain/nvr/nvr.type';
 
@@ -9,7 +9,7 @@ export type LanguageKeysBase = OtherLanguageKeys &
   CameraLanguageKeys &
   EmployeeLanguageKeys &
   SmsNotifierLanguageKeys &
-  WorkstationLanguageKeys &
+  TenantLanguageKeys &
   NvrLanguageKeys &
   PageLanguageKeys;
 
@@ -110,20 +110,20 @@ export const LanguageKeys: LanguageKeysBase = {
     },
   },
 
-  workstation: {
+  tenant: {
     actorLog: {
-      nameUpdated: 'workstation.actorLog.nameUpdated',
+      nameUpdated: 'tenant.actorLog.nameUpdated',
     },
     response: {
       http: {
-        added: 'workstation.response.http.added',
-        deleted: 'workstation.response.http.deleted',
-        updated: 'workstation.response.http.updated',
+        added: 'tenant.response.http.added',
+        deleted: 'tenant.response.http.deleted',
+        updated: 'tenant.response.http.updated',
       },
     },
     errorResponse: {
       badRequest: {
-        nameIsDuplicated: 'workstation.errorResponse.badRequest.softDeleted',
+        nameIsDuplicated: 'tenant.errorResponse.badRequest.nameIsDuplicated',
       },
     },
   },

@@ -6,6 +6,7 @@ import { CameraRepository } from 'src/modules/videoDevices/infra/camera/camera.r
 import { LiveSignalStatuses } from 'src/modules/videoDevices/shared/valueObjects/liveSignalStatus.vo';
 
 interface CameraQueryFilter {
+  tenantId: string;
   name: string | RegExp;
   isActive: boolean;
   nvrId: string;

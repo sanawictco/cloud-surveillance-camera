@@ -29,6 +29,7 @@ export class VideoDevicesApiForDashboardService extends VideoDevicesApiBaseServi
     const nvrEntity: NvrEntity = await this.serviceProvider.queryBus.execute(
       new FindNvrByIdQuery(cameraEntity.getProps().nvrId),
     );
+    cameraEntity.assertTenantMatches(nvrEntity);
     return await this.cameraRunningConfigAndCommandService.runHardwareCommandIfNotDuplicated(
       nvrEntity,
       cameraEntity,
@@ -46,6 +47,7 @@ export class VideoDevicesApiForDashboardService extends VideoDevicesApiBaseServi
     const nvrEntity: NvrEntity = await this.serviceProvider.queryBus.execute(
       new FindNvrByIdQuery(cameraEntity.getProps().nvrId),
     );
+    cameraEntity.assertTenantMatches(nvrEntity);
     return await this.cameraRunningConfigAndCommandService.runHardwareCommandIfNotDuplicated(
       nvrEntity,
       cameraEntity,

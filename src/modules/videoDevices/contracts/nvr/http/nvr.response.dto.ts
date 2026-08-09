@@ -7,7 +7,7 @@ import { LiveSignalStatuses } from 'src/modules/videoDevices/shared/valueObjects
 
 interface NvrResponseProps extends BaseResponseProps {
   name: string;
-  workstationId: string;
+  tenantId: string;
   serialNumber: string;
   accessToken: string;
   password: string;
@@ -19,7 +19,7 @@ interface NvrResponseProps extends BaseResponseProps {
 
 export class NvrResponseDto extends ResponseBase {
   name: string;
-  workstationId: string;
+  tenantId: string;
   serialNumber: string;
   accessToken: string;
   password: string;
@@ -31,7 +31,7 @@ export class NvrResponseDto extends ResponseBase {
   constructor(props: NvrResponseProps) {
     super(props);
     this.name = props.name;
-    this.workstationId = props.workstationId;
+    this.tenantId = props.tenantId;
     this.serialNumber = props.serialNumber;
     this.accessToken = props.accessToken;
     this.password = props.password;

@@ -16,7 +16,7 @@ import { MaxCameras } from './valueObjects/maxCameras.vo';
 
 export interface NvrValueObjects {
   name: Name;
-  workstationId: BusinessId;
+  readonly tenantId: BusinessId;
   serialNumber: SerialNumber;
   accessToken: AccessToken;
   password: NvrPassword;
@@ -30,7 +30,7 @@ export interface NvrValueObjects {
 
 export interface NvrProps {
   name: string;
-  workstationId: string;
+  tenantId: string;
   serialNumber: string;
   accessToken: string;
   password: string;
@@ -44,7 +44,7 @@ export interface NvrProps {
 
 export interface CreateNvrProps {
   name: string;
-  workstationId: string;
+  tenantId: string;
   serialNumber: string;
   accessToken: string;
   password: string;

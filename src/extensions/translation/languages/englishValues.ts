@@ -91,20 +91,20 @@ export const englishValues: LanguageKeysBase = {
       },
     },
   },
-  workstation: {
+  tenant: {
     actorLog: {
-      nameUpdated: 'نام ایستگاه کاری به‌روزرسانی شد',
+      nameUpdated: 'Tenant name was updated',
     },
     response: {
       http: {
-        added: 'ایستگاه کاری ایجاد شد',
-        deleted: 'ایستگاه کاری حذف شد',
-        updated: 'ایستگاه کاری به‌روزرسانی شد',
+        added: 'Tenant was created',
+        deleted: 'Tenant was deleted',
+        updated: 'Tenant was updated',
       },
     },
     errorResponse: {
       badRequest: {
-        nameIsDuplicated: 'نام ایستگاه کاری تکراری است',
+        nameIsDuplicated: 'Tenant name is duplicated',
       },
     },
   },

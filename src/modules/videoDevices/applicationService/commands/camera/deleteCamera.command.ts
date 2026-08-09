@@ -26,9 +26,7 @@ export class DeleteCameraCommand extends Command {
 }
 
 @CommandHandler(DeleteCameraCommand)
-export class DeleteCameraCommandHandler
-  implements ICommandHandler<DeleteCameraCommand>
-{
+export class DeleteCameraCommandHandler implements ICommandHandler<DeleteCameraCommand> {
   constructor(
     @Inject(CAMERA_REPOSITORY)
     private readonly cameraRepo: CameraRepository,
@@ -44,6 +42,10 @@ export class DeleteCameraCommandHandler
     const cameraEntity: CameraEntity | undefined =
       await this.cameraRepo.findById(command.id);
     if (!cameraEntity) throw new Error('no camera exist with this id');
+    const nvrEntity: NvrEntity = await this.serviceProvider.queryBus.execute(
+      new FindNvrByIdQuery(cameraEntity.getProps().nvrId),
+    );
+    cameraEntity.assertTenantMatches(nvrEntity);
     cameraEntity.delete();
     await this.cameraRepo.delete(cameraEntity);
     const actorId = command.actorProps?.actorId;
@@ -69,6 +71,7 @@ export class DeleteCameraCommandHandler
     const nvrEntity: NvrEntity = await this.serviceProvider.queryBus.execute(
       new FindNvrByIdQuery(cameraEntity.getProps().nvrId),
     );
+    cameraEntity.assertTenantMatches(nvrEntity);
     this.systemLogService.deleteSystemLogs(cameraEntity.id);
     await this.mqttApiService.deleteCameraTopics(
       nvrEntity.getProps().serialNumber,

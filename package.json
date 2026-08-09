@@ -104,6 +104,9 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
+    "transformIgnorePatterns": [
+      "node_modules/(?!(?:uuid|@faker-js/faker)/)"
+    ],
     "moduleNameMapper": {
       "^src/(.*)$": "<rootDir>/$1",
       "^configs/(.*)$": "<rootDir>/../configs/$1"

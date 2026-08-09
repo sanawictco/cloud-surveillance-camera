@@ -8,6 +8,9 @@ export class CameraModel implements CameraProps {
   @Prop({ unique: true, required: true })
   id: string;
 
+  @Prop({ required: true, index: true })
+  tenantId: string;
+
   @Prop({ required: true })
   name: string;
 
@@ -58,6 +61,7 @@ export class CameraModel implements CameraProps {
 
   constructor(props?: CameraProps) {
     this.id = '';
+    this.tenantId = props?.tenantId ?? '';
     this.name = props?.name ?? '';
     this.productModel = props?.productModel ?? '';
     this.serialNumber = props?.serialNumber ?? '';

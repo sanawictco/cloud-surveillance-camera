@@ -11,9 +11,13 @@ import { CameraEntity } from '../../../domain/camera/camera.entity';
 import { CameraActorLogService } from '../../services/actorLogs/cameraActorLog.service';
 import { CAMERA_REPOSITORY } from 'src/modules/videoDevices/infra/camera/camera.diToken';
 import { CameraRepository } from 'src/modules/videoDevices/infra/camera/camera.repository';
+import { NvrEntity } from '../../../domain/nvr/nvr.entity';
+import { NVR_REPOSITORY } from '../../../infra/nvr/nvr.diToken';
+import { NvrRepository } from '../../../infra/nvr/nvr.repository';
 
 export class CreateCameraCommand extends Command implements CreateCameraProps {
   readonly originId?: string;
+  readonly tenantId: string;
   readonly name: string;
   readonly productModel: string;
   readonly username: string;
@@ -28,6 +32,7 @@ export class CreateCameraCommand extends Command implements CreateCameraProps {
   constructor(props: CommandProps<CreateCameraCommand>) {
     super(props);
     this.originId = props.originId;
+    this.tenantId = props.tenantId;
     this.name = props.name;
     this.productModel = props.productModel;
     this.username = props.username;
@@ -43,18 +48,24 @@ export class CreateCameraCommand extends Command implements CreateCameraProps {
 }
 
 @CommandHandler(CreateCameraCommand)
-export class CreateCameraCommandHandler
-  implements ICommandHandler<CreateCameraCommand>
-{
+export class CreateCameraCommandHandler implements ICommandHandler<CreateCameraCommand> {
   constructor(
     @Inject(CAMERA_REPOSITORY)
     protected readonly cameraRepo: CameraRepository,
+    @Inject(NVR_REPOSITORY)
+    protected readonly nvrRepo: NvrRepository,
     protected readonly cameraActorLogService: CameraActorLogService,
   ) {}
 
   async execute(command: CreateCameraCommand): Promise<AggregateID> {
+    const nvr: NvrEntity | undefined = await this.nvrRepo.findById(
+      command.nvrId,
+    );
+    if (!nvr) throw new Error('nvr not exists');
+
     const camera = CameraEntity.create({
       id: command.originId,
+      tenantId: command.tenantId,
       name: command.name,
       productModel: command.productModel,
       serialNumber: command.serialNumber,
@@ -67,6 +78,7 @@ export class CreateCameraCommandHandler
       hasAudio: command.hasAudio,
       nvrId: command.nvrId,
     });
+    camera.assertTenantMatches(nvr);
     await this.cameraRepo.insert(camera);
     const actorId = command.actorProps?.actorId;
     await this.processDependencies(camera, actorId);

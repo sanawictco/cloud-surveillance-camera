@@ -24,7 +24,7 @@ NestJS 11 backend for Sanaw's cloud surveillance platform. Uses CQRS (`@nestjs/c
 
 ## Architecture
 
-DDD/hexagonal per module — not default flat NestJS layout. New features must follow the `src/modules/<name>/` shape (see `workstations` or `videoDevices` for the pattern):
+DDD/hexagonal per module — not default flat NestJS layout. New features must follow the `src/modules/<name>/` shape (see `tenants` or `videoDevices` for the pattern):
 
 ```
 src/modules/<name>/
@@ -46,5 +46,5 @@ src/modules/<name>/
 - tsconfig has **`noImplicitAny: false`** and `strictNullChecks: true` — don't enable stricter flags repo-wide; follow existing style.
 - `typeRoots: ["./types"]` — custom global type declarations live in `types/`.
 - Absolute-ish imports from project root work via `baseUrl: "./"` (e.g. `configs/app.config`).
-- Known typos preserved as real paths/names: `src/extensions/messanger`, `cacheing.module.ts`, `workstaions.module.ts` — match imports to the actual filenames, don't "fix" them casually.
+- Known typos preserved as real paths/names: `src/extensions/messanger`, `cacheing.module.ts` — match imports to the actual filenames, don't "fix" them casually.
 - Dates use `jalali-moment` (Persian calendar); timezone `TZ=Asia/Tehran` in env files.

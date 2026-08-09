@@ -170,6 +170,7 @@ export class NvrValidator {
         throw new BadRequestException('scanedCamera not found1');
       finalAddedCameras.push({
         id: v4(),
+        tenantId: nvrEntity.getProps().tenantId,
         name: cameraNames[serialNumber] ?? '',
         serialNumber: serialNumber,
         productModel: scanedCamera.productModel,

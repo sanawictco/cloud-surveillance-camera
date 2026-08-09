@@ -9,3 +9,13 @@ export class CameraAlreadyExistsError extends ExceptionBase {
     super(CameraAlreadyExistsError.message, cause, metadata);
   }
 }
+
+export class CameraTenantMismatchError extends ExceptionBase {
+  static readonly message = 'Camera and NVR must belong to the same tenant';
+
+  public readonly code = 'Camera.TENANT_MISMATCH';
+
+  constructor(cause?: Error, metadata?: unknown) {
+    super(CameraTenantMismatchError.message, cause, metadata);
+  }
+}

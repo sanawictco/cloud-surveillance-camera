@@ -79,12 +79,14 @@ export class NvrLiveSignalService {
       await this.serviceProvider.queryBus.execute(
         new FindAllCamerasQuery({
           filter: {
+            tenantId: nvrEntity.getProps().tenantId,
             nvrId: nvrEntity.id,
             isActive: true,
           },
         }),
       );
     for (const dependentCameraEntity of dependentCameraEntities) {
+      dependentCameraEntity.assertTenantMatches(nvrEntity);
       await this.cameraLiveSignalService.toDisconnected(dependentCameraEntity);
     }
     this.websocketService.sendMessage<ToDisconnectedNvrLiveSignalWsResponseDto>(

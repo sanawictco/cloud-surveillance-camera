@@ -67,7 +67,7 @@ export class SanawApiVideoDeviceService {
   async useNvr(
     serialNumber: string,
     nvrId: string,
-    workstationId: string,
+    tenantId: string,
   ): Promise<void> {
     const url = `${AppConfig().sanawApiURL}/video-devices/manufactured-nvrs/use`;
     try {
@@ -75,7 +75,7 @@ export class SanawApiVideoDeviceService {
         url,
         {
           serialNumber,
-          workstationId,
+          workstationId: tenantId,
           nvrIdInWorkstation: nvrId,
         },
         { headers: SanawApiHeader() },

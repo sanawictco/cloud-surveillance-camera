@@ -92,20 +92,20 @@ export const arabicValues: LanguageKeysBase = {
       },
     },
   },
-  workstation: {
+  tenant: {
     actorLog: {
-      nameUpdated: 'نام ایستگاه کاری به‌روزرسانی شد',
+      nameUpdated: 'تم تحديث اسم المستأجر',
     },
     response: {
       http: {
-        added: 'ایستگاه کاری ایجاد شد',
-        deleted: 'ایستگاه کاری حذف شد',
-        updated: 'ایستگاه کاری به‌روزرسانی شد',
+        added: 'تم إنشاء المستأجر',
+        deleted: 'تم حذف المستأجر',
+        updated: 'تم تحديث المستأجر',
       },
     },
     errorResponse: {
       badRequest: {
-        nameIsDuplicated: 'نام ایستگاه کاری تکراری است',
+        nameIsDuplicated: 'اسم المستأجر مكرر',
       },
     },
   },

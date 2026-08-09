@@ -17,6 +17,7 @@ import {
 import { SerialNumber } from '../../shared/valueObjects/serialNumber.vo';
 
 export interface CameraValueObjects {
+  readonly tenantId: BusinessId;
   name: Name;
   productModel: ProductModel;
   serialNumber: SerialNumber;
@@ -34,6 +35,7 @@ export interface CameraValueObjects {
 }
 
 export interface CameraProps {
+  tenantId: string;
   name: string;
   productModel: string;
   serialNumber: string;
@@ -52,6 +54,7 @@ export interface CameraProps {
 
 export interface CreateCameraProps {
   id?: string;
+  tenantId: string;
   name: string;
   productModel: string;
   serialNumber: string;

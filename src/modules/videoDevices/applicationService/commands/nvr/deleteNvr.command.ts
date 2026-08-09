@@ -27,9 +27,7 @@ export class DeleteNvrCommand extends Command {
   }
 }
 @CommandHandler(DeleteNvrCommand)
-export class DeleteNvrCommandHandler
-  implements ICommandHandler<DeleteNvrCommand>
-{
+export class DeleteNvrCommandHandler implements ICommandHandler<DeleteNvrCommand> {
   constructor(
     @Inject(NVR_REPOSITORY)
     private readonly nvrRepo: NvrRepository,
@@ -70,10 +68,14 @@ export class DeleteNvrCommandHandler
     const dependentCameraEntities: CameraEntity[] =
       await this.serviceProvider.queryBus.execute(
         new FindAllCamerasQuery({
-          filter: { nvrId: nvrEntity.id },
+          filter: {
+            tenantId: nvrEntity.getProps().tenantId,
+            nvrId: nvrEntity.id,
+          },
         }),
       );
     for (const dependentCameraEntity of dependentCameraEntities) {
+      dependentCameraEntity.assertTenantMatches(nvrEntity);
       await this.serviceProvider.commandBus.execute(
         new DeleteCameraCommand({ id: dependentCameraEntity.id }),
       );

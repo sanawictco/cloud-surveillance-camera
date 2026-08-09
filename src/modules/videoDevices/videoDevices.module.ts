@@ -45,6 +45,7 @@ import { VideoDeviceDataQueueService } from './applicationService/services/queue
 import { NVR_REPOSITORY } from './infra/nvr/nvr.diToken';
 import { NvrMapper } from './infra/nvr/nvr.mapper';
 import { NvrRepository } from './infra/nvr/nvr.repository';
+import { NvrModel, NvrSchema } from './infra/nvr/nvr.schema';
 
 const commandHandlers: Provider[] = [
   ...[
@@ -106,6 +107,7 @@ const mqttControllers: Provider[] = [];
   imports: [
     MongooseModule.forFeature([
       { name: CameraModel.name, schema: CameraSchema },
+      { name: NvrModel.name, schema: NvrSchema },
     ]),
     CachingModule,
     CqrsModule,

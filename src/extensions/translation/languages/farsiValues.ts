@@ -92,20 +92,20 @@ export const farsiValues: LanguageKeysBase = {
       },
     },
   },
-  workstation: {
+  tenant: {
     actorLog: {
-      nameUpdated: 'نام ایستگاه کاری به‌روزرسانی شد',
+      nameUpdated: 'نام مستاجر به‌روزرسانی شد',
     },
     response: {
       http: {
-        added: 'ایستگاه کاری ایجاد شد',
-        deleted: 'ایستگاه کاری حذف شد',
-        updated: 'ایستگاه کاری به‌روزرسانی شد',
+        added: 'مستاجر ایجاد شد',
+        deleted: 'مستاجر حذف شد',
+        updated: 'مستاجر به‌روزرسانی شد',
       },
     },
     errorResponse: {
       badRequest: {
-        nameIsDuplicated: 'نام ایستگاه کاری تکراری است',
+        nameIsDuplicated: 'نام مستاجر تکراری است',
       },
     },
   },

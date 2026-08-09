@@ -23,9 +23,7 @@ export class InActiveNvrCommand extends Command {
 }
 
 @CommandHandler(InActiveNvrCommand)
-export class InActiveNvrCommandHandler
-  implements ICommandHandler<InActiveNvrCommand>
-{
+export class InActiveNvrCommandHandler implements ICommandHandler<InActiveNvrCommand> {
   constructor(
     @Inject(NVR_REPOSITORY)
     private readonly nvrRepo: NvrRepository,
@@ -52,10 +50,15 @@ export class InActiveNvrCommandHandler
     const dependentCameraEntities: CameraEntity[] =
       await this.serviceProvider.queryBus.execute(
         new FindAllCamerasQuery({
-          filter: { nvrId: nvrEntity.id, isActive: true },
+          filter: {
+            tenantId: nvrEntity.getProps().tenantId,
+            nvrId: nvrEntity.id,
+            isActive: true,
+          },
         }),
       );
     for (const dependentCameraEntity of dependentCameraEntities) {
+      dependentCameraEntity.assertTenantMatches(nvrEntity);
       await this.serviceProvider.commandBus.execute(
         new InActiveCameraCommand({
           id: dependentCameraEntity.id,

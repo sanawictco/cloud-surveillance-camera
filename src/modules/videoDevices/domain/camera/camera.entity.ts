@@ -40,6 +40,7 @@ import { SerialNumber } from '../../shared/valueObjects/serialNumber.vo';
 import { VideoDeviceConfigQueueMsgDto } from '../../applicationService/services/queues/videoDeviceConfig/videoDeviceConfigQueueMsg.dto';
 import { VideoDeviceEntityTypes } from '../../shared/valueObjects/videoDeviceEntityTypes';
 import { VideoDeviceDataQueueMsgDto } from '../../applicationService/services/queues/videoDeviceData/videoDeviceDataQueueMsg.dto';
+import { CameraTenantMismatchError } from './exceptions/camera.exception';
 
 export class CameraEntity extends AggregateRoot<
   CameraValueObjects,
@@ -68,6 +69,7 @@ export class CameraEntity extends AggregateRoot<
       nvrId,
     } = createCameraProps;
     const props: CameraValueObjects = {
+      tenantId: new BusinessId(createCameraProps.tenantId),
       name: new Name(name),
       productModel: new ProductModel(productModel),
       serialNumber: new SerialNumber(createCameraProps.serialNumber),
@@ -165,6 +167,7 @@ export class CameraEntity extends AggregateRoot<
     configType: CameraSoftwareConfigs,
     body?: UpdateCameraProps,
   ): VideoDeviceConfigQueueMsgDto {
+    this.assertTenantMatches(nvrEntity);
     const config: VideoDeviceConfigQueueMsgDto = {
       msgId: generateRandomMsgId(),
       configType,
@@ -239,6 +242,15 @@ export class CameraEntity extends AggregateRoot<
     return (
       this.getProps().liveSignalStatus === LiveSignalStatuses.DIS_CONNECTED
     );
+  }
+
+  assertTenantMatches(nvrEntity: NvrEntity): void {
+    if (this.props.tenantId.unpack() !== nvrEntity.getProps().tenantId) {
+      throw new CameraTenantMismatchError(undefined, {
+        cameraId: this.id,
+        nvrId: nvrEntity.id,
+      });
+    }
   }
 
   validate(): void {}

@@ -94,20 +94,20 @@ export const kurdiValues: LanguageKeysBase = {
       },
     },
   },
-  workstation: {
+  tenant: {
     actorLog: {
-      nameUpdated: 'نام ایستگاه کاری به‌روزرسانی شد',
+      nameUpdated: 'ناوی کرێگرتە نوێکرایەوە',
     },
     response: {
       http: {
-        added: 'ایستگاه کاری ایجاد شد',
-        deleted: 'ایستگاه کاری حذف شد',
-        updated: 'ایستگاه کاری به‌روزرسانی شد',
+        added: 'کرێگرتە دروستکرا',
+        deleted: 'کرێگرتە سڕایەوە',
+        updated: 'کرێگرتە نوێکرایەوە',
       },
     },
     errorResponse: {
       badRequest: {
-        nameIsDuplicated: 'نام ایستگاه کاری تکراری است',
+        nameIsDuplicated: 'ناوی کرێگرتە دووبارەیە',
       },
     },
   },

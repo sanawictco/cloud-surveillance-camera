@@ -11,8 +11,8 @@ export class NvrModel implements NvrProps {
   @Prop({ required: true })
   name: string;
 
-  @Prop({ required: true })
-  workstationId: string;
+  @Prop({ required: true, index: true })
+  tenantId: string;
 
   @Prop({ required: true })
   maxCameras: number;
@@ -50,7 +50,7 @@ export class NvrModel implements NvrProps {
   constructor(props?: NvrProps) {
     this.id = '';
     this.name = props?.name ?? '';
-    this.workstationId = props?.workstationId ?? '';
+    this.tenantId = props?.tenantId ?? '';
     this.maxCameras = props?.maxCameras ?? 0;
     this.serialNumber = props?.serialNumber ?? '';
     this.accessToken = props?.accessToken ?? '';

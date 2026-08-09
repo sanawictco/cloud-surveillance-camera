@@ -23,7 +23,7 @@ export class NvrMapper implements Mapper<NvrEntity, NvrModel, NvrResponseDto> {
     const record: NvrModel = {
       id: copy.id,
       name: copy.name,
-      workstationId: copy.workstationId,
+      tenantId: copy.tenantId,
       maxCameras: copy.maxCameras,
       serialNumber: copy.serialNumber,
       accessToken: copy.accessToken,
@@ -46,7 +46,7 @@ export class NvrMapper implements Mapper<NvrEntity, NvrModel, NvrResponseDto> {
       updatedAt: new Date(record.updatedAt),
       props: {
         name: new Name(record.name),
-        workstationId: new BusinessId(record.workstationId),
+        tenantId: new BusinessId(record.tenantId),
         maxCameras: new MaxCameras(record.maxCameras),
         serialNumber: new SerialNumber(record.serialNumber),
         accessToken: new AccessToken(record.accessToken),

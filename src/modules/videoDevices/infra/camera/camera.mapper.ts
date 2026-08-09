@@ -28,6 +28,7 @@ export class CameraMapper implements Mapper<
     const copy = entity.getProps();
     const record: CameraModel = {
       id: copy.id,
+      tenantId: copy.tenantId,
       name: copy.name,
       productModel: copy.productModel,
       serialNumber: copy.serialNumber,
@@ -54,6 +55,7 @@ export class CameraMapper implements Mapper<
       createdAt: new Date(record.createdAt),
       updatedAt: new Date(record.updatedAt),
       props: {
+        tenantId: new BusinessId(record.tenantId),
         name: new Name(record.name),
         productModel: new ProductModel(record.productModel),
         serialNumber: new SerialNumber(record.serialNumber),

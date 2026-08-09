@@ -53,12 +53,13 @@ export class CameraRunningConfigAndCommandService {
     }
   }
   async runHardwareCommandIfNotDuplicated(
-    _nvrEntity: NvrEntity,
+    nvrEntity: NvrEntity,
     cameraEntity: CameraEntity,
     hardwareCommand: CameraHardwareSendCommands,
     data: number[],
     optionalProps?: { actorType: ActorLogTypes; actorId: string },
   ): Promise<string> {
+    cameraEntity.assertTenantMatches(nvrEntity);
     if (await this.isConfigRunning(cameraEntity, hardwareCommand)) {
       if (RequestContextService.getContext())
         throw new BadRequestException(

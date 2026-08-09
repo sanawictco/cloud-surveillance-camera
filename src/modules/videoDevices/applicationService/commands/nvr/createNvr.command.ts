@@ -15,7 +15,7 @@ import { CreateNvrProps } from 'src/modules/videoDevices/domain/nvr/nvr.type';
 
 export class CreateNvrCommand extends Command implements CreateNvrProps {
   readonly name: string;
-  readonly workstationId: string;
+  readonly tenantId: string;
   readonly serialNumber: string;
   readonly accessToken: string;
   readonly password: string;
@@ -24,7 +24,7 @@ export class CreateNvrCommand extends Command implements CreateNvrProps {
   constructor(props: CommandProps<CreateNvrCommand>) {
     super(props);
     this.name = props.name;
-    this.workstationId = props.workstationId;
+    this.tenantId = props.tenantId;
     this.serialNumber = props.serialNumber;
     this.accessToken = props.accessToken;
     this.password = props.password;
@@ -33,9 +33,7 @@ export class CreateNvrCommand extends Command implements CreateNvrProps {
 }
 
 @CommandHandler(CreateNvrCommand)
-export class CreateNvrCommandHandler
-  implements ICommandHandler<CreateNvrCommand>
-{
+export class CreateNvrCommandHandler implements ICommandHandler<CreateNvrCommand> {
   constructor(
     @Inject(NVR_REPOSITORY)
     private readonly nvrRepo: NvrRepository,
@@ -47,7 +45,7 @@ export class CreateNvrCommandHandler
   async execute(command: CreateNvrCommand): Promise<AggregateID> {
     const nvr = NvrEntity.create({
       name: command.name,
-      workstationId: command.workstationId,
+      tenantId: command.tenantId,
       serialNumber: command.serialNumber,
       accessToken: command.accessToken,
       password: command.password,
@@ -59,13 +57,8 @@ export class CreateNvrCommandHandler
   }
 
   private async processDependencies(nvrEntity: NvrEntity) {
-    const { id, serialNumber, accessToken, workstationId } =
-      nvrEntity.getProps();
-    await this.sanawApiVideoDeviceService.useNvr(
-      serialNumber,
-      id,
-      workstationId,
-    );
+    const { id, serialNumber, accessToken, tenantId } = nvrEntity.getProps();
+    await this.sanawApiVideoDeviceService.useNvr(serialNumber, id, tenantId);
     await this.mqttApiService.createNvrTopics(
       serialNumber,
       accessToken,

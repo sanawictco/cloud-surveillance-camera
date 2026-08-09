@@ -5,6 +5,7 @@ import {
 import { StreamsProps } from '../../../domain/camera/valueObjects/streams.vo';
 
 interface CameraResponseProps extends BaseResponseProps {
+  tenantId: string;
   name: string;
   productModel: string;
   macAddress: string;
@@ -16,6 +17,7 @@ interface CameraResponseProps extends BaseResponseProps {
 }
 
 export class CameraResponseDto extends ResponseBase {
+  tenantId: string;
   name: string;
   productModel: string;
   macAddress: string;
@@ -27,6 +29,7 @@ export class CameraResponseDto extends ResponseBase {
 
   constructor(props: CameraResponseProps) {
     super(props);
+    this.tenantId = props.tenantId;
     this.name = props.name;
     this.productModel = props.productModel;
     this.macAddress = props.macAddress;

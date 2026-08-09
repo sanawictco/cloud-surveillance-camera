@@ -25,6 +25,7 @@ export class CameraLiveSignalService {
     const nvrEntity: NvrEntity = await this.serviceProvider.queryBus.execute(
       new FindNvrByIdQuery(cameraEntity.getProps().nvrId),
     );
+    cameraEntity.assertTenantMatches(nvrEntity);
     if (!nvrEntity.isConnected()) return;
     await this.serviceProvider.commandBus.execute(
       new UpdateCameraCommand({
