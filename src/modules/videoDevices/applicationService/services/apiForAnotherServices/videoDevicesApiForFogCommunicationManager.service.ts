@@ -44,7 +44,7 @@ export class VideoDevicesApiForFogCommunicationManagerService {
   }
 
   async sendCloudIsAvailableSignalToFog() {
-    this.serviceProvider.scheduler.setInterval(async () => {
+    await this.serviceProvider.scheduler.setInterval(async () => {
       const nvrEntities: NvrEntity[] =
         await this.serviceProvider.queryBus.execute(
           new FindAllNvrsQuery({ filter: { isActive: true } }),
@@ -55,7 +55,7 @@ export class VideoDevicesApiForFogCommunicationManagerService {
           '1',
         );
       }
-    }, 10);
+    }, 10_000);
   }
 
   async preProcessCloudRecovery(nvrEntity: NvrEntity) {

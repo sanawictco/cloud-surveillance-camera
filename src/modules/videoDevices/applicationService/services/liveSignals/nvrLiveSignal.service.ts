@@ -27,7 +27,7 @@ export class NvrLiveSignalService {
   ) {}
 
   async start(nvrEntity: NvrEntity) {
-    this.serviceProvider.scheduler.setInterval(
+    await this.serviceProvider.scheduler.setInterval(
       async () => {
         await this.nvrRunningConfigService.runConfigIfNotDuplicated(
           nvrEntity,
@@ -35,7 +35,7 @@ export class NvrLiveSignalService {
           [],
         );
       },
-      60,
+      60_000,
       nvrEntity.id,
     );
   }

@@ -1,4 +1,4 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { QueueService } from 'src/extensions/queue/queue.service';
 import { QueueMsg } from 'src/extensions/queue/queue.interface';
 import { MqttService } from 'src/extensions/mqtt/mqtt.service';
@@ -16,22 +16,24 @@ import { FindNvrByIdQuery } from '../../../queries/nvr/findNvrById.queryHandler'
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
 
 @Injectable()
-export class VideoDeviceConfigQueueService {
-  private queue: QueueService<VideoDeviceConfigQueueMsgDto>;
+export class VideoDeviceConfigQueueService implements OnModuleInit {
   constructor(
     private readonly mqttService: MqttService,
     private readonly serviceProvider: ServiceProvider,
+    private readonly queue: QueueService<VideoDeviceConfigQueueMsgDto>,
     @Inject(forwardRef(() => NvrRunningConfigService))
     private readonly nvrRunningConfigService: NvrRunningConfigService,
     @Inject(forwardRef(() => CameraRunningConfigAndCommandService))
     private readonly CameraRunningConfigAndCommandService: CameraRunningConfigAndCommandService,
     private readonly nvrSystemLogService: NvrSystemLogService,
     private readonly cameraSystemLogService: CameraSystemLogService,
-  ) {
-    this.queue = new QueueService<VideoDeviceConfigQueueMsgDto>().createQueue(
+  ) {}
+
+  onModuleInit(): void {
+    this.queue.createQueue(
       'videoDeviceConfigQueue',
-      this.workerMsgHandler.bind(this).bind(this),
-      this.expiredMsgHandler.bind(this).bind(this),
+      this.workerMsgHandler.bind(this),
+      this.expiredMsgHandler.bind(this),
     );
   }
 

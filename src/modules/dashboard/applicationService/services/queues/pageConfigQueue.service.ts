@@ -1,4 +1,4 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { QueueService } from 'src/extensions/queue/queue.service';
 import { QueueMsg } from 'src/extensions/queue/queue.interface';
 import { MqttService } from 'src/extensions/mqtt/mqtt.service';
@@ -16,19 +16,21 @@ import { PageEntity } from 'src/modules/dashboard/domain/page.entity';
 import { PageSystemLogService } from '../pageSystemLog.service';
 
 @Injectable()
-export class PageConfigQueueService {
-  private queue: QueueService<PageConfigQueueMsgDto>;
+export class PageConfigQueueService implements OnModuleInit {
   constructor(
     private readonly mqttService: MqttService,
     private readonly serviceProvider: ServiceProvider,
+    private readonly queue: QueueService<PageConfigQueueMsgDto>,
     @Inject(forwardRef(() => PageRunningConfigService))
     private readonly pageRunningConfigService: PageRunningConfigService,
     private readonly pageSystemLogService: PageSystemLogService,
-  ) {
-    this.queue = new QueueService<PageConfigQueueMsgDto>().createQueue(
+  ) {}
+
+  onModuleInit(): void {
+    this.queue.createQueue(
       'pageConfigQueue',
-      this.workerMsgHandler.bind(this).bind(this),
-      this.expiredMsgHandler.bind(this).bind(this),
+      this.workerMsgHandler.bind(this),
+      this.expiredMsgHandler.bind(this),
     );
   }
 

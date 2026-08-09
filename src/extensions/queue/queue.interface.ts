@@ -1,34 +1,33 @@
-import { Job, RepeatOptions } from 'bullmq';
+import { Job, RepeatOptions, WorkerOptions } from 'bullmq';
 
 export type QueueMsg = Job & {
   opts: Job['opts'] & { repeat?: RepeatOptions };
 };
-export class RepeatQueueMsgOptions {
-  retryCount: number;
-  retryPeriodInSecond: number;
 
-  constructor(retryCount: number, retryPeriodInSecond: number) {
-    this.retryCount = retryCount;
-    this.retryPeriodInSecond = retryPeriodInSecond;
-  }
+/**
+ * Per-queue BullMQ worker tuning. Optional on createQueue; any field omitted
+ * falls back to the rule-engine's sanctioned defaults (concurrency 1000,
+ * lockDuration 60s, lockRenewTime 20s, stalledInterval 15s). Provide this only
+ * for auxiliary queues (e.g. systemLog/actorLog) that don't need rule-engine
+ * sizing - never override these for the rule-engine queue itself.
+ */
+export type QueueWorkerOverrides = Partial<
+  Pick<
+    WorkerOptions,
+    'concurrency' | 'lockDuration' | 'lockRenewTime' | 'stalledInterval'
+  >
+>;
+
+export interface RepeatQueueMsgOptions {
+  readonly retryCount?: number;
+  readonly retryPeriodInSecond: number;
 }
-export class QueueMsgOptions {
-  repeat?: RepeatQueueMsgOptions;
+export interface QueueMsgOptions {
+  readonly repeat?: RepeatQueueMsgOptions;
   cron?: string;
   delayInSecond?: number;
-  msgId: string;
-
-  constructor(
-    msgId: string,
-    repeat?: RepeatQueueMsgOptions,
-    cron?: string,
-    delayInSecond?: number,
-  ) {
-    this.msgId = msgId;
-    this.repeat = repeat;
-    this.cron = cron;
-    this.delayInSecond = delayInSecond;
-  }
+  readonly msgId: string;
+  readonly attempts?: number;
 }
 
 export interface IQueue<T> {
@@ -37,7 +36,20 @@ export interface IQueue<T> {
     workerMsgHandler: (msg: QueueMsg) => Promise<void>,
     expiredMsgHandler?: (msg: QueueMsg) => Promise<void>,
     failureMsgHandler?: (msg: QueueMsg) => Promise<void>,
+    workerOptions?: QueueWorkerOverrides,
   ): IQueue<T>;
+  /**
+   * Add a job to the queue.
+   *
+   * Payload-envelope contract (worker handler reads `job.data`):
+   * - **non-repeat** (default) and **cron** (`opts.cron`): caller MUST wrap as
+   *   `{ data: T }`. The worker receives the inner `T`.
+   * - **repeat** (`opts.repeat`): caller passes `T` directly (no wrap). The
+   *   worker receives the whole `T`.
+   *
+   * This split is historical (deviceData repeat-flow vs. ruleEngine/eventBus
+   * non-repeat-flow). Keep it consistent on a given queue.
+   */
   addMsg(msg: T, opts: QueueMsgOptions): Promise<void>;
   getMsg(msgId: string): Promise<T | undefined>;
   getAndDeleteMsg(msgId: string): Promise<T | undefined>;
