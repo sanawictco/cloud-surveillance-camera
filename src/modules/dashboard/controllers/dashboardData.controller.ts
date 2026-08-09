@@ -14,7 +14,7 @@ import { DashboardDataService } from '../applicationService/services/dashboardDa
 import { SendDataRequestDto } from '../contracts/sendData.request.dto';
 @ApiBearerAuth(SWAGGER_AUTH_TOKEN)
 @ApiTags('/dashboard/data')
-@UseGuards(RolesGuardFactory(EmployeeRoles.Camera_RuleChain_Dashboard))
+@UseGuards(RolesGuardFactory(EmployeeRoles.Device_RuleChain_Dashboard))
 @Controller('/dashboard/data')
 export class DashboardDataController {
   constructor(private readonly dashboardDataService: DashboardDataService) {}

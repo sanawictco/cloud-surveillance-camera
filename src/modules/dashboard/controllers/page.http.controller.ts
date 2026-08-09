@@ -27,7 +27,7 @@ import { RolesGuardFactory } from 'src/modules/shared/roles.guard';
 import { OnlyIdParamRequestDto } from 'src/modules/shared/dtos/onlyIdParam.request.dto';
 @ApiBearerAuth(SWAGGER_AUTH_TOKEN)
 @ApiTags('/dashboard/pages')
-@UseGuards(RolesGuardFactory(EmployeeRoles.Camera_RuleChain_Dashboard))
+@UseGuards(RolesGuardFactory(EmployeeRoles.Device_RuleChain_Dashboard))
 @Controller('/dashboard/pages')
 export class PageHttpController {
   constructor(private readonly pagesService: PagesHttpService) {}
