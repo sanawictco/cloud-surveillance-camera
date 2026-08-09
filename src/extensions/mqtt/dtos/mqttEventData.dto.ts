@@ -1,9 +1,9 @@
-export class MqttEventDataDto {
+export interface MqttEventDataDto {
   topic: string;
   message: string;
+}
 
-  constructor(topic: string, message: string) {
-    this.topic = topic;
-    this.message = message;
-  }
+export interface MqttEventByteDataDto {
+  topic: string;
+  message: Buffer;
 }

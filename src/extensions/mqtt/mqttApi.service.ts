@@ -1,11 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import axios from 'axios';
 import AppConfig from 'configs/app.config';
+import { CacheService } from '../caching/cache.service';
+import { ServiceProvider } from '../serviceProvider/serviceProvider.service';
 import { MqttRuleDto } from './dtos/mqttRule.dto';
 
 @Injectable()
 export class MqttApiService {
-  private basicAuth: object = {
+  constructor(
+    private readonly cacheService: CacheService<unknown>,
+    private readonly serviceProvider: ServiceProvider,
+  ) {}
+
+  private readonly basicAuth: object = {
     auth: {
       username: AppConfig().mqtt.api.apiKey,
       password: AppConfig().mqtt.api.apiSecret,
@@ -23,17 +30,17 @@ export class MqttApiService {
     const createAclRulesUrl = `${
       AppConfig().mqtt.api.apiUrl
     }/authorization/sources/built_in_database/rules/users`;
-    try {
-      const nvrAclRules = this.createAclRules(topics);
-      await axios.post(
-        createUserUrl,
-        {
-          password: accessToken,
-          user_id: serialNumber,
-        },
-        this.basicAuth,
-      );
+    const nvrAclRules = this.createAclRules(topics);
+    await axios.post(
+      createUserUrl,
+      {
+        password: accessToken,
+        user_id: serialNumber,
+      },
+      this.basicAuth,
+    );
 
+    try {
       const response = await axios.post(
         createAclRulesUrl,
         [
@@ -47,7 +54,22 @@ export class MqttApiService {
       // await this.addAutoSubscribeTopics(topics);
       return { statusCode: 200, data: response.data };
     } catch (err) {
+      await this.bestEffortDeleteUser(serialNumber);
       throw err;
+    }
+  }
+
+  private async bestEffortDeleteUser(serialNumber: string): Promise<void> {
+    const deleteUserUrl = `${
+      AppConfig().mqtt.api.apiUrl
+    }/authentication/password_based:built_in_database/users/${serialNumber}`;
+    try {
+      await axios.delete(deleteUserUrl, this.basicAuth);
+    } catch (deleteErr) {
+      this.serviceProvider.logger.error(
+        `Failed to roll back orphaned MQTT user ${serialNumber}`,
+        deleteErr,
+      );
     }
   }
 
@@ -72,6 +94,7 @@ export class MqttApiService {
   async subscribeClientIdsOnNewTopics(username: string, topicList: string[]) {
     const clients = await this.getAllConnectedClientIds(username);
     const topics = topicList.map((topic: string) => ({ topic }));
+    const responses: Array<{ statusCode: number; data: unknown }> = [];
     for (const client of clients as { clientid: string }[]) {
       const { clientid } = client;
       const subscribeClientIdUrl = `${
@@ -84,12 +107,12 @@ export class MqttApiService {
           this.basicAuth,
         );
 
-        return { statusCode: 200, data: response.data };
+        responses.push({ statusCode: 200, data: response.data });
       } catch (err) {
         throw err;
       }
     }
-    return;
+    return responses;
   }
 
   async getAllConnectedClientIds(
@@ -139,24 +162,26 @@ export class MqttApiService {
 
     const cameraAclRules = this.createAclRules(topics);
 
-    try {
-      const res1 = await axios.get(getAllUserAclRulesUrl, this.basicAuth);
-      const res2 = await axios.put(
-        updateUserAclRulesUrl,
-        {
-          rules: [...res1.data.rules, ...cameraAclRules],
-          username: nvrSerialNumber,
-        },
-        this.basicAuth,
-      );
-      // await this.addAutoSubscribeTopics(topics);
-      return {
-        statusCode: 200,
-        data: res2.data,
-      };
-    } catch (err) {
-      throw err;
-    }
+    return this.withNvrAclLock(nvrSerialNumber, async () => {
+      try {
+        const res1 = await axios.get(getAllUserAclRulesUrl, this.basicAuth);
+        const res2 = await axios.put(
+          updateUserAclRulesUrl,
+          {
+            rules: [...res1.data.rules, ...cameraAclRules],
+            username: nvrSerialNumber,
+          },
+          this.basicAuth,
+        );
+        // await this.addAutoSubscribeTopics(topics);
+        return {
+          statusCode: 200,
+          data: res2.data,
+        };
+      } catch (err) {
+        throw err;
+      }
+    });
   }
 
   async deleteCameraTopics(
@@ -172,27 +197,55 @@ export class MqttApiService {
       AppConfig().mqtt.api.apiUrl
     }/authorization/sources/built_in_database/rules/users/${nvrSerialNumber}`;
 
+    return this.withNvrAclLock(nvrSerialNumber, async () => {
+      try {
+        const res1 = await axios.get(getAllUserAclRulesUrl, this.basicAuth);
+        const updatedRules = this.deleteRulesIfMatch(
+          res1.data.rules,
+          `${nvrId}/${cameraId}`,
+        );
+        const res2 = await axios.put(
+          updateUserAclRulesUrl,
+          {
+            rules: updatedRules,
+            username: nvrSerialNumber,
+          },
+          this.basicAuth,
+        );
+        await this.deleteAutoSubscribeTopics(`${nvrId}/${cameraId}`);
+        return {
+          statusCode: 200,
+          data: res2.data,
+        };
+      } catch (err) {
+        throw err;
+      }
+    });
+  }
+
+  private async withNvrAclLock<R>(
+    nvrSerialNumber: string,
+    operation: () => Promise<R>,
+  ): Promise<R> {
+    const lockKey = `mqtt-acl:${nvrSerialNumber}`;
+    const deadline = Date.now() + 5_000;
+    let token: string | null = null;
+
+    while (!token && Date.now() < deadline) {
+      token = await this.cacheService.acquireLock(lockKey, 15);
+      if (!token) await new Promise((resolve) => setTimeout(resolve, 150));
+    }
+
+    if (!token) {
+      this.serviceProvider.logger.warn(
+        `MQTT ACL lock for NVR ${nvrSerialNumber} was not acquired; proceeding without it`,
+      );
+    }
+
     try {
-      const res1 = await axios.get(getAllUserAclRulesUrl, this.basicAuth);
-      const updatedRules = this.deleteRulesIfMatch(
-        res1.data.rules,
-        `${nvrId}/${cameraId}`,
-      );
-      const res2 = await axios.put(
-        updateUserAclRulesUrl,
-        {
-          rules: updatedRules,
-          username: nvrSerialNumber,
-        },
-        this.basicAuth,
-      );
-      await this.deleteAutoSubscribeTopics(`${nvrId}/${cameraId}`);
-      return {
-        statusCode: 200,
-        data: res2.data,
-      };
-    } catch (err) {
-      throw err;
+      return await operation();
+    } finally {
+      if (token) await this.cacheService.releaseLock(lockKey, token);
     }
   }
 
@@ -230,11 +283,34 @@ export class MqttApiService {
 
   private deleteRulesIfMatch(rules: { topic: string }[], topicPattern: string) {
     for (let i = rules.length - 1; i >= 0; i--) {
-      if (rules[i]?.topic.includes(topicPattern)) {
+      const rule = rules[i];
+      if (rule && this.topicMatchesSegmentPattern(rule.topic, topicPattern)) {
         rules.splice(i, 1);
       }
     }
     return rules;
+  }
+
+  private topicMatchesSegmentPattern(
+    topic: string,
+    topicPattern: string,
+  ): boolean {
+    const topicSegments = topic.split('/');
+    const patternSegments = topicPattern.split('/');
+    for (
+      let start = 0;
+      start + patternSegments.length <= topicSegments.length;
+      start++
+    ) {
+      if (
+        patternSegments.every(
+          (segment, index) => topicSegments[start + index] === segment,
+        )
+      ) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private async deleteAutoSubscribeTopics(topicPattern: string) {

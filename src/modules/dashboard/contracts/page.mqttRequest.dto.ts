@@ -1,3 +1,7 @@
+import { IsNotEmpty, IsString } from 'class-validator';
+
 export class PageMqttRequestDto {
-  constructor(public msgId: string) {}
+  @IsString()
+  @IsNotEmpty()
+  msgId!: string;
 }

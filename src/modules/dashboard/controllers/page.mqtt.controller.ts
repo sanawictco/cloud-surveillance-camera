@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { MqttEventDataDto } from 'src/extensions/mqtt/dtos/mqttEventData.dto';
+import type { MqttEventDataDto } from 'src/extensions/mqtt/dtos/mqttEventData.dto';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import { GLOBAL_ERROR_EVENT } from 'src/utilities/exception.filter';
 import { PageEntity } from '../domain/page.entity';
@@ -12,6 +12,7 @@ import { PageConfigQueueService } from '../applicationService/services/queues/pa
 import { PageMqttRequestDto } from '../contracts/page.mqttRequest.dto';
 import { NvrCloudSubOnFogMqttTopics } from 'src/modules/videoDevices/domain/nvr/nvr.type';
 import { ActorPropsMsgIdDto } from 'src/modules/shared/dtos/actorPropsMsgId.dto';
+import { validateMqttPayload } from 'src/extensions/mqtt/validateMqttPayload';
 
 @Injectable()
 export class PageMqttController {
@@ -26,7 +27,10 @@ export class PageMqttController {
   async handler(mqttEventData: MqttEventDataDto) {
     try {
       const { message } = mqttEventData;
-      const parsedMessage: PageMqttRequestDto = JSON.parse(message);
+      const parsedMessage = validateMqttPayload(
+        PageMqttRequestDto,
+        JSON.parse(message),
+      );
       const { msgId } = parsedMessage;
       const msg = await this.queue.getAndDeleteRepeatableMsg(msgId);
       const actorProps = msg?.metadata?.actorProps;

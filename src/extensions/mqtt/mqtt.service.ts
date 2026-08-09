@@ -1,101 +1,171 @@
-import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
+import {
+  Injectable,
+  OnApplicationBootstrap,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import AppConfig from 'configs/app.config';
 import { connect, MqttClient } from 'mqtt';
+import { CameraCloudSubOnFogMqttTopics } from 'src/modules/videoDevices/domain/camera/camera.type';
+import { NvrCloudSubOnFogMqttTopics } from 'src/modules/videoDevices/domain/nvr/nvr.type';
 import { ServiceProvider } from '../serviceProvider/serviceProvider.service';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+import {
+  IShutdownHandler,
+  ShutdownOrchestratorService,
+} from '../shutdown/shutdown.service';
+
+type MqttQos = 0 | 1 | 2;
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const MqttPattern = require('mqtt-pattern');
 
 @Injectable()
-export class MqttService implements OnApplicationBootstrap {
+export class MqttService
+  implements
+    OnApplicationBootstrap,
+    OnModuleInit,
+    IShutdownHandler,
+    OnModuleDestroy
+{
   private mqttClient!: MqttClient;
-  constructor(private readonly serviceProvider: ServiceProvider) {}
+  private _isShutDown = false;
 
-  async onApplicationBootstrap() {
-    const connectUrl = `${AppConfig().mqtt.server.host}:${
-      AppConfig().mqtt.server.port
-    }`;
-    this.mqttClient = connect(connectUrl, {
-      ...AppConfig().mqtt.server,
-    });
-    this.mqttClient.on('connect', () => {
-      this.serviceProvider.logger.log(
-        '__________________Connected to mqtt server',
-      );
-    });
+  constructor(
+    private readonly serviceProvider: ServiceProvider,
+    private readonly shutdownOrchestrator: ShutdownOrchestratorService,
+  ) {}
 
-    this.mqttClient.on('error', (err: Error) => {
-      this.serviceProvider.logger.error(`mqtt connection error !!! ${err}`);
-      process.exit(1);
-    });
-
-    this.mqttClient.on('disconnect', async () => {
-      this.serviceProvider.logger.warn(
-        '*************mqtt client is disconnected*************',
-      );
-      await this.mqttReconnect();
-    });
-
-    this.mqttClient.on('offline', async () => {
-      this.serviceProvider.logger.warn(
-        '****************mqtt client is offline***************',
-      );
-      await this.mqttReconnect();
-    });
-
-    const topicsPatterns = [...new Set([])];
-    for (const pattern of topicsPatterns) {
-      await this.subscribe(pattern);
-    }
-
-    await this.handleMqttMessages(topicsPatterns);
+  async onModuleInit(): Promise<void> {
+    this.shutdownOrchestrator.registerHandler('MQTT', this);
   }
 
-  async mqttReconnect() {
-    return new Promise<void>((resolve, reject) => {
-      this.mqttClient.end(true, {}, () => {
-        this.mqttClient.reconnect();
-        resolve();
-      });
-      reject('error occured');
+  async onApplicationBootstrap(): Promise<void> {
+    const connectUrl = `${AppConfig().mqtt.server.host}:${AppConfig().mqtt.server.port}`;
+    this.mqttClient = connect(connectUrl, {
+      ...AppConfig().mqtt.server,
+      reconnectPeriod: 1000,
+      resubscribe: true,
     });
+
+    this.mqttClient.on('connect', () => {
+      this.serviceProvider.logger.log('Connected to mqtt server');
+    });
+    this.mqttClient.on('error', (err: Error) => {
+      this.serviceProvider.logger.error('MQTT connection error', err);
+    });
+    this.mqttClient.on('disconnect', () => {
+      this.serviceProvider.logger.warn('MQTT client is disconnected');
+    });
+    this.mqttClient.on('offline', () => {
+      this.serviceProvider.logger.warn('MQTT client is offline');
+    });
+    this.mqttClient.on('reconnect', () => {
+      this.serviceProvider.logger.warn('MQTT client is reconnecting');
+    });
+
+    const textPatterns = [
+      ...new Set([
+        ...Object.values(NvrCloudSubOnFogMqttTopics),
+        ...Object.values(CameraCloudSubOnFogMqttTopics),
+      ]),
+    ];
+    for (const pattern of textPatterns) {
+      await this.subscribe(pattern);
+    }
+    this.handleMqttMessages(textPatterns);
+  }
+
+  async shutdown(): Promise<void> {
+    if (this._isShutDown) return;
+    this._isShutDown = true;
+    if (!this.mqttClient) return;
+
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const done = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        resolve();
+      };
+      const timeoutId = setTimeout(() => {
+        this.serviceProvider.logger.warn(
+          'MQTT graceful close timed out after 5s - forcing',
+        );
+        this.mqttClient.end(true, {}, done);
+      }, 5_000);
+      this.mqttClient.end(false, {}, () => {
+        this.serviceProvider.logger.log('MQTT disconnected gracefully');
+        done();
+      });
+    });
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    if (this._isShutDown) return;
+    if (this.shutdownOrchestrator.isShuttingDown) return;
+    await this.shutdown();
   }
 
   async publish(
     topic: string,
     data: string | object,
-    qos: 0 | 1 | 2 = 2,
+    qos: MqttQos = 2,
   ): Promise<void> {
-    this.mqttClient.publish(
-      topic,
-      typeof data === 'string' ? data : JSON.stringify(data),
-      { qos },
-      (err?: Error) => {
-        if (err) console.error('Error', `mqtt client.publish failed => ${err}`);
-      },
-    );
-    console.log('Publish message on mqtt => ', { topic, data });
+    if (this._isShutDown) throw new Error('Cannot publish during shutdown');
+    const payload = typeof data === 'string' ? data : JSON.stringify(data);
+    this.mqttClient.publish(topic, payload, { qos }, (err?: Error) => {
+      if (err) {
+        this.serviceProvider.logger.error(
+          `MQTT publish failed for topic ${topic}`,
+          err,
+        );
+      }
+    });
+    this.serviceProvider.logger.debug(`Publish message on MQTT => ${topic}`);
   }
 
-  async subscribe(topic: string, qos: 0 | 1 | 2 = 2) {
-    this.mqttClient.subscribe(topic, { qos }, (err?: Error | null) => {
-      if (err) console.error('Error', `mqtt client.subscribe failed => ${err}`);
+  async publishBinary(
+    topic: string,
+    data: Buffer,
+    qos: MqttQos = 2,
+  ): Promise<void> {
+    if (this._isShutDown) throw new Error('Cannot publish during shutdown');
+    this.mqttClient.publish(topic, data, { qos }, (err?: Error) => {
+      if (err) {
+        this.serviceProvider.logger.error(
+          `MQTT binary publish failed for topic ${topic}`,
+          err,
+        );
+      }
     });
   }
 
-  async handleMqttMessages(topicsPatterns: string[]) {
-    this.mqttClient.on('message', async (topic: string, message: Buffer) => {
-      const messageText = message.toString();
-      console.log('Receive message on mqtt => ', {
-        topic,
-        message: messageText,
-      });
-      for (const pattern of topicsPatterns)
+  async subscribe(topic: string, qos: MqttQos = 2): Promise<void> {
+    this.mqttClient.subscribe(topic, { qos }, (err?: Error | null) => {
+      if (err) {
+        this.serviceProvider.logger.error(
+          `MQTT subscribe failed for topic ${topic}`,
+          err,
+        );
+      }
+    });
+  }
+
+  handleMqttMessages(textPatterns: string[]): void {
+    this.serviceProvider.logger.debug(
+      `MQTT subscribed patterns: ${textPatterns.join(', ')}`,
+    );
+    this.mqttClient.on('message', (topic: string, message: Buffer) => {
+      this.serviceProvider.logger.debug(`Receive message on MQTT => ${topic}`);
+      const decoded = message.toString();
+      for (const pattern of textPatterns) {
         if (MqttPattern.matches(pattern, topic)) {
-          await this.serviceProvider.eventEmitter.emit(pattern, {
+          this.serviceProvider.eventEmitter.emit(pattern, {
             topic,
-            message: messageText,
+            message: decoded,
           });
         }
+      }
     });
   }
 }
