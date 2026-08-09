@@ -1,49 +1,31 @@
+import { LanguageCode } from 'src/extensions/translation/languageCode.enum';
 import { EmployeeRoles } from './employeeRoles.enum';
 
-export class SanawApiFindAllEmployeesResponseDto {
+export interface SanawApiFindAllEmployeesResponseDto {
   statusCode: number;
   data: SanawApiEmployeeDto[];
-
-  constructor(statusCode: number, data: SanawApiEmployeeDto[]) {
-    this.statusCode = statusCode;
-    this.data = data;
-  }
 }
 
-export class SanawApiFindOneEmployeeResponseDto {
+export interface SanawApiFindOneEmployeeResponseDto {
   statusCode: number;
   data: SanawApiEmployeeDto;
-
-  constructor(statusCode: number, data: SanawApiEmployeeDto) {
-    this.statusCode = statusCode;
-    this.data = data;
-  }
 }
 
-export class SanawApiUpdateRoleEmployeeResponseDto extends SanawApiFindOneEmployeeResponseDto {}
-export class SanawApiAddEmployeeResponseDto extends SanawApiFindOneEmployeeResponseDto {}
+export interface SanawApiUpdateRoleEmployeeResponseDto {
+  statusCode: number;
+  data: SanawApiEmployeeDto;
+}
+export interface SanawApiAddEmployeeResponseDto {
+  statusCode: number;
+  data: SanawApiEmployeeDto;
+}
 
-class SanawApiEmployeeDto {
+export interface SanawApiEmployeeDto {
   userId: string;
   roles: EmployeeRoles[];
   firstName: string;
   lastName: string;
   phoneNumber: string;
+  lang: LanguageCode;
   isOwner?: boolean;
-
-  constructor(
-    userId: string,
-    roles: EmployeeRoles[],
-    firstName: string,
-    lastName: string,
-    phoneNumber: string,
-    isOwner?: boolean,
-  ) {
-    this.userId = userId;
-    this.roles = roles;
-    this.firstName = firstName;
-    this.lastName = lastName;
-    this.phoneNumber = phoneNumber;
-    this.isOwner = isOwner;
-  }
 }

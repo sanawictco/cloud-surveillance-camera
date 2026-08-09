@@ -19,15 +19,15 @@ export class SanawApiEmployeeService {
   async findAll(
     userIds: string[],
   ): Promise<SanawApiFindAllEmployeesResponseDto> {
-    const url = `${AppConfig().sanawApiURL}/employees/findAll`;
+    const url = `${AppConfig().sanawApiURL}/employees`;
     try {
-      const res = await axios.post(
-        url,
-        {
+      const res = await axios.get(url, {
+        params: {
           userIds,
         },
-        { headers: SanawApiHeader() },
-      );
+        paramsSerializer: { indexes: null },
+        headers: SanawApiHeader(),
+      });
       return {
         statusCode: 200,
         data: res.data,
@@ -36,14 +36,12 @@ export class SanawApiEmployeeService {
       if (axios.isAxiosError(err) && err.response?.status === 400)
         throw new BadRequestException(err.response.data);
       else {
-        console.log('---------ApiWorkspaces is not avaiable---------');
-        console.log(err);
         throw new InternalServerErrorException(AppConfig().internalServerError);
       }
     }
   }
   async find(phoneNumber: string): Promise<SanawApiFindOneEmployeeResponseDto> {
-    const url = `${AppConfig().sanawApiURL}/employees/find/${phoneNumber}`;
+    const url = `${AppConfig().sanawApiURL}/employees/${phoneNumber}`;
     try {
       const res = await axios.get(url, { headers: SanawApiHeader() });
       return {
@@ -62,7 +60,7 @@ export class SanawApiEmployeeService {
     roles: EmployeeRoles[],
     operatorUserId: string,
   ): Promise<SanawApiUpdateRoleEmployeeResponseDto> {
-    const url = `${AppConfig().sanawApiURL}/employees/updateRoles/${userId}`;
+    const url = `${AppConfig().sanawApiURL}/employees/update-roles/${userId}`;
     try {
       const res = await axios.put(
         url,
