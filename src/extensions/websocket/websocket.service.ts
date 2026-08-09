@@ -1,3 +1,4 @@
+import { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import {
   OnGatewayConnection,
   OnGatewayDisconnect,
@@ -5,13 +6,16 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
-import { WsAuthService } from './wsAuth.service';
-import { ServiceProvider } from '../serviceProvider/serviceProvider.service';
-import { CacheService } from '../caching/cache.service';
-import { WsClientCachedModel } from './websocketClientCachedModel';
-import { Exact, WsRespnoseTypes } from './wsResponse.types.dto';
 import AppConfig from 'configs/app.config';
+import { Server, Socket } from 'socket.io';
+import { CacheService } from '../caching/cache.service';
+import { ServiceProvider } from '../serviceProvider/serviceProvider.service';
+import {
+  IShutdownHandler,
+  ShutdownOrchestratorService,
+} from '../shutdown/shutdown.service';
+import { WsAuthService } from './wsAuth.service';
+import { WsClientCachedModel } from './websocketClientCachedModel';
 
 enum WsChannels {
   DEVICES_SOCKET = 'DevicesSocket',
@@ -34,19 +38,59 @@ export interface WebsocketMsgBaseDto {
   },
 })
 export class WebsocketService
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+  implements
+    OnGatewayInit,
+    OnGatewayConnection,
+    OnGatewayDisconnect,
+    OnModuleInit,
+    OnModuleDestroy,
+    IShutdownHandler
 {
   constructor(
     private readonly cache: CacheService<WsClientCachedModel>,
     private readonly serviceProvider: ServiceProvider,
     private readonly wsAuthService: WsAuthService,
+    private readonly shutdownOrchestrator: ShutdownOrchestratorService,
   ) {}
+
   public readonly channels = WsChannels;
+
   @WebSocketServer()
-  private server!: Server;
+  private readonly server!: Server;
+
+  private _isShutDown = false;
+
+  async onModuleInit(): Promise<void> {
+    this.shutdownOrchestrator.registerHandler('WebSocket', this);
+  }
+
+  async shutdown(): Promise<void> {
+    if (this._isShutDown) return;
+    this._isShutDown = true;
+    if (!this.server) return;
+
+    this.server.emit('server:shutdown', {
+      message: 'Server is restarting. Please reconnect in a moment.',
+    });
+    this.server.disconnectSockets(true);
+
+    await new Promise<void>((resolve, reject) => {
+      this.server.close((err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    this.serviceProvider.logger.log('WebSocket server closed gracefully');
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    if (this._isShutDown) return;
+    if (this.shutdownOrchestrator.isShuttingDown) return;
+    await this.shutdown();
+  }
 
   async handleDisconnect(client: Socket) {
-    // room deleted automatically when it has no active user
     client.leave(client.id);
     await this.cache.delete(client.id);
     this.serviceProvider.logger.log(
@@ -57,17 +101,14 @@ export class WebsocketService
 
   async handleConnection(client: Socket) {
     const userInfo = await this.wsAuthService.validateWsClient(client);
-    if (!userInfo) {
-      client.disconnect();
-      return;
-    }
-    // create room
+    if (!userInfo) return client.disconnect();
     client.join(client.id);
     await this.cache.set(client.id, userInfo);
     this.serviceProvider.logger.log(
       `socketId= ${client.id} connected`,
       WebsocketService.name,
     );
+    return undefined;
   }
 
   afterInit() {
@@ -77,50 +118,51 @@ export class WebsocketService
     );
   }
 
-  async sendMessage<T>(
+  sendMessage<T extends WebsocketMsgBaseDto>(
     channel: WsChannels,
-    _wsMessage: Exact<WsRespnoseTypes, T>,
-  ) {
+    _wsMessage: T,
+  ): void {
     setTimeout(
       async () => {
-        const rooms = this.server.sockets.adapter.rooms.keys();
-        const wsMessage: any = structuredClone(_wsMessage);
-        let message = wsMessage.message || wsMessage.data.message;
-        for (const room of rooms) {
-          const cachedUserInfo: WsClientCachedModel | undefined =
-            await this.cache.get(room);
+        if (this._isShutDown) return;
+        try {
+          const rooms = [...this.server.sockets.adapter.rooms.keys()];
+          const wsMessage: any = structuredClone(_wsMessage);
+          const originalMessage = wsMessage.message ?? wsMessage.data?.message;
+          const cachedUsers = await this.cache.getMany(rooms);
 
-          if (!cachedUserInfo) return;
-          const { lang } = cachedUserInfo;
-          if (message && typeof message !== 'string') {
-            const { msgKey, msgParams } = message;
-            if (msgParams) {
-              message =
-                this.serviceProvider.translatorService.translateByPattern(
-                  msgKey,
-                  msgParams,
-                  lang,
-                );
-            } else {
-              message = this.serviceProvider.translatorService.translateByName(
-                msgKey,
-                lang,
-              );
+          for (const room of rooms) {
+            const cachedUserInfo = cachedUsers.get(room);
+            if (!cachedUserInfo) continue;
+
+            let message = originalMessage;
+            if (message && typeof message !== 'string') {
+              const { msgKey, msgParams } = message;
+              message = msgParams
+                ? this.serviceProvider.translatorService.translateByPattern(
+                    msgKey,
+                    msgParams,
+                    cachedUserInfo.lang,
+                  )
+                : this.serviceProvider.translatorService.translateByName(
+                    msgKey,
+                    cachedUserInfo.lang,
+                  );
             }
-          }
-          if (wsMessage.message) wsMessage.message = message; // for non systemlog messages
-          if (wsMessage.data.message) wsMessage.data.message = message; // for systemlog messages
 
-          // this.serviceProvider.logger.debug(
-          //   'websocket data sent...',
-          //   room,
-          //   channel,
-          //   wsMessage,
-          // );
-          this.server.to(room).emit(channel, wsMessage);
+            if (wsMessage.message) wsMessage.message = message;
+            if (wsMessage.data?.message) wsMessage.data.message = message;
+            this.server.to(room).emit(channel, wsMessage);
+          }
+        } catch (err) {
+          this.serviceProvider.logger.error(
+            `websocket sendMessage failed for channel ${channel}`,
+            err,
+            WebsocketService.name,
+          );
         }
       },
-      AppConfig().environment === 'development' ? 500 : 0, // only for check loaders in fronend
+      AppConfig().environment === 'development' ? 500 : 0,
     );
   }
 }
