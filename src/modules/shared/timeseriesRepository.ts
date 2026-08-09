@@ -17,6 +17,11 @@ import {
 } from 'src/extensions/tdengine/tdeinge.tokens';
 
 import {
+  ACTOR_LOG_SUPER_TABLE,
+  actorLogColumnNames,
+  actorLogColumnTypes,
+} from 'src/modules/actorLogs/domain/actorLog.type';
+import {
   SYSTEM_LOG_SUPER_TABLE,
   systemLogColumnNames,
   systemLogColumnTypes,
@@ -44,6 +49,17 @@ export class TimeseriesRepository {
     protected readonly tdengineRestOptions: TdengineRestOptions,
   ) {}
   async initSuperTables(): Promise<void> {
+    await this.tdengineClient.exec(
+      TimeSeriesDbExtension.createSuperTableQuery(
+        {
+          superTableName: ACTOR_LOG_SUPER_TABLE,
+          columnNames: actorLogColumnNames,
+          columnDataTypes: actorLogColumnTypes,
+        },
+        50,
+      ),
+    );
+
     await this.tdengineClient.exec(
       TimeSeriesDbExtension.createSuperTableQuery(
         {

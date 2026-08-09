@@ -14,7 +14,7 @@ import { CountAllSystemLogsQueryHandler } from './applicationService/queries/sys
 import { DeleteAllSystemLogCommandHandler } from './applicationService/commands/systemLog/deleteAllSystemLog.command';
 import { FindAllPaginatedSystemLogsQueryHandler } from './applicationService/queries/systemLog/findAllPaginatedSystemLogs.queryHandler';
 import { SystemLogRepository } from './infra/repositories/systemLog.timeseriesRepository';
-import { AppModule } from 'src/app.module';
+import { TDengineModule } from 'src/extensions/tdengine/tdengine.module';
 
 const commandHandlers: Provider[] = [
   CreateSystemLogCommandHandler,
@@ -40,7 +40,7 @@ const httpServices: Provider[] = [SystemLogService];
     CqrsModule,
     SanawApiModule,
     WsModule,
-    forwardRef(() => AppModule),
+    TDengineModule,
     forwardRef(() => EmployeeModule),
   ],
   providers: [
