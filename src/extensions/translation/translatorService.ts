@@ -16,31 +16,86 @@ export class TranslatorService implements TranslatorBase {
     lang: LanguageCode,
     section: DictionarySections,
   ): Partial<LanguageKeysBase> {
-    let dictionary: Partial<LanguageKeysBase>;
-    if (lang === LanguageCode.FA) {
-      dictionary = structuredClone(farsiValues);
-    } else if (lang === LanguageCode.EN) {
-      dictionary = structuredClone(englishValues);
-    } else if (lang === LanguageCode.AR) {
-      dictionary = structuredClone(arabicValues);
-    } else if (lang === LanguageCode.KU) {
-      dictionary = structuredClone(kurdiValues);
-    } else {
-      throw new BadRequestException('not supported');
+    const dictionary = this.getLanguageDictionaryByLang(lang);
+    return this.filterDictionaryBySection(dictionary, section);
+  }
+
+  private getLanguageDictionaryByLang(
+    lang: LanguageCode,
+  ): Partial<LanguageKeysBase> {
+    const dictionaryMap: Record<LanguageCode, LanguageKeysBase> = {
+      [LanguageCode.FA]: farsiValues,
+      [LanguageCode.EN]: englishValues,
+      [LanguageCode.AR]: arabicValues,
+      [LanguageCode.KU]: kurdiValues,
+    };
+
+    const dictionary = dictionaryMap[lang];
+
+    if (!dictionary) {
+      throw new BadRequestException(`Language code '${lang}' is not supported`);
     }
 
-    for (const key of Object.keys(dictionary) as (keyof LanguageKeysBase)[]) {
-      const dictionarySection = dictionary[key];
-      if (!dictionarySection) continue;
-      const sectionValues = dictionarySection as Record<string, unknown>;
-      for (const innerKey in sectionValues) {
-        if (innerKey !== section) delete sectionValues[innerKey];
+    return structuredClone(dictionary);
+  }
+
+  private filterDictionaryBySection(
+    dictionary: Partial<LanguageKeysBase>,
+    section: DictionarySections,
+  ): Partial<LanguageKeysBase> {
+    const filteredDictionary = { ...dictionary };
+
+    for (const [key, value] of Object.entries(filteredDictionary) as Array<
+      [keyof LanguageKeysBase, any]
+    >) {
+      const typedKey = key;
+
+      if (this._shouldRemoveTopLevelKey(typedKey)) {
+        delete filteredDictionary[typedKey];
+        continue;
       }
-      if (Object.keys(dictionarySection).length === 0) delete dictionary[key];
+
+      if (value) {
+        this.filterInnerDictionary(value, section);
+
+        if (Object.keys(value).length === 0) {
+          delete filteredDictionary[typedKey];
+        }
+      }
     }
-    // delete dictionary.exposedApi;
-    // delete dictionary.others;
-    return dictionary;
+    return filteredDictionary;
+  }
+
+  private _shouldRemoveTopLevelKey(key: keyof LanguageKeysBase): boolean {
+    return key === 'others';
+  }
+
+  private filterInnerDictionary(
+    innerDict: Record<string, unknown>,
+    section: DictionarySections,
+  ): void {
+    for (const innerKey of Object.keys(innerDict)) {
+      if (innerKey === section) {
+        continue;
+      }
+
+      const value = innerDict[innerKey];
+
+      if (
+        typeof value === 'object' &&
+        value !== null &&
+        section in (value as object)
+      ) {
+        // one level deeper (e.g. exposedApi.mqtt, exposedApi.rest)
+        this.filterInnerDictionary(value as Record<string, unknown>, section);
+
+        if (Object.keys(value as object).length === 0) {
+          delete innerDict[innerKey];
+        }
+      } else {
+        delete innerDict[innerKey];
+      }
+    }
   }
 
   translateByName(
@@ -64,7 +119,7 @@ export class TranslatorService implements TranslatorBase {
   translateByPattern(
     keychain: string,
     params: unknown[],
-    lang: LanguageCode = LanguageCode.EN,
+    lang: LanguageCode = LanguageCode.FA,
   ): string {
     switch (lang) {
       case LanguageCode.EN:
@@ -93,19 +148,14 @@ export class TranslatorService implements TranslatorBase {
   }
 }
 
-const getObjectPropertyByStringKeyChain = (
-  object: object,
-  keychain: string,
-): string => {
-  if (!keychain) return '';
+const getObjectPropertyByStringKeyChain = (object: any, keychain: any) => {
+  if (!keychain) return keychain;
   try {
-    const value = keychain.split('.').reduce<unknown>((current, property) => {
-      if (!current || typeof current !== 'object') return undefined;
-      return (current as Record<string, unknown>)[property];
-    }, object);
-    return typeof value === 'string' ? value : '';
+    const result = keychain
+      .split('.')
+      .reduce((p: any, prop: any) => p?.[prop], object);
+    return result ?? keychain;
   } catch (e) {
-    console.log('>>>>>>>>', keychain, e);
-    return '';
+    return keychain;
   }
 };
