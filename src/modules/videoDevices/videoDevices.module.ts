@@ -38,8 +38,8 @@ import { RestoreCamerasToCacheCommandHandler } from './applicationService/comman
 import { FindAllDeletedCamerasByDeletedSerialNumbersQueryHandler } from './applicationService/queries/camera/findAllDeletedCamerasByDeletedSerialNumbers.queryHandler';
 import { VideoDevicesApiForDashboardService } from './applicationService/services/apiForAnotherServices/videoDevicesApiForDashboard.service';
 import { VideoDevicesApiForFogCommunicationManagerService } from './applicationService/services/apiForAnotherServices/videoDevicesApiForFogCommunicationManager.service';
-import { NvrValidator } from './applicationService/services/http/validators/nvr.validator';
-import { CameraValidator } from './applicationService/services/http/validators/camera.validator';
+import { NvrValidator } from './applicationService/services/validators/nvr.validator';
+import { CameraValidator } from './applicationService/services/validators/camera.validator';
 import { VideoDeviceConfigQueueService } from './applicationService/services/queues/videoDeviceConfig/videoDeviceQueue.service';
 import { VideoDeviceDataQueueService } from './applicationService/services/queues/videoDeviceData/videoDeviceDataQueue.service';
 import { NVR_REPOSITORY } from './infra/nvr/nvr.diToken';

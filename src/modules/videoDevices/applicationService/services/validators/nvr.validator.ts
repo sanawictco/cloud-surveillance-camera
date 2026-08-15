@@ -7,17 +7,18 @@ import {
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import { LanguageKeys } from 'src/extensions/translation/languageKeys.base';
 import { CamerasNamesDto } from 'src/modules/videoDevices/contracts/camera/camerasNames.dto';
-import { AutoRegisterRequestDto } from 'src/modules/videoDevices/contracts/nvr/http/autoRegister.request.dto';
+import { AutoRegisterRequestDto } from 'src/modules/videoDevices/contracts/nvr/http/request/autoRegister.request.dto';
 import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
 import { CreateCameraProps } from 'src/modules/videoDevices/domain/camera/camera.type';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
 import { v4 } from 'uuid';
-import { FindAllCamerasQuery } from '../../../queries/camera/findAllCameras.queryHandler';
-import { FindAllDeletedCamerasByDeletedSerialNumbersQuery } from '../../../queries/camera/findAllDeletedCamerasByDeletedSerialNumbers.queryHandler';
-import { FindCameraBySerialNumberQuery } from '../../../queries/camera/findCameraBySerialNumber.queryHandler';
-import { FindNvrByIdQuery } from '../../../queries/nvr/findNvrById.queryHandler';
-import { FindNvrBySerialNumberQuery } from '../../../queries/nvr/findNvrBySerialNumber.queryHandler';
-import { FindNvrByNameQuery } from '../../../queries/nvr/findNvrByName.queryHandler';
+import { FindAllCamerasQuery } from '../../queries/camera/findAllCameras.queryHandler';
+import { FindAllDeletedCamerasByDeletedSerialNumbersQuery } from '../../queries/camera/findAllDeletedCamerasByDeletedSerialNumbers.queryHandler';
+import { FindCameraBySerialNumberQuery } from '../../queries/camera/findCameraBySerialNumber.queryHandler';
+import { FindNvrByIdQuery } from '../../queries/nvr/findNvrById.queryHandler';
+import { FindNvrBySerialNumberQuery } from '../../queries/nvr/findNvrBySerialNumber.queryHandler';
+import { FindNvrByNameQuery } from '../../queries/nvr/findNvrByName.queryHandler';
+import { AutoRegisterFullContent } from 'src/modules/videoDevices/contracts/nvr/dtos/autoRegisterDevices.dto';
 
 @Injectable()
 export class NvrValidator {
@@ -26,6 +27,7 @@ export class NvrValidator {
     private readonly cacheService: CacheService<AutoScanAllCamerasInformationResDto>,
     private readonly CamerasNamesCacheService: CacheService<CamerasNamesDto>,
   ) {}
+
   private isValidAddedCameras(
     addedCameraMacAddresses: string[],
     scanedCameras: ScanedCamera[],
@@ -191,33 +193,6 @@ export class NvrValidator {
     return { finalAddedCameras, finalDeletedCamerasSerialNumbers };
   }
 
-  async checkAutoRegisterBodyIsValidAndFormatizeBody(
-    body: AutoRegisterRequestDto,
-    nvrEntity: NvrEntity,
-  ): Promise<{
-    finalAddedCameras: CreateCameraProps[];
-    finalDeletedCamerasSerialNumbers: string[];
-  }> {
-    const scanedCameras = await this.checkAutoRegisterCamerasAreValid(
-      nvrEntity,
-      body.addedCameras,
-      body.deletedCameras,
-    );
-    const camerasNames = await this.CamerasNamesCacheService.get(
-      nvrEntity.getCacheKeys().namingCamerasData ?? '',
-    );
-    if (!camerasNames) throw new Error('camerasNames is not exist');
-    const result = await this.createAutoRegisterFullContent(
-      body.addedCameras,
-      body.deletedCameras,
-      camerasNames,
-      scanedCameras,
-      nvrEntity,
-    );
-
-    return result;
-  }
-
   async checkNvrShouldBeActiveAndHasConnectedStatus(nvrEntity: NvrEntity) {
     if (!nvrEntity.getProps().isActive)
       throw new BadRequestException(
@@ -319,5 +294,10 @@ export class NvrValidator {
         ),
       );
     return true;
+  }
+
+  async checkNvrShouldNotBeInCloudRecoveryMode(nvrEntity: NvrEntity) {
+    if (nvrEntity.getProps().cloudIsRecovering)
+      throw new BadRequestException('nvr is in cloud recovery mode');
   }
 }

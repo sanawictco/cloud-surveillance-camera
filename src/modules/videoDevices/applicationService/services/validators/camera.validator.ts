@@ -2,8 +2,8 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import { LanguageKeys } from 'src/extensions/translation/languageKeys.base';
 import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
-import { FindCameraByIdQuery } from '../../../queries/camera/findCameraById.queryHandler';
-import { FindCameraByNameQuery } from '../../../queries/camera/findCameraByName.queryHandler';
+import { FindCameraByIdQuery } from '../../queries/camera/findCameraById.queryHandler';
+import { FindCameraByNameQuery } from '../../queries/camera/findCameraByName.queryHandler';
 
 @Injectable()
 export class CameraValidator {

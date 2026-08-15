@@ -4,7 +4,7 @@ import { Injectable } from '@nestjs/common';
 import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.vo';
 import { BusinessId } from 'src/dddLib/core/businessId.vo';
 import { Name } from 'src/modules/shared/valueObjects/name.vo';
-import { NvrResponseDto } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/contracts/nvr/http/nvr.response.dto';
+import { NvrResponseDto } from '../../contracts/nvr/http/response/nvr.response.dto';
 import { NvrEntity } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/domain/nvr/nvr.entity';
 import { AccessToken } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/domain/nvr/valueObjects/accessToken.vo';
 import { CloudIsRecovering } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/domain/nvr/valueObjects/cloudIsRecovering.vo';

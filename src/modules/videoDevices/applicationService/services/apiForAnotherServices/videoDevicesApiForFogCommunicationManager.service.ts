@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { MqttService } from 'src/extensions/mqtt/mqtt.service';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
-import { NvrValidator } from '../http/validators/nvr.validator';
+import { NvrValidator } from '../validators/nvr.validator';
 import { NvrSystemLogService } from '../systemLogs/nvrSystemLog.service';
 import { NvrLiveSignalService } from '../liveSignals/nvrLiveSignal.service';
 import { NvrRunningConfigService } from '../runningConfigs/nvrRunningConfig.service';

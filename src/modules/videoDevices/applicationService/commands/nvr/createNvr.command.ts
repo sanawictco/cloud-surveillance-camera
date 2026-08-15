@@ -16,6 +16,7 @@ import { CreateNvrProps } from 'src/modules/videoDevices/domain/nvr/nvr.type';
 export class CreateNvrCommand extends Command implements CreateNvrProps {
   readonly name: string;
   readonly tenantId: string;
+  readonly productModel: string;
   readonly serialNumber: string;
   readonly accessToken: string;
   readonly password: string;
@@ -25,6 +26,7 @@ export class CreateNvrCommand extends Command implements CreateNvrProps {
     super(props);
     this.name = props.name;
     this.tenantId = props.tenantId;
+    this.productModel = props.productModel;
     this.serialNumber = props.serialNumber;
     this.accessToken = props.accessToken;
     this.password = props.password;
@@ -46,6 +48,7 @@ export class CreateNvrCommandHandler implements ICommandHandler<CreateNvrCommand
     const nvr = NvrEntity.create({
       name: command.name,
       tenantId: command.tenantId,
+      productModel: command.productModel,
       serialNumber: command.serialNumber,
       accessToken: command.accessToken,
       password: command.password,

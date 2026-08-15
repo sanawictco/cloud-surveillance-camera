@@ -8,6 +8,7 @@ import { DeletePageCommand } from '../commands/deletePage.command';
 import { RestorePagesToCacheCommand } from '../commands/restorePagesToCache.command';
 import { UpdatePageCommand } from '../commands/updatePage.command';
 import { FindAllPagesQuery } from '../queries/findAllPages.queryHandler';
+import { DashboardPageProjection } from 'src/dddLib/contracts/dashboardPage.projection';
 
 @Injectable()
 export class DashboardApiForVideoDevicesService {
@@ -56,7 +57,7 @@ export class DashboardApiForVideoDevicesService {
     }
   }
 
-  async getDependentPages(nvrId: string): Promise<PageResponseDto[]> {
+  async getDependentPages(nvrId: string): Promise<DashboardPageProjection[]> {
     const dependentPageEntities: PageEntity[] =
       await this.serviceProvider.queryBus.execute(
         new FindAllPagesQuery({
@@ -65,7 +66,10 @@ export class DashboardApiForVideoDevicesService {
           },
         }),
       );
-    return this.pageMapper.toResponseAll(dependentPageEntities);
+    return dependentPageEntities.map((page) => ({
+      id: page.id,
+      type: page.getProps().type,
+    }));
   }
 
   async restoreToCache() {

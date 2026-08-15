@@ -4,8 +4,8 @@ import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.enti
 import { CameraHardwareSendCommands } from 'src/modules/videoDevices/domain/camera/camera.type';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
 import { FindNvrByIdQuery } from '../../queries/nvr/findNvrById.queryHandler';
-import { CameraValidator } from '../http/validators/camera.validator';
-import { NvrValidator } from '../http/validators/nvr.validator';
+import { CameraValidator } from '../validators/camera.validator';
+import { NvrValidator } from '../validators/nvr.validator';
 import { CameraRunningConfigAndCommandService } from '../runningConfigs/cameraRunningConfigAndCommand.service';
 import { VideoDevicesApiBaseService } from './videoDevicesApi.base.service';
 

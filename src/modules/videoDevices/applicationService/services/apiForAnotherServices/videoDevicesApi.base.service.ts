@@ -1,7 +1,7 @@
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
 import { FindCameraByIdQuery } from '../../queries/camera/findCameraById.queryHandler';
-import { CameraValidator } from '../http/validators/camera.validator';
+import { CameraValidator } from '../validators/camera.validator';
 
 export class VideoDevicesApiBaseService {
   constructor(
