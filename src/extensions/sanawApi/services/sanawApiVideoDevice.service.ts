@@ -4,13 +4,12 @@ import AppConfig from 'configs/app.config';
 import { AllDevicesAutoScanInformationReqDto } from '../dtos/devices/request/allDevicesAutoScanInformationReq.dto';
 import { AutoScanAllCamerasInformationResDto } from '../dtos/devices/response/allDevicesAutoScanInformation.response.dto';
 import { SanawApiHeader } from '../dtos/sanawApi.header';
-import { NvrAutoScanInformationResponseDto } from '../dtos/devices/response/nvrAutoScanInformation.response.dto';
+import { NvrScanInfoResponseDto } from '../dtos/devices/response/nvrScanInfo.response.dto';
+import { NvrRegisterInfoResponseDto } from '../dtos/devices/response/nvrRegisterInfo.response.dto';
 
 @Injectable()
 export class SanawApiVideoDeviceService {
-  async getAutoScanInformationOfNvr(
-    serialNumber: string,
-  ): Promise<NvrAutoScanInformationResponseDto> {
+  async scan(serialNumber: string): Promise<NvrScanInfoResponseDto> {
     const url = `${
       AppConfig().sanawApiURL
     }/video-devices/manufactured-nvrs/get-auto-scan-information`;
@@ -36,10 +35,7 @@ export class SanawApiVideoDeviceService {
     }
   }
 
-  async getAutoRegisterInformationOfNvr(
-    serialNumber: string,
-    _communicationStructureId: number,
-  ): Promise<NvrAutoScanInformationResponseDto> {
+  async registerNvr(serialNumber: string): Promise<NvrRegisterInfoResponseDto> {
     const url = `${
       AppConfig().sanawApiURL
     }/video-devices/manufactured-nvrs/get-auto-register-information`;

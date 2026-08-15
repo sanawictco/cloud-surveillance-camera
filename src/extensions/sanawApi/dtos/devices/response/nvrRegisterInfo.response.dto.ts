@@ -1,11 +1,11 @@
-export class nvrAutoRegisterInformationResponseDto {
+export class NvrRegisterInfoResponseDto {
   statusCode: number;
   data: {
     accessToken: string;
     password: string;
     serialNumber: string;
     productModel: string;
-    maxCamers: number;
+    maxCameras: number;
   };
   constructor(
     statusCode: number,
@@ -14,7 +14,7 @@ export class nvrAutoRegisterInformationResponseDto {
       password: string;
       serialNumber: string;
       productModel: string;
-      maxCamers: number;
+      maxCameras: number;
     },
   ) {
     this.statusCode = statusCode;
