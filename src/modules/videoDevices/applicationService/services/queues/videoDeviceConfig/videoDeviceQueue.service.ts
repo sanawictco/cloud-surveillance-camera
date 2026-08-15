@@ -69,19 +69,14 @@ export class VideoDeviceConfigQueueService implements OnModuleInit {
     const msg: VideoDeviceConfigQueueMsgDto = queueMsg.data;
     if (msg.metadata.retryCount === queueMsg.opts.repeat?.count) return;
     await this.mqttService.publish(msg.metadata.topic, msg.msgId);
-    console.log(
-      'send videoDeviceConfig on mqtt=> ',
-      msg,
-      'currentRetryCount =>',
-      queueMsg.opts.repeat?.count,
-      'sendTime: ',
-      new Date(queueMsg.timestamp).toLocaleString(),
+    this.serviceProvider.logger.debug(
+      `publish deviceConfig msgId=${msg.msgId} configType=${msg.configType} retry=${queueMsg.opts.repeat?.count}`,
     );
   }
   private async expiredMsgHandler(queueMsg: QueueMsg) {
     const msg: VideoDeviceConfigQueueMsgDto = queueMsg.data;
-    console.log(
-      'expired videoDeviceConfig msg ===============',
+    this.serviceProvider.logger.debug(
+      'expired videoDeviceConfig msgId =',
       msg.msgId,
       msg.configType,
     );

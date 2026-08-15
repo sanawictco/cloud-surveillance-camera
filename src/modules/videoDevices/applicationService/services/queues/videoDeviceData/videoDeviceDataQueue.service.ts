@@ -67,19 +67,17 @@ export class VideoDeviceDataQueueService implements OnModuleInit {
     const msg: VideoDeviceDataQueueMsgDto = queueMsg.data;
     if (msg.metadata.retryCount === queueMsg.opts.repeat?.count) return;
     await this.mqttService.publish(msg.metadata.topic, msg.data);
-    console.log(
-      'send videoDeviceData on mqtt=> ',
-      msg,
-      'currentRetryCount =>',
-      queueMsg.opts.repeat?.count,
-      'sendTime: ',
-      new Date(queueMsg.timestamp).toLocaleString(),
+    this.serviceProvider.logger.debug(
+      `publish deviceData msgId=${msg.msgId} retry=${queueMsg.opts.repeat?.count}`,
     );
   }
 
   private async expiredMsgHandler(queueMsg: QueueMsg) {
     const msg: VideoDeviceDataQueueMsgDto = queueMsg.data;
-    console.log('expired videoDeviceData msg ===============', msg.msgId);
+    this.serviceProvider.logger.debug(
+      'expired videoDeviceData msgId=',
+      msg.msgId,
+    );
     const { entityType, entityId } = msg.metadata;
     if (entityType === VideoDeviceEntityTypes.NVR) {
       const nvrEntity: NvrEntity = await this.serviceProvider.queryBus.execute(

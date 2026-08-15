@@ -1,24 +1,11 @@
 import { ActorDto } from 'src/modules/shared/dtos/actor.dto';
-import { VideoDeviceEntityTypes } from 'src/modules/videoDevices/shared/valueObjects/videoDeviceEntityTypes';
+import { VideoDeviceFogCommandMessage } from 'src/modules/videoDevices/domain/videoDeviceFogMessage.type';
 
-export class VideoDeviceDataQueueMsgDto {
-  msgId: string;
-  configType: string;
-  data: string;
-  metadata: {
-    topic: string;
-    retryCount: number;
-    retryPeriodInSecond: number;
-    entityId: string;
-    entityType: VideoDeviceEntityTypes;
+export interface VideoDeviceDataQueueMsgDto extends Omit<
+  VideoDeviceFogCommandMessage,
+  'metadata'
+> {
+  metadata: VideoDeviceFogCommandMessage['metadata'] & {
     actorProps?: ActorDto;
-    issuedAt?: number;
   };
-
-  constructor(props: VideoDeviceDataQueueMsgDto) {
-    this.msgId = props.msgId;
-    this.configType = props.configType;
-    this.data = props.data;
-    this.metadata = props.metadata;
-  }
 }

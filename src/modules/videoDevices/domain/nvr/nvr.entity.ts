@@ -150,20 +150,22 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
   }
 
   private getCloudSubOnFogMqttTopics(): Record<string, string> {
+    const tenantId: AggregateID = this.getProps().tenantId;
     return Object.fromEntries(
       Object.entries(NvrCloudSubOnFogMqttTopics).map(([key, topic]) => [
         key,
-        topic.replace('+', this.id),
+        topic.replace('+', tenantId).replace('+', this.id),
       ]),
     );
   }
 
   getCloudPubToFogMqttTopics(): NvrCloudPubToFogMqttTopics {
+    const tenantId: AggregateID = this.getProps().tenantId;
     const mqttPublishTopicsObject: NvrCloudPubToFogMqttTopics = {
-      videoDeviceConfigs: `${this.id}/videoDevice/Config/pub`,
-      cloudRecoveryDataAck: `${this.id}/cloudRecoveryData/pub`,
-      cloudIsAvailable: `${this.id}/cloudIsAvailable/pub`,
-      pageConfig: `${this.id}/page/config/pub`,
+      videoDeviceConfigs: `${tenantId}/${this.id}/videoDevice/Config/pub`,
+      cloudRecoveryDataAck: `${tenantId}/${this.id}/cloudRecoveryData/pub`,
+      cloudIsAvailable: `${tenantId}/${this.id}/cloudIsAvailable/pub`,
+      pageConfig: `${tenantId}/${this.id}/page/config/pub`,
     };
 
     const cameraPublishTopics = this.transformSubscribeToPublishTopics(
@@ -209,7 +211,7 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
     };
     let data: object | string = {};
     switch (configType) {
-      case NvrConfigs.ACTIVE_NVR:
+      case NvrConfigs.ACTIVE:
         data = (body ?? {}) as object;
         break;
 
@@ -219,15 +221,15 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
         config.metadata.retryPeriodInSecond = 40;
         break;
 
-      case NvrConfigs.UPDATE_NVR:
+      case NvrConfigs.UPDATE:
         data = {
           ...this.update((body ?? {}) as UpdateNvrProps).getProps(),
           runningConfigs: undefined,
         };
         break;
 
-      case NvrConfigs.IN_ACTIVE_NVR:
-      case NvrConfigs.DELETE_NVR:
+      case NvrConfigs.IN_ACTIVE:
+      case NvrConfigs.DELETE:
         data = { id: this.id };
         break;
 

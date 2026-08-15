@@ -40,11 +40,11 @@ export class NvrSystemLogService {
     if (fogSystemLog)
       return await this.handleFogSystemLog(metadata, fogSystemLog);
     switch (configType) {
-      case NvrConfigs.UPDATE_NVR:
+      case NvrConfigs.UPDATE:
         return await this.update(entity, msgId);
-      case NvrConfigs.ACTIVE_NVR:
+      case NvrConfigs.ACTIVE:
         return await this.active(entity, msgId);
-      case NvrConfigs.IN_ACTIVE_NVR:
+      case NvrConfigs.IN_ACTIVE:
         return await this.inactive(entity, msgId);
       case NvrConfigs.FOG_LIVE_SIGNAL:
         return await this.fogLiveSignal(entity);
@@ -68,7 +68,7 @@ export class NvrSystemLogService {
         entityId: nvrProps.id,
       },
       SystemLogWebSocketTypes.CONFIG,
-      { configType: NvrSystemLogConfigTypes.UPDATE_NVR, msgId },
+      { configType: NvrSystemLogConfigTypes.UPDATE, msgId },
     );
   }
 
@@ -85,7 +85,7 @@ export class NvrSystemLogService {
         entityId: nvrProps.id,
       },
       SystemLogWebSocketTypes.CONFIG,
-      { configType: NvrSystemLogConfigTypes.ACTIVE_NVR, msgId },
+      { configType: NvrSystemLogConfigTypes.ACTIVE, msgId },
     );
   }
 
@@ -102,7 +102,7 @@ export class NvrSystemLogService {
         entityId: nvrProps.id,
       },
       SystemLogWebSocketTypes.CONFIG,
-      { configType: NvrSystemLogConfigTypes.IN_ACTIVE_NVR, msgId },
+      { configType: NvrSystemLogConfigTypes.IN_ACTIVE, msgId },
     );
   }
 

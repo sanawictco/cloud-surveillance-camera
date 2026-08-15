@@ -17,10 +17,10 @@ import { MaxCameras } from './valueObjects/maxCameras.vo';
 export interface NvrValueObjects {
   name: Name;
   readonly tenantId: BusinessId;
-  serialNumber: SerialNumber;
-  accessToken: AccessToken;
+  readonly serialNumber: SerialNumber;
+  readonly accessToken: AccessToken;
+  readonly maxCameras: MaxCameras;
   password: NvrPassword;
-  maxCameras: MaxCameras;
   lang: NvrLanguage;
   isActive: IsActive;
   liveSignalStatus: LiveSignalStatus;
@@ -30,11 +30,11 @@ export interface NvrValueObjects {
 
 export interface NvrProps {
   name: string;
-  tenantId: string;
-  serialNumber: string;
-  accessToken: string;
+  readonly tenantId: string;
+  readonly serialNumber: string;
+  readonly accessToken: string;
+  readonly maxCameras: number;
   password: string;
-  maxCameras: number;
   lang: LanguageCode;
   isActive: boolean;
   liveSignalStatus: LiveSignalStatuses;
@@ -44,11 +44,12 @@ export interface NvrProps {
 
 export interface CreateNvrProps {
   name: string;
-  tenantId: string;
-  serialNumber: string;
-  accessToken: string;
+  readonly tenantId: string;
+  readonly productModel: string;
+  readonly serialNumber: string;
+  readonly accessToken: string;
+  readonly maxCameras: number;
   password: string;
-  maxCameras: number;
 }
 
 export interface UpdateNvrProps {
@@ -60,36 +61,30 @@ export interface UpdateNvrProps {
   runningConfigs?: Record<string, string>;
 }
 
-export class NvrCloudPubToFogMqttTopics {
+export interface NvrCloudPubToFogMqttTopics {
   videoDeviceConfigs: string;
-  cloudRecoveryDataAck: string; // this topic sufficient for cloud recovery
+  cloudRecoveryDataAck: string;
   cloudIsAvailable: string;
   pageConfig: string;
-
-  constructor(props: NvrCloudPubToFogMqttTopics) {
-    this.videoDeviceConfigs = props.videoDeviceConfigs;
-    this.cloudRecoveryDataAck = props.cloudRecoveryDataAck;
-    this.cloudIsAvailable = props.cloudIsAvailable;
-    this.pageConfig = props.pageConfig;
-  }
 }
 
 export const NvrCloudSubOnFogMqttTopics = {
-  videoDeviceConfigs: `+/videoDevice/Config/sub`,
-  cameraCommands: `+/camera/data/sub`,
-  videoDevicesSystemLogs: `+/videoDevices/systemLogs/sub`,
-  pageConfigs: `+/page/config/sub`,
+  // first + is tenantId and second + is nvrId
+  videoDeviceConfigs: `+/+/videoDevice/Config/sub`,
+  cameraCommands: `+/+/camera/data/sub`,
+  videoDevicesSystemLogs: `+/+/videoDevices/systemLogs/sub`,
+  pageConfigs: `+/+/page/config/sub`,
 };
 
 export enum NvrConfigs {
-  UPDATE_NVR = 'updateNvr',
-  DELETE_NVR = 'deleteNvr',
-  ACTIVE_NVR = 'activeNvr',
-  IN_ACTIVE_NVR = 'inactiveNvr',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  ACTIVE = 'active',
+  IN_ACTIVE = 'inactive',
+  SEARCH = 'search',
   REGISTER = 'register',
   FOG_LIVE_SIGNAL = 'fogLiveSignal',
   CLOUD_IS_RECOVERING = 'cloudIsRecovering',
-  SEARCH = 'search',
   SOFT_DELETE_MULTI_CAMERAS = 'softDeleteMultiCameras',
 }
 
@@ -99,11 +94,11 @@ export enum NvrWebSocketDataTypes {
 }
 
 export enum NvrWebSocketConfigTypes {
-  UPDATE_NVR = 'updateNvr',
-  CREATE_NVR = 'createNvr',
-  DELETE_NVR = 'deleteNvr',
-  ACTIVE_NVR = 'activeNvr',
-  IN_ACTIVE_NVR = 'inactiveNvr',
+  UPDATE = 'update',
+  CREATE = 'create',
+  DELETE = 'delete',
+  ACTIVE = 'active',
+  IN_ACTIVE = 'inactive',
   SEARCH = 'search',
   REGISTER = 'register',
 }
@@ -114,15 +109,18 @@ export enum NvrSystemLogDataTypes {
 }
 
 export enum NvrSystemLogConfigTypes {
-  ACTIVE_NVR = 'activeNvr',
-  IN_ACTIVE_NVR = 'inactiveNvr',
-  UPDATE_NVR = 'updateNvr',
+  ACTIVE = 'active',
+  IN_ACTIVE = 'inactive',
+  UPDATE = 'update',
 }
 
 export enum NvrSystemLogConfigTypesFromFog {
   UPDATE_HARDWARE_CONFIG = 'updateHardwareConfig',
   REGISTER = 'register',
 }
+export const NonLockedNvrConfingsOrCommands: NvrConfigs[] = [
+  NvrConfigs.REGISTER,
+];
 
 export type NvrLanguageKeys = {
   nvr: {
