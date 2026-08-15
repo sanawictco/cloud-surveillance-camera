@@ -55,7 +55,7 @@ const AppConfig = () => {
     redis: {
       host: env.get('REDIS_HOST').required().asString(),
       port: env.get('REDIS_PORT').required().asPortNumber(),
-      db: env.get('REDIS_DB').default('1').asIntPositive(),
+      db: env.get('REDIS_DB').default('3').asIntPositive(),
       password: env.get('REDIS_PASSWORD').asString() || undefined,
     },
     mqtt: {

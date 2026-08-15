@@ -20,7 +20,7 @@ import { CACHE_CLIENT } from './diTokens/cache.diToken';
           host: AppConfig().redis.host,
           port: AppConfig().redis.port,
           password: AppConfig().redis.password, // optional; undefined == no AUTH
-          db: 0, // Dedicated cache DB, intentionally separate from the
+          db: 2, // Dedicated cache DB, intentionally separate from the
           // BullMQ queue DB (AppConfig().redis.db, env REDIS_DB, default 1).
           // Pinned to 0 so the dev/test bootstrap flush and clearAll only ever
           // touch cache keys - never queue data. Do NOT repoint to the queue DB.
