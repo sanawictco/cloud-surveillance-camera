@@ -11,6 +11,7 @@ import { ToDisconnectedCameraLiveSignalWsResponseDto } from '../../../contracts/
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
 import { LiveSignalStatuses } from 'src/modules/videoDevices/shared/valueObjects/liveSignalStatus.vo';
 import { CameraRunningConfigAndCommandService } from '../runningConfigs/cameraRunningConfigAndCommand.service';
+import { ToConnectingCameraLiveSignalWsResponseDto } from 'src/modules/videoDevices/contracts/camera/websocket/toConnectingCameraLiveSignal.wsResponse.dto';
 
 @Injectable()
 export class CameraLiveSignalService {
@@ -40,6 +41,28 @@ export class CameraLiveSignalService {
         data: {
           id: cameraEntity.id,
           liveSignalStatus: LiveSignalStatuses.CONNECTED,
+        },
+        metadata: {
+          dataType: CameraWebSocketDataTypes.LIVE_SIGNAL,
+        },
+      },
+    );
+  }
+
+  async toConnecting(cameraEntity: CameraEntity) {
+    await this.serviceProvider.commandBus.execute(
+      new UpdateCameraCommand({
+        id: cameraEntity.id,
+        liveSignalStatus: LiveSignalStatuses.CONNECTING,
+      }),
+    );
+    this.websocketService.sendMessage<ToConnectingCameraLiveSignalWsResponseDto>(
+      this.websocketService.channels.DEVICES_SOCKET,
+      {
+        type: WebSocketTypes.DATA,
+        data: {
+          id: cameraEntity.id,
+          liveSignalStatus: LiveSignalStatuses.CONNECTING,
         },
         metadata: {
           dataType: CameraWebSocketDataTypes.LIVE_SIGNAL,

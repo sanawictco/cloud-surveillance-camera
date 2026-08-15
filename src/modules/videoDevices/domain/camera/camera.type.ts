@@ -84,7 +84,7 @@ export enum CameraWebSocketDataTypes {
 
 export enum CameraSoftwareConfigs {
   UPDATE_CAMERA = 'UPDATE_CAMERA',
-  HARD_DELETE_MULTI_END_DEVICES = 'hardDeleteMultiEndDevices',
+  HARD_DELETE_MULTI_CAMERAS = 'hardDeleteMultiCameras',
 }
 
 export enum CameraHardwareSendCommands {

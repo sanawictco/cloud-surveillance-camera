@@ -1,6 +1,7 @@
 import { ValueObject } from 'src/dddLib/core';
 import { ArgumentInvalidException } from 'src/dddLib/core/exceptions';
 export enum LiveSignalStatuses {
+  CONNECTING = 0,
   CONNECTED = 1,
   DIS_CONNECTED = 2,
 }

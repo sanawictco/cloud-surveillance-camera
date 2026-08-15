@@ -35,7 +35,7 @@ export class NvrLiveSignalService {
           [],
         );
       },
-      60_000,
+      50_000,
       nvrEntity.id,
     );
   }
@@ -48,6 +48,18 @@ export class NvrLiveSignalService {
           liveSignalStatus: LiveSignalStatuses.CONNECTED,
         }),
       );
+      const dependentCameraEntities: CameraEntity[] =
+        await this.serviceProvider.queryBus.execute(
+          new FindAllCamerasQuery({
+            filter: {
+              nvrId: nvrEntity.id,
+              isActive: true,
+            },
+          }),
+        );
+      for (const dependentCameraEntity of dependentCameraEntities) {
+        await this.cameraLiveSignalService.toConnecting(dependentCameraEntity);
+      }
     }
     this.websocketService.sendMessage<ToConnectedNvrLiveSignalWsResponseDto>(
       this.websocketService.channels.DEVICES_SOCKET,
@@ -65,43 +77,51 @@ export class NvrLiveSignalService {
   }
 
   async toDisconnected(nvrEntity: NvrEntity) {
-    if (nvrEntity.isDisconnected()) return;
-    await this.serviceProvider.commandBus.execute(
-      new UpdateNvrCommand({
-        id: nvrEntity.id,
-        liveSignalStatus: LiveSignalStatuses.DIS_CONNECTED,
-      }),
-    );
-
-    this.nvrRunningConfigService.doneAndUnLockConfig(nvrEntity);
-
-    const dependentCameraEntities: CameraEntity[] =
-      await this.serviceProvider.queryBus.execute(
-        new FindAllCamerasQuery({
-          filter: {
-            tenantId: nvrEntity.getProps().tenantId,
-            nvrId: nvrEntity.id,
-            isActive: true,
-          },
-        }),
-      );
-    for (const dependentCameraEntity of dependentCameraEntities) {
-      dependentCameraEntity.assertTenantMatches(nvrEntity);
-      await this.cameraLiveSignalService.toDisconnected(dependentCameraEntity);
-    }
-    this.websocketService.sendMessage<ToDisconnectedNvrLiveSignalWsResponseDto>(
-      this.websocketService.channels.DEVICES_SOCKET,
-      {
-        type: WebSocketTypes.DATA,
-        data: {
+    if (!nvrEntity.isDisconnected()) {
+      await this.serviceProvider.commandBus.execute(
+        new UpdateNvrCommand({
           id: nvrEntity.id,
           liveSignalStatus: LiveSignalStatuses.DIS_CONNECTED,
+        }),
+      );
+
+      await this.nvrRunningConfigService
+        .doneAndUnLockConfig(nvrEntity)
+        .catch((err) => {
+          this.serviceProvider.logger.error(
+            `NvrLiveSignal: failed to unlock runningConfigs on disconnect for ${nvrEntity.id}`,
+            (err as Error)?.stack,
+          );
+        });
+
+      const dependentCameraEntities: CameraEntity[] =
+        await this.serviceProvider.queryBus.execute(
+          new FindAllCamerasQuery({
+            filter: {
+              nvrId: nvrEntity.id,
+              isActive: true,
+            },
+          }),
+        );
+      for (const dependentCameraEntity of dependentCameraEntities) {
+        await this.cameraLiveSignalService.toDisconnected(
+          dependentCameraEntity,
+        );
+      }
+      this.websocketService.sendMessage<ToDisconnectedNvrLiveSignalWsResponseDto>(
+        this.websocketService.channels.DEVICES_SOCKET,
+        {
+          type: WebSocketTypes.DATA,
+          data: {
+            id: nvrEntity.id,
+            liveSignalStatus: LiveSignalStatuses.DIS_CONNECTED,
+          },
+          metadata: {
+            dataType: NvrWebSocketDataTypes.LIVE_SIGNAL,
+          },
         },
-        metadata: {
-          dataType: NvrWebSocketDataTypes.LIVE_SIGNAL,
-        },
-      },
-    );
+      );
+    }
   }
 
   async stop(nvrEntity: NvrEntity) {
