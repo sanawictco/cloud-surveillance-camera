@@ -18,9 +18,7 @@ export class ActiveNvrCommand extends Command {
 }
 
 @CommandHandler(ActiveNvrCommand)
-export class ActiveNvrCommandHandler
-  implements ICommandHandler<ActiveNvrCommand>
-{
+export class ActiveNvrCommandHandler implements ICommandHandler<ActiveNvrCommand> {
   constructor(
     @Inject(NVR_REPOSITORY)
     private readonly nvrRepo: NvrRepository,
@@ -36,11 +34,12 @@ export class ActiveNvrCommandHandler
     nvrEntity.active();
     await this.nvrRepo.update(nvrEntity);
     const actorId = command.actorProps?.actorId;
+    if (!actorId) throw new Error('actorId does not exist');
     await this.processDependencies(nvrEntity, actorId);
     return command.id;
   }
 
-  private async processDependencies(nvrEntity: NvrEntity, actorId?: string) {
+  private async processDependencies(nvrEntity: NvrEntity, actorId: string) {
     await this.nvrLiveSignalService.start(nvrEntity);
     await this.nvrActorLogService.active({
       nvrEntity,

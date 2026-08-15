@@ -45,7 +45,7 @@ export class DeleteNvrCommandHandler implements ICommandHandler<DeleteNvrCommand
     const nvrEntity: NvrEntity | undefined = await this.nvrRepo.findById(
       command.id,
     );
-    if (!nvrEntity) throw Error('not exist nvr with id');
+    if (!nvrEntity) throw Error('nvr does not exist');
     await this.processPreDependencies(nvrEntity);
     nvrEntity.delete();
     await this.nvrRepo.delete(nvrEntity);
@@ -64,7 +64,7 @@ export class DeleteNvrCommandHandler implements ICommandHandler<DeleteNvrCommand
     await this.systemLogService.deleteSystemLogs(nvrEntity.id);
     // stop nvr liveSignal
     await this.nvrLiveSignalService.stop(nvrEntity);
-    // delete dependent cameras and softDelete endDevices
+    // softDelete dependent cameras
     const dependentCameraEntities: CameraEntity[] =
       await this.serviceProvider.queryBus.execute(
         new FindAllCamerasQuery({

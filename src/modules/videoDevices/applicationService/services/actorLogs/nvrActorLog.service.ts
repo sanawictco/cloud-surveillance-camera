@@ -3,7 +3,7 @@ import { LanguageCode } from 'src/extensions/translation/languageCode.enum';
 import { LanguageKeys } from 'src/extensions/translation/languageKeys.base';
 import { ActorLogApiService } from 'src/modules/actorLogs/applicationService/services/actorLogApi.service';
 import { ActorLogMessageProps } from 'src/modules/actorLogs/domain/actorLog.type';
-import { UpdateNvrRequestDto } from '../../../contracts/nvr/http/updateNvr.request.dto';
+import { UpdateNvrRequestDto } from '../../../contracts/nvr/http/request/updateNvr.request.dto';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
 
 @Injectable()
@@ -87,7 +87,7 @@ export class NvrActorLogService {
     });
   }
 
-  async active(props: { nvrEntity: NvrEntity; actorId?: string }) {
+  async active(props: { nvrEntity: NvrEntity; actorId: string }) {
     const { nvrEntity, actorId } = props;
     const { name, serialNumber } = nvrEntity.getProps();
     await this.actorLogApiService.registerActorLog({
@@ -99,7 +99,7 @@ export class NvrActorLogService {
     });
   }
 
-  async inactive(props: { nvrEntity: NvrEntity; actorId?: string }) {
+  async inactive(props: { nvrEntity: NvrEntity; actorId: string }) {
     const { nvrEntity, actorId } = props;
     const { name, serialNumber } = nvrEntity.getProps();
     await this.actorLogApiService.registerActorLog({

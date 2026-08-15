@@ -39,6 +39,7 @@ export class InActiveNvrCommandHandler implements ICommandHandler<InActiveNvrCom
     );
     if (!nvrEntity) throw Error('not exist nvr with id');
     const actorId = command.actorProps?.actorId;
+    if (!actorId) throw new Error('actorId does not exist');
     await this.processPreDependencies(nvrEntity, actorId);
     nvrEntity.inactive();
     await this.nvrRepo.update(nvrEntity);
@@ -73,10 +74,7 @@ export class InActiveNvrCommandHandler implements ICommandHandler<InActiveNvrCom
     );
   }
 
-  private async processPostDependencies(
-    nvrEntity: NvrEntity,
-    actorId?: string,
-  ) {
+  private async processPostDependencies(nvrEntity: NvrEntity, actorId: string) {
     await this.nvrActorLogService.inactive({
       nvrEntity,
       actorId,

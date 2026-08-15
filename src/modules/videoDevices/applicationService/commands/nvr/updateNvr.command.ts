@@ -12,7 +12,10 @@ import { NVR_REPOSITORY } from '../../../infra/nvr/nvr.diToken';
 import { NvrRepository } from '../../../infra/nvr/nvr.repository';
 import { NvrActorLogService } from '../../services/actorLogs/nvrActorLog.service';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
-import { UpdateNvrProps } from 'src/modules/videoDevices/domain/nvr/nvr.type';
+import {
+  NvrProps,
+  UpdateNvrProps,
+} from 'src/modules/videoDevices/domain/nvr/nvr.type';
 import { LiveSignalStatuses } from 'src/modules/videoDevices/shared/valueObjects/liveSignalStatus.vo';
 
 export class UpdateNvrCommand extends Command implements UpdateNvrProps {
@@ -35,9 +38,7 @@ export class UpdateNvrCommand extends Command implements UpdateNvrProps {
 }
 
 @CommandHandler(UpdateNvrCommand)
-export class UpdateNvrCommandHandler
-  implements ICommandHandler<UpdateNvrCommand>
-{
+export class UpdateNvrCommandHandler implements ICommandHandler<UpdateNvrCommand> {
   constructor(
     @Inject(NVR_REPOSITORY)
     private readonly nvrRepo: NvrRepository,
@@ -49,36 +50,57 @@ export class UpdateNvrCommandHandler
     const nvrEntity: NvrEntity | undefined = await this.nvrRepo.findById(
       command.id,
     );
-    const updateObj: UpdateNvrProps = {
-      name: command.name,
-      password: command.password,
-      lang: command.lang,
-      liveSignalStatus: command.liveSignalStatus,
-      cloudIsRecovering: command.cloudIsRecovering,
-      runningConfigs: command.runningConfigs,
-    };
     if (!nvrEntity) throw Error('not exist nvr with id');
-    nvrEntity.update(updateObj);
+    const previousProps = nvrEntity.getProps(); // snapshot before mutation
+    nvrEntity.update(this._toUpdateProps(command));
     await this.nvrRepo.update(nvrEntity);
-    await this.processDependencies(nvrEntity, command);
+    await this.processDependencies(nvrEntity, previousProps, command);
     return command.id;
+  }
+
+  private _toUpdateProps(command: UpdateNvrCommand): UpdateNvrProps {
+    const {
+      name,
+      password,
+      lang,
+      liveSignalStatus,
+      cloudIsRecovering,
+      runningConfigs,
+    } = command;
+
+    return {
+      name,
+      password,
+      lang,
+      liveSignalStatus,
+      cloudIsRecovering,
+      runningConfigs,
+    };
   }
 
   private async processDependencies(
     nvrEntity: NvrEntity,
+    previousProps: NvrProps,
     command: UpdateNvrCommand,
   ) {
-    const actorId = command.actorProps?.actorId;
-    const { name, password, lang } = command;
-    const currentOrOldName = nvrEntity.getProps().name;
-    if (name || password || lang)
-      await this.nvrActorLogService.update({
-        nvrEntity,
-        actorId,
-        updatedNvrProps: {
-          currentOrOldName,
-          updatedProps: command,
-        },
-      });
+    const { name, password, lang, actorProps } = command;
+    const changedProps: Partial<UpdateNvrProps> = {
+      ...(name !== undefined && name !== previousProps.name && { name }),
+      ...(password !== undefined &&
+        password !== previousProps.password && { password }),
+      ...(lang !== undefined && lang !== previousProps.lang && { lang }),
+    };
+
+    if (!Object.keys(changedProps).length) return;
+    const actorId = actorProps?.actorId;
+    if (!actorId) throw new Error('actorId does not exist');
+    await this.nvrActorLogService.update({
+      nvrEntity,
+      actorId,
+      updatedNvrProps: {
+        currentOrOldName: previousProps.name,
+        updatedProps: command,
+      },
+    });
   }
 }
