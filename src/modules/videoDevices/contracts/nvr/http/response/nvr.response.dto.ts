@@ -8,6 +8,7 @@ export class NvrResponseDto extends ResponseBase {
     public id: AggregateID,
     public name: string,
     public tenantId: string,
+    public productModel: string,
     public serialNumber: string,
     public password: string,
     public lang: LanguageCode,

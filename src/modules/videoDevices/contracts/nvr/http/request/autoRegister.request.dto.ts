@@ -1,10 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   ArrayMaxSize,
+  ArrayUnique,
   IsArray,
-  IsMACAddress,
   IsString,
   IsUUID,
+  Length,
+  Matches,
 } from 'class-validator';
 
 export class AutoRegisterRequestDto {
@@ -16,17 +18,16 @@ export class AutoRegisterRequestDto {
   @ApiProperty({ isArray: true })
   @IsArray()
   @ArrayMaxSize(100)
-  @IsMACAddress({ each: true })
+  @ArrayUnique()
+  @Length(8, 8, { each: true })
+  @Matches(/^[A-Z0-9]{8}$/, { each: true })
   addedCameras!: string[];
 
   @ApiProperty({ isArray: true })
   @IsArray()
   @ArrayMaxSize(100)
-  @IsMACAddress({ each: true })
+  @ArrayUnique()
+  @Length(8, 8, { each: true })
+  @Matches(/^[A-Z0-9]{8}$/, { each: true })
   deletedCameras!: string[];
 }
-
-export type AutoRegisterFullContent = {
-  addedCameras: string[];
-  deletedCameras: string[];
-};

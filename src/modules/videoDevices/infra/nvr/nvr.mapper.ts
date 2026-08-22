@@ -15,6 +15,7 @@ import { LiveSignalStatus } from '../../../../../../cloud-surveillance-camera/sr
 import { SerialNumber } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/shared/valueObjects/serialNumber.vo';
 import { NvrModel } from './nvr.schema';
 import { MaxCameras } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/domain/nvr/valueObjects/maxCameras.vo';
+import { ProductModel } from '../../domain/camera/valueObjects/productModel.vo';
 
 @Injectable()
 export class NvrMapper implements Mapper<NvrEntity, NvrModel, NvrResponseDto> {
@@ -25,6 +26,7 @@ export class NvrMapper implements Mapper<NvrEntity, NvrModel, NvrResponseDto> {
       name: copy.name,
       tenantId: copy.tenantId,
       maxCameras: copy.maxCameras,
+      productModel: copy.productModel,
       serialNumber: copy.serialNumber,
       accessToken: copy.accessToken,
       password: copy.password,
@@ -48,6 +50,7 @@ export class NvrMapper implements Mapper<NvrEntity, NvrModel, NvrResponseDto> {
         name: new Name(record.name),
         tenantId: new BusinessId(record.tenantId),
         maxCameras: new MaxCameras(record.maxCameras),
+        productModel: new ProductModel(record.productModel),
         serialNumber: new SerialNumber(record.serialNumber),
         accessToken: new AccessToken(record.accessToken),
         password: new NvrPassword(record.password),
@@ -63,7 +66,20 @@ export class NvrMapper implements Mapper<NvrEntity, NvrModel, NvrResponseDto> {
 
   toResponse(entity: NvrEntity): NvrResponseDto {
     const props = entity.getProps();
-    return new NvrResponseDto(props);
+    return new NvrResponseDto(
+      props.id,
+      props.name,
+      props.tenantId,
+      props.productModel,
+      props.serialNumber,
+      props.password,
+      props.lang,
+      props.isActive,
+      props.liveSignalStatus,
+      props.cloudIsRecovering,
+      props.createdAt,
+      props.updatedAt,
+    );
   }
 
   toResponseAll(entities: NvrEntity[]): NvrResponseDto[] {

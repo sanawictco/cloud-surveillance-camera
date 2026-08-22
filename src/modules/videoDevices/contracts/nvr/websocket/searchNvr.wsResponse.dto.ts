@@ -6,7 +6,7 @@ import {
   FinalAutoSearchResult,
 } from '../dtos/autoSearchDevices.dto';
 
-export class NvrSearchWsResponseDto implements WebsocketMsgBaseDto {
+export class SearchNvrWsResponseDto implements WebsocketMsgBaseDto {
   constructor(
     public type: WebSocketTypes.CONFIG,
     public data: {

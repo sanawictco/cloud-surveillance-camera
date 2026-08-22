@@ -20,6 +20,9 @@ export const kurdiValues: LanguageKeysBase = {
         created: 'دوربین ایجاد شد',
         updated: 'دوربین به‌روزرسانی شد',
         deleted: 'دوربین حذف شد',
+        activated: 'دوربین فعال شد',
+        inactivated: 'دوربین غیرفعال شد',
+        softDeleted: 'دوربین به سطل بازیافت منتقل شد',
       },
     },
     errorResponse: {
@@ -142,6 +145,8 @@ export const kurdiValues: LanguageKeysBase = {
         inactivated: 'nvr غیرفعال شد',
         startAutoRegisterProccessing: 'درخواست ارسال شد',
         allConnectedCamerasAreUpToDate: 'تمام اکسس پوینت‌های متصل به‌روز هستند',
+        multiCameraInactivated: 'چند دوربین غیرفعال شدند',
+        multiCameraActivated: 'چند دوربین فعال شدند',
       },
     },
     errorResponse: {

@@ -172,6 +172,7 @@ export class CameraEntity extends AggregateRoot<
       msgId: generateRandomMsgId(),
       configType,
       nvrId: nvrEntity.id,
+      tenantId: nvrEntity.getProps().tenantId,
       data: {},
       metadata: {
         topic: nvrEntity.getCloudPubToFogMqttTopics().videoDeviceConfigs,
@@ -183,7 +184,7 @@ export class CameraEntity extends AggregateRoot<
     };
     let data;
     switch (configType) {
-      case CameraSoftwareConfigs.UPDATE_CAMERA:
+      case CameraSoftwareConfigs.UPDATE:
         data = {
           ...this.update(body ?? {}).getProps(),
           runningConfigs: undefined,

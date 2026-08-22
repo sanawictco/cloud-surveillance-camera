@@ -12,6 +12,7 @@ import { UpdateNvrCommand } from '../../commands/nvr/updateNvr.command';
 import { CloudIsRecoveringWsResponseDto } from 'src/modules/videoDevices/contracts/nvr/websocket/cloudIsRecovering.wsResponse.dto';
 import { WebSocketTypes } from 'src/modules/shared/websocket.types';
 import {
+  NVR_FOG_FETCHABLE_CONFIGS,
   NvrConfigs,
   NvrWebSocketDataTypes,
 } from 'src/modules/videoDevices/domain/nvr/nvr.type';
@@ -19,6 +20,9 @@ import { RestoreNvrsToCacheCommand } from '../../commands/nvr/restoreNvrsToCache
 import { RestoreCamerasToCacheCommand } from '../../commands/camera/restoreCamerasToCache.command';
 import { DashboardApiForVideoDevicesService } from 'src/modules/dashboard/applicationService/apiForAnotherServices/dashboardApiForDevices.service';
 import { VideoDeviceConfigQueueService } from '../queues/videoDeviceConfig/videoDeviceQueue.service';
+import { timingSafeEqual } from 'node:crypto';
+import { FogVideoDeviceConfigRequestDto } from 'src/modules/videoDevices/contracts/nvr/http/request/fogConfig.request.dto';
+import { VideoDeviceEntityTypes } from 'src/modules/videoDevices/shared/valueObjects/videoDeviceEntityTypes';
 
 @Injectable()
 export class VideoDevicesApiForFogCommunicationManagerService {
@@ -41,6 +45,37 @@ export class VideoDevicesApiForFogCommunicationManagerService {
 
   async getVideoDeviceConfigFromQueue(msgId: string) {
     return await this.videoDeviceConfigQueueService.getRepeatableMsg(msgId);
+  }
+
+  async getOwnedVideoDeviceConfig(body: FogVideoDeviceConfigRequestDto) {
+    if (body.configType !== 'videoDevice') {
+      throw new Error('configuration is unavailable');
+    }
+    const nvr = await this.checkExistsNvrWithSerialNumber(body.serialNumber);
+    const expectedToken = Buffer.from(nvr.getProps().accessToken);
+    const suppliedToken = Buffer.from(body.accessToken);
+    if (
+      expectedToken.length !== suppliedToken.length ||
+      !timingSafeEqual(expectedToken, suppliedToken)
+    ) {
+      throw new Error('configuration is unavailable');
+    }
+
+    const queued = await this.getVideoDeviceConfigFromQueue(body.msgId);
+    if (
+      !queued ||
+      queued.nvrId !== nvr.id ||
+      queued.tenantId !== nvr.getProps().tenantId ||
+      queued.metadata.entityId !== nvr.id ||
+      queued.metadata.entityType !== VideoDeviceEntityTypes.NVR ||
+      !NVR_FOG_FETCHABLE_CONFIGS.includes(
+        queued.configType as (typeof NVR_FOG_FETCHABLE_CONFIGS)[number],
+      )
+    ) {
+      throw new Error('configuration is unavailable');
+    }
+
+    return { configType: queued.configType, data: queued.data };
   }
 
   async sendCloudIsAvailableSignalToFog() {
@@ -121,7 +156,7 @@ export class VideoDevicesApiForFogCommunicationManagerService {
       configType: NvrConfigs.CLOUD_IS_RECOVERING,
       msgId: '',
     });
-    await this.nvrLiveSignalService.toConncted(nvrEntity);
+    await this.nvrLiveSignalService.toConnected(nvrEntity);
     await this.mqttService.publish(
       nvrEntity.getCloudPubToFogMqttTopics().cloudRecoveryDataAck,
       'cloud recovery finished',

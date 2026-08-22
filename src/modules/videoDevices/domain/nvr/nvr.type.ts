@@ -13,6 +13,7 @@ import { LanguageCode } from 'src/extensions/translation/languageCode.enum';
 import { BusinessId } from 'src/dddLib/core/businessId.vo';
 import { IsActive } from '../../shared/valueObjects/isActive.vo';
 import { MaxCameras } from './valueObjects/maxCameras.vo';
+import { ProductModel } from '../camera/valueObjects/productModel.vo';
 
 export interface NvrValueObjects {
   name: Name;
@@ -20,6 +21,7 @@ export interface NvrValueObjects {
   readonly serialNumber: SerialNumber;
   readonly accessToken: AccessToken;
   readonly maxCameras: MaxCameras;
+  readonly productModel: ProductModel;
   password: NvrPassword;
   lang: NvrLanguage;
   isActive: IsActive;
@@ -34,6 +36,7 @@ export interface NvrProps {
   readonly serialNumber: string;
   readonly accessToken: string;
   readonly maxCameras: number;
+  readonly productModel: string;
   password: string;
   lang: LanguageCode;
   isActive: boolean;
@@ -86,7 +89,20 @@ export enum NvrConfigs {
   FOG_LIVE_SIGNAL = 'fogLiveSignal',
   CLOUD_IS_RECOVERING = 'cloudIsRecovering',
   SOFT_DELETE_MULTI_CAMERAS = 'softDeleteMultiCameras',
+  ACTIVE_MULTI_CAMERAS = 'activeMultiCameras',
+  IN_ACTIVE_MULTI_CAMERAS = 'inActiveMultiCameras',
 }
+
+export const NVR_FOG_FETCHABLE_CONFIGS = [
+  NvrConfigs.UPDATE,
+  NvrConfigs.DELETE,
+  NvrConfigs.ACTIVE,
+  NvrConfigs.IN_ACTIVE,
+  NvrConfigs.FOG_LIVE_SIGNAL,
+  NvrConfigs.CLOUD_IS_RECOVERING,
+  NvrConfigs.SEARCH,
+  NvrConfigs.REGISTER,
+] as const;
 
 export enum NvrWebSocketDataTypes {
   CLOUD_IS_RECOVERING = 'cloudIsRecovering',
@@ -118,10 +134,6 @@ export enum NvrSystemLogConfigTypesFromFog {
   UPDATE_HARDWARE_CONFIG = 'updateHardwareConfig',
   REGISTER = 'register',
 }
-export const NonLockedNvrConfingsOrCommands: NvrConfigs[] = [
-  NvrConfigs.REGISTER,
-];
-
 export type NvrLanguageKeys = {
   nvr: {
     actorLog: {
@@ -154,6 +166,8 @@ export type NvrLanguageKeys = {
         inactivated: string;
         startAutoRegisterProccessing: string;
         allConnectedCamerasAreUpToDate: string;
+        multiCameraInactivated: string;
+        multiCameraActivated: string;
       };
     };
     errorResponse: {

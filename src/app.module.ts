@@ -23,6 +23,7 @@ import { AppController } from './app.controller';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { ContextInterceptor } from './utilities/context.interceptor';
 import { GlobalExceptionFilter } from './utilities/exception.filter';
+import { VideoDevicesModule } from './modules/videoDevices/videoDevices.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { GlobalExceptionFilter } from './utilities/exception.filter';
     TDengineModule,
     MongoModule,
     TenantsModule,
+    VideoDevicesModule,
   ],
   controllers: [AppController],
   providers: [

@@ -26,16 +26,16 @@ import { DeleteNvrCommand } from '../../commands/nvr/deleteNvr.command';
 import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
 import { FindAllCamerasQuery } from '../../queries/camera/findAllCameras.queryHandler';
 import { DashboardPageProjection } from 'src/dddLib/contracts/dashboardPage.projection';
-import {
-  AutoRegisterFullContent,
-  AutoRegisterRequestDto,
-} from 'src/modules/videoDevices/contracts/nvr/http/request/autoRegister.request.dto';
-import { GLOBAL_ERROR_EVENT } from 'src/utilities/exception.filter';
+import { AutoRegisterRequestDto } from 'src/modules/videoDevices/contracts/nvr/http/request/autoRegister.request.dto';
 import { GetNvrDependenciesResposeDto } from 'src/modules/videoDevices/contracts/nvr/http/response/getNvrDependencies.response.dto';
 import { NvrRegisterInfoResponseDto } from 'src/extensions/sanawApi/dtos/devices/response/nvrRegisterInfo.response.dto';
 import { CreateNvrWsResponseDto } from 'src/modules/videoDevices/contracts/nvr/websocket/createNvr.wsResponse.dto';
 import { DeleteNvrWsResponseDto } from 'src/modules/videoDevices/contracts/nvr/websocket/deleteNvr.wsResponse.dto';
-import { AutoRegisterNvrWsResponseDto } from 'src/modules/videoDevices/contracts/nvr/websocket/autoRegisterNvr.wsResponse.dto';
+import { FindAllTenantsQuery } from 'src/modules/tenants/applicationService/queries/findAllTenants.queryHandler';
+import { TenantEntity } from 'src/modules/tenants/domain/tenant.entity';
+import { BadRequestException } from '@nestjs/common';
+import { AutoRegisterBatchConfig } from 'src/modules/videoDevices/contracts/nvr/dtos/autoSearchDevices.dto';
+import { randomUUID } from 'node:crypto';
 
 @Injectable()
 export class NvrsHttpService {
@@ -68,9 +68,16 @@ export class NvrsHttpService {
     const { data }: NvrRegisterInfoResponseDto =
       await this.sanawApiVideoDeviceService.registerNvr(body.serialNumber);
     await this.nvrValidator.checkAvoidNvrDuplicationCreate(body.name);
+    const tenants: TenantEntity[] = await this.serviceProvider.queryBus.execute(
+      new FindAllTenantsQuery(),
+    );
+    if (tenants.length !== 1) {
+      throw new BadRequestException('workspace tenant is not initialized');
+    }
     const id = await this.serviceProvider.commandBus.execute(
       new CreateNvrCommand({
         name: body.name,
+        tenantId: tenants[0]!.id,
         serialNumber: body.serialNumber,
         productModel: data.productModel,
         accessToken: data.accessToken,
@@ -200,11 +207,11 @@ export class NvrsHttpService {
     await this.nvrValidator.checkNvrShouldBeActiveAndHasConnectedStatus(
       nvrEntity,
     );
-    this.nvrValidator.checkNvrHatShouldBeConnected(nvrEntity);
     return await this.NvrRunningConfigService.runConfigIfNotDuplicated(
       nvrEntity,
       NvrConfigs.SEARCH,
-      [],
+      undefined,
+      randomUUID(),
     );
   }
 
@@ -215,49 +222,18 @@ export class NvrsHttpService {
     await this.nvrValidator.checkNvrShouldBeActiveAndHasConnectedStatus(
       nvrEntity,
     );
-    this.nvrValidator.checkNvrHatShouldBeConnected(nvrEntity);
-    const autoRegisterFullContent: AutoRegisterFullContent[] =
-      await this.nvrValidator.checkAutoRegisterBodyIsValidAndFormatizeBody(
+    const batch: AutoRegisterBatchConfig =
+      await this.nvrValidator.validateAndBuildAutoRegisterBatch(
         body,
         nvrEntity,
       );
-    let time = 0;
-    for (const autoRegisterRecord of autoRegisterFullContent) {
-      time += 2500;
-      setTimeout(async () => {
-        try {
-          await this.NvrRunningConfigService.runConfigIfNotDuplicated(
-            nvrEntity,
-            NvrConfigs.REGISTER,
-            {
-              nvrId: nvrEntity.id,
-              autoRegisterRecord,
-            },
-          );
-        } catch (err) {
-          this.serviceProvider.eventEmitter.emit(GLOBAL_ERROR_EVENT, err);
-        }
-      }, time);
-    }
-    const msgId = generateRandomMsgId();
-    setTimeout(() => {
-      this.websocketService.sendMessage<AutoRegisterNvrWsResponseDto>(
-        this.websocketService.channels.DEVICES_SOCKET,
-        {
-          type: WebSocketTypes.CONFIG,
-          data: { id: nvrEntity.id },
-          message: {
-            msgKey:
-              LanguageKeys.nvr.response.socket.startAutoRegisterProccessing,
-          },
-          metadata: {
-            configType: NvrWebSocketConfigTypes.REGISTER,
-            msgId,
-          },
-        },
-      );
-    }, 500);
-    return msgId;
+    const msgId = randomUUID();
+    return await this.NvrRunningConfigService.runConfigIfNotDuplicated(
+      nvrEntity,
+      NvrConfigs.REGISTER,
+      batch,
+      msgId,
+    );
   }
 
   async getDependencies(

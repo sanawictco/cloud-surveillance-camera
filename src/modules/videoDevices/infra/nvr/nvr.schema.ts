@@ -17,6 +17,9 @@ export class NvrModel implements NvrProps {
   @Prop({ required: true })
   maxCameras: number;
 
+  @Prop({ required: true })
+  productModel: string;
+
   @Prop({ required: true, unique: true })
   serialNumber: string;
 
@@ -26,13 +29,13 @@ export class NvrModel implements NvrProps {
   @Prop({ required: true })
   password: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, type: String, enum: LanguageCode })
   lang: LanguageCode;
 
   @Prop({ default: false, required: true })
   isActive: boolean;
 
-  @Prop({ required: true })
+  @Prop({ required: true, type: String, enum: LiveSignalStatuses })
   liveSignalStatus: LiveSignalStatuses;
 
   @Prop({ default: false, required: true })
@@ -52,6 +55,7 @@ export class NvrModel implements NvrProps {
     this.name = props?.name ?? '';
     this.tenantId = props?.tenantId ?? '';
     this.maxCameras = props?.maxCameras ?? 0;
+    this.productModel = props?.productModel ?? '';
     this.serialNumber = props?.serialNumber ?? '';
     this.accessToken = props?.accessToken ?? '';
     this.password = props?.password ?? '';

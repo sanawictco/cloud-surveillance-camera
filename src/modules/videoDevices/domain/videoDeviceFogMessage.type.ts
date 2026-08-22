@@ -15,6 +15,7 @@ export interface VideoDeviceFogConfigMessage {
   configType: string;
   data: object;
   nvrId: AggregateID;
+  tenantId: AggregateID;
   metadata: VideoDeviceFogMessageMetadata;
 }
 

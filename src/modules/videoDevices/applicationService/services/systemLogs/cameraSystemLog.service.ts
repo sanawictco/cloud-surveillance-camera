@@ -18,7 +18,7 @@ export class CameraSystemLogService {
   ) {}
   async handle(cameraEntity: CameraEntity, metadata: ConfigTypeMsgIdDto) {
     switch (metadata.configType) {
-      case CameraSoftwareConfigs.UPDATE_CAMERA:
+      case CameraSoftwareConfigs.UPDATE:
         return this.update(cameraEntity, metadata);
       default:
         break;

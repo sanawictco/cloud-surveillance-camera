@@ -1,4 +1,9 @@
-import { CanActivate, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { EmployeeRoles } from 'src/extensions/sanawApi/dtos/employees/employeeRoles.enum';
 import { UserInfoService } from 'src/extensions/userInfo/userInfo.service';
@@ -16,8 +21,10 @@ export class RolesGuard implements CanActivate {
     //   EmployeeRoles.Only_View,
     // );
     // if (httpMethod === HttpMethods.GET && userHasOnlyViewRole) return true;
-    if (UserInfoService.getProps().roles.includes(this.role)) return true;
-    return false;
+    const user = UserInfoService.getProps();
+    if (!user) throw new UnauthorizedException();
+    if (!user.roles.includes(this.role)) throw new ForbiddenException();
+    return true;
   }
 }
 

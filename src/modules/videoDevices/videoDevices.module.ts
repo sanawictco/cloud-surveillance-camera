@@ -1,51 +1,65 @@
 import { Module, Provider, forwardRef } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
 import { CqrsModule } from '@nestjs/cqrs';
+import { MongooseModule } from '@nestjs/mongoose';
 import { CachingModule } from 'src/extensions/caching/cacheing.module';
 import { MqttModule } from 'src/extensions/mqtt/mqtt.module';
 import { QueueModule } from 'src/extensions/queue/queue.module';
 import { SanawApiModule } from 'src/extensions/sanawApi/sanawApi.module';
 import { WsModule } from 'src/extensions/websocket/ws.module';
 import { ActorLogModule } from '../actorLogs/actorLog.module';
+import { DashboardModule } from '../dashboard/dashboard.module';
 import { EmployeeModule } from '../employees/employees.module';
 import { SystemLogModule } from '../systemLogs/systemLog.module';
+import { ActiveCameraCommandHandler } from './applicationService/commands/camera/activeCamera.command';
 import { CreateCameraCommandHandler } from './applicationService/commands/camera/createCamera.command';
+import { InActiveCameraCommandHandler } from './applicationService/commands/camera/inactiveCamera.command';
+import { RestoreCamerasToCacheCommandHandler } from './applicationService/commands/camera/restoreCamerasToCache.command';
+import { SoftDeleteCameraCommandHandler } from './applicationService/commands/camera/softDeleteCamera.command';
 import { UpdateCameraCommandHandler } from './applicationService/commands/camera/updateCamera.command';
+import { ActiveNvrCommandHandler } from './applicationService/commands/nvr/activeNvr.command';
+import { CreateNvrCommandHandler } from './applicationService/commands/nvr/createNvr.command';
+import { DeleteNvrCommandHandler } from './applicationService/commands/nvr/deleteNvr.command';
+import { InActiveNvrCommandHandler } from './applicationService/commands/nvr/inactiveNvr.command';
+import { RestoreNvrsToCacheCommandHandler } from './applicationService/commands/nvr/restoreNvrsToCache.command';
+import { UpdateNvrCommandHandler } from './applicationService/commands/nvr/updateNvr.command';
 import { FindAllCamerasQueryHandler } from './applicationService/queries/camera/findAllCameras.queryHandler';
+import { FindAllDeletedCamerasByDeletedSerialNumbersQueryHandler } from './applicationService/queries/camera/findAllDeletedCamerasByDeletedSerialNumbers.queryHandler';
 import { FindCameraByIdQueryHandler } from './applicationService/queries/camera/findCameraById.queryHandler';
 import { FindCameraByNameQueryHandler } from './applicationService/queries/camera/findCameraByName.queryHandler';
 import { FindCameraByNameAndNvrIdQueryHandler } from './applicationService/queries/camera/findCameraByNameAndNvrId.queryHandler';
-import { VideoDevicesInitService } from './applicationService/services/init.service';
-import { CreateNvrCommandHandler } from './applicationService/commands/nvr/createNvr.command';
-import { UpdateNvrCommandHandler } from './applicationService/commands/nvr/updateNvr.command';
-import { DeleteNvrCommandHandler } from './applicationService/commands/nvr/deleteNvr.command';
-import { RestoreNvrsToCacheCommandHandler } from './applicationService/commands/nvr/restoreNvrsToCache.command';
-import { ActiveCameraCommandHandler } from './applicationService/commands/camera/activeCamera.command';
-import { InActiveCameraCommandHandler } from './applicationService/commands/camera/inactiveCamera.command';
-import { ActiveNvrCommandHandler } from './applicationService/commands/nvr/activeNvr.command';
-import { InActiveNvrCommandHandler } from './applicationService/commands/nvr/inactiveNvr.command';
+import { FindCameraBySerialNumberQueryHandler } from './applicationService/queries/camera/findCameraBySerialNumber.queryHandler';
 import { FindAllNvrsQueryHandler } from './applicationService/queries/nvr/findAllNvrs.queryHandler';
 import { FindNvrByIdQueryHandler } from './applicationService/queries/nvr/findNvrById.queryHandler';
 import { FindNvrByNameQueryHandler } from './applicationService/queries/nvr/findNvrByName.queryHandler';
 import { FindNvrBySerialNumberQueryHandler } from './applicationService/queries/nvr/findNvrBySerialNumber.queryHandler';
+import { CameraActorLogService } from './applicationService/services/actorLogs/cameraActorLog.service';
+import { NvrActorLogService } from './applicationService/services/actorLogs/nvrActorLog.service';
+import { VideoDevicesApiForDashboardService } from './applicationService/services/apiForAnotherServices/videoDevicesApiForDashboard.service';
+import { VideoDevicesApiForFogCommunicationManagerService } from './applicationService/services/apiForAnotherServices/videoDevicesApiForFogCommunicationManager.service';
+import { NvrsHttpService } from './applicationService/services/http/nvr.http.service';
+import { VideoDeviceInitService } from './applicationService/services/init.service';
+import { CameraLiveSignalService } from './applicationService/services/liveSignals/cameraLiveSignal.service';
+import { NvrLiveSignalService } from './applicationService/services/liveSignals/nvrLiveSignal.service';
+import { VideoDeviceConfigQueueService } from './applicationService/services/queues/videoDeviceConfig/videoDeviceQueue.service';
+import { VideoDeviceDataQueueService } from './applicationService/services/queues/videoDeviceData/videoDeviceDataQueue.service';
+import { CameraRunningConfigAndCommandService } from './applicationService/services/runningConfigs/cameraRunningConfigAndCommand.service';
+import { NvrRunningConfigService } from './applicationService/services/runningConfigs/nvrRunningConfig.service';
+import { CameraSystemLogService } from './applicationService/services/systemLogs/cameraSystemLog.service';
+import { NvrSystemLogService } from './applicationService/services/systemLogs/nvrSystemLog.service';
+import { CameraValidator } from './applicationService/services/validators/camera.validator';
+import { NvrValidator } from './applicationService/services/validators/nvr.validator';
+import { FogCommunicationHttpController } from './controllers/fogCommunication.http.controller';
+import { NvrHttpController } from './controllers/nvr.http.controller';
 import { CAMERA_REPOSITORY } from './infra/camera/camera.diToken';
 import { CameraMapper } from './infra/camera/camera.mapper';
 import { CameraRepository } from './infra/camera/camera.repository';
 import { CameraModel, CameraSchema } from './infra/camera/camera.schema';
-import { FindCameraBySerialNumberQueryHandler } from './applicationService/queries/camera/findCameraBySerialNumber.queryHandler';
-import { DeleteCameraCommandHandler } from './applicationService/commands/camera/deleteCamera.command';
-import { RestoreCamerasToCacheCommandHandler } from './applicationService/commands/camera/restoreCamerasToCache.command';
-import { FindAllDeletedCamerasByDeletedSerialNumbersQueryHandler } from './applicationService/queries/camera/findAllDeletedCamerasByDeletedSerialNumbers.queryHandler';
-import { VideoDevicesApiForDashboardService } from './applicationService/services/apiForAnotherServices/videoDevicesApiForDashboard.service';
-import { VideoDevicesApiForFogCommunicationManagerService } from './applicationService/services/apiForAnotherServices/videoDevicesApiForFogCommunicationManager.service';
-import { NvrValidator } from './applicationService/services/validators/nvr.validator';
-import { CameraValidator } from './applicationService/services/validators/camera.validator';
-import { VideoDeviceConfigQueueService } from './applicationService/services/queues/videoDeviceConfig/videoDeviceQueue.service';
-import { VideoDeviceDataQueueService } from './applicationService/services/queues/videoDeviceData/videoDeviceDataQueue.service';
 import { NVR_REPOSITORY } from './infra/nvr/nvr.diToken';
 import { NvrMapper } from './infra/nvr/nvr.mapper';
 import { NvrRepository } from './infra/nvr/nvr.repository';
 import { NvrModel, NvrSchema } from './infra/nvr/nvr.schema';
+import { NvrMqttService } from './applicationService/services/mqtt/nvrMqtt.service';
+import { VideoDevicesConfigsMqttController } from './controllers/videoDeviceConfigs.mqtt.controller';
 
 const commandHandlers: Provider[] = [
   ...[
@@ -57,9 +71,8 @@ const commandHandlers: Provider[] = [
     RestoreNvrsToCacheCommandHandler,
   ],
   ...[
-    CreateCameraCommandHandler,
     UpdateCameraCommandHandler,
-    DeleteCameraCommandHandler,
+    SoftDeleteCameraCommandHandler,
     CreateCameraCommandHandler,
     ActiveCameraCommandHandler,
     InActiveCameraCommandHandler,
@@ -97,11 +110,22 @@ const queueServices: Provider[] = [
   ...[VideoDeviceConfigQueueService, VideoDeviceDataQueueService],
 ];
 
-const services: Provider[] = [];
+const services: Provider[] = [
+  NvrsHttpService,
+  NvrRunningConfigService,
+  CameraRunningConfigAndCommandService,
+  NvrLiveSignalService,
+  CameraLiveSignalService,
+  NvrActorLogService,
+  CameraActorLogService,
+  NvrSystemLogService,
+  CameraSystemLogService,
+  NvrMqttService,
+];
 
 const validators: Provider[] = [NvrValidator, CameraValidator];
 
-const mqttControllers: Provider[] = [];
+const mqttControllers: Provider[] = [VideoDevicesConfigsMqttController];
 
 @Module({
   imports: [
@@ -118,6 +142,7 @@ const mqttControllers: Provider[] = [];
     forwardRef(() => ActorLogModule),
     forwardRef(() => EmployeeModule),
     SystemLogModule,
+    forwardRef(() => DashboardModule),
   ],
   providers: [
     ...services,
@@ -129,9 +154,9 @@ const mqttControllers: Provider[] = [];
     ...commandHandlers,
     ...queueServices,
     ...apiServiceForAnotherModules,
-    VideoDevicesInitService,
+    VideoDeviceInitService,
   ],
-  controllers: [],
+  controllers: [NvrHttpController, FogCommunicationHttpController],
   exports: [...apiServiceForAnotherModules],
 })
 export class VideoDevicesModule {}

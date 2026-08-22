@@ -1,7 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import axios from 'axios';
 import AppConfig from 'configs/app.config';
-import { AllDevicesAutoScanInformationReqDto } from '../dtos/devices/request/allDevicesAutoScanInformationReq.dto';
 import { AutoScanAllCamerasInformationResDto } from '../dtos/devices/response/allDevicesAutoScanInformation.response.dto';
 import { SanawApiHeader } from '../dtos/sanawApi.header';
 import { NvrScanInfoResponseDto } from '../dtos/devices/response/nvrScanInfo.response.dto';
@@ -104,19 +103,16 @@ export class SanawApiVideoDeviceService {
     }
   }
 
-  async getAutoScanInformationOfAllCameras(
-    reqData: AllDevicesAutoScanInformationReqDto,
+  async getNvrCameraSearchInfo(
+    nvrId: string,
+    macAddresses: string[],
   ): Promise<AutoScanAllCamerasInformationResDto> {
-    const url = `${
-      AppConfig().sanawApiURL
-    }/video-devices/manufactured-nvrs/get-auto-scan-all-cameras-information`;
+    const url = `${AppConfig().sanawApiURL}/video-devices/manufactured-nvrs/search`;
 
     try {
       const res = await axios.post(
         url,
-        {
-          autoScanReqObjects: reqData.autoScanReqObjects,
-        },
+        { nvrId, macAddresses },
         { headers: SanawApiHeader() },
       );
       return {
@@ -124,7 +120,6 @@ export class SanawApiVideoDeviceService {
         data: res.data,
       };
     } catch (err) {
-      console.log(err);
       throw new BadRequestException(
         axios.isAxiosError(err) && err.response?.data
           ? err.response.data

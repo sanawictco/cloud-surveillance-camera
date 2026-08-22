@@ -8,25 +8,23 @@ import {
 import { AggregateID } from 'src/dddLib/core';
 
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
-import { MqttApiService } from 'src/extensions/mqtt/mqttApi.service';
-import { CameraActorLogService } from '../../services/actorLogs/cameraActorLog.service';
-import { CameraEntity } from '../../../domain/camera/camera.entity';
+import { DashboardApiForVideoDevicesService } from 'src/modules/dashboard/applicationService/apiForAnotherServices/dashboardApiForDevices.service';
 import { FindNvrByIdQuery } from 'src/modules/videoDevices/applicationService/queries/nvr/findNvrById.queryHandler';
-import { SystemLogService } from 'src/modules/systemLogs/applicationService/services/systemLog.service';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
 import { CAMERA_REPOSITORY } from 'src/modules/videoDevices/infra/camera/camera.diToken';
 import { CameraRepository } from 'src/modules/videoDevices/infra/camera/camera.repository';
+import { CameraEntity } from '../../../domain/camera/camera.entity';
+import { CameraActorLogService } from '../../services/actorLogs/cameraActorLog.service';
 import { CameraRunningConfigAndCommandService } from '../../services/runningConfigs/cameraRunningConfigAndCommand.service';
-import { DashboardApiForVideoDevicesService } from 'src/modules/dashboard/applicationService/apiForAnotherServices/dashboardApiForDevices.service';
 
-export class DeleteCameraCommand extends Command {
-  constructor(props: CommandProps<DeleteCameraCommand> & IdType) {
+export class SoftDeleteCameraCommand extends Command {
+  constructor(props: CommandProps<SoftDeleteCameraCommand> & IdType) {
     super(props);
   }
 }
 
-@CommandHandler(DeleteCameraCommand)
-export class DeleteCameraCommandHandler implements ICommandHandler<DeleteCameraCommand> {
+@CommandHandler(SoftDeleteCameraCommand)
+export class SoftDeleteCameraCommandHandler implements ICommandHandler<SoftDeleteCameraCommand> {
   constructor(
     @Inject(CAMERA_REPOSITORY)
     private readonly cameraRepo: CameraRepository,
@@ -34,11 +32,9 @@ export class DeleteCameraCommandHandler implements ICommandHandler<DeleteCameraC
     private readonly cameraRunningConfigAndCommandService: CameraRunningConfigAndCommandService,
     private readonly cameraActorLogService: CameraActorLogService,
     private readonly serviceProvider: ServiceProvider,
-    private readonly mqttApiService: MqttApiService,
-    private readonly systemLogService: SystemLogService,
   ) {}
 
-  async execute(command: DeleteCameraCommand): Promise<AggregateID> {
+  async execute(command: SoftDeleteCameraCommand): Promise<AggregateID> {
     const cameraEntity: CameraEntity | undefined =
       await this.cameraRepo.findById(command.id);
     if (!cameraEntity) throw new Error('no camera exist with this id');
@@ -72,11 +68,5 @@ export class DeleteCameraCommandHandler implements ICommandHandler<DeleteCameraC
       new FindNvrByIdQuery(cameraEntity.getProps().nvrId),
     );
     cameraEntity.assertTenantMatches(nvrEntity);
-    this.systemLogService.deleteSystemLogs(cameraEntity.id);
-    await this.mqttApiService.deleteCameraTopics(
-      nvrEntity.getProps().serialNumber,
-      nvrEntity.id,
-      cameraEntity.id,
-    );
   }
 }

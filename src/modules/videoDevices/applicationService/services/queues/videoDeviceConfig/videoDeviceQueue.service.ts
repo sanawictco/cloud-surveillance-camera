@@ -86,10 +86,12 @@ export class VideoDeviceConfigQueueService implements OnModuleInit {
         new FindNvrByIdQuery(entityId),
       );
       if (!nvrEntity) return; // just because of deleteNvr config
-      await this.nvrRunningConfigService.doneAndUnLockConfig(
+      const expired = await this.nvrRunningConfigService.doneAndUnlockConfig(
         nvrEntity,
         msg.configType,
+        msg.msgId,
       );
+      if (!expired) return;
       await this.nvrSystemLogService.handle(nvrEntity, {
         configType: msg.configType,
         msgId: msg.msgId,

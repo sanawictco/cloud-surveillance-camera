@@ -1,9 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
-import { PageResponseDto } from '../../contracts/page.response.dto';
 import { PageEntity } from '../../domain/page.entity';
 import { Widget } from '../../domain/valueObjects/pageContent.vo';
-import { PageMapper } from '../../infra/mappers/page.mapper';
 import { DeletePageCommand } from '../commands/deletePage.command';
 import { RestorePagesToCacheCommand } from '../commands/restorePagesToCache.command';
 import { UpdatePageCommand } from '../commands/updatePage.command';
@@ -12,10 +10,7 @@ import { DashboardPageProjection } from 'src/dddLib/contracts/dashboardPage.proj
 
 @Injectable()
 export class DashboardApiForVideoDevicesService {
-  constructor(
-    private readonly serviceProvider: ServiceProvider,
-    private readonly pageMapper: PageMapper,
-  ) {}
+  constructor(private readonly serviceProvider: ServiceProvider) {}
 
   async deleteCameraEffectFromWidgets(id: string) {
     const pageEntities: PageEntity[] =

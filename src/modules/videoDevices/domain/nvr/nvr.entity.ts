@@ -34,6 +34,7 @@ import { IsActive } from '../../shared/valueObjects/isActive.vo';
 import { MaxCameras } from './valueObjects/maxCameras.vo';
 import { VideoDeviceConfigQueueMsgDto } from '../../applicationService/services/queues/videoDeviceConfig/videoDeviceConfigQueueMsg.dto';
 import { VideoDeviceEntityTypes } from '../../shared/valueObjects/videoDeviceEntityTypes';
+import { ProductModel } from '../camera/valueObjects/productModel.vo';
 
 export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
   protected readonly _id: AggregateID;
@@ -51,6 +52,7 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
       tenantId: new BusinessId(createNvrProps.tenantId),
       password: new NvrPassword(createNvrProps.password),
       maxCameras: new MaxCameras(createNvrProps.maxCameras),
+      productModel: new ProductModel(createNvrProps.productModel),
       lang: new NvrLanguage(LanguageCode.FA),
       isActive: IsActive.init(),
       liveSignalStatus: LiveSignalStatus.init(),
@@ -150,7 +152,7 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
   }
 
   private getCloudSubOnFogMqttTopics(): Record<string, string> {
-    const tenantId: AggregateID = this.getProps().tenantId;
+    const tenantId = this.getProps().tenantId;
     return Object.fromEntries(
       Object.entries(NvrCloudSubOnFogMqttTopics).map(([key, topic]) => [
         key,
@@ -160,7 +162,7 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
   }
 
   getCloudPubToFogMqttTopics(): NvrCloudPubToFogMqttTopics {
-    const tenantId: AggregateID = this.getProps().tenantId;
+    const tenantId = this.getProps().tenantId;
     const mqttPublishTopicsObject: NvrCloudPubToFogMqttTopics = {
       videoDeviceConfigs: `${tenantId}/${this.id}/videoDevice/Config/pub`,
       cloudRecoveryDataAck: `${tenantId}/${this.id}/cloudRecoveryData/pub`,
@@ -195,11 +197,13 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
   generateFogConfig(
     configType: NvrConfigs,
     body?: unknown,
+    msgId: string = generateRandomMsgId(),
   ): VideoDeviceConfigQueueMsgDto {
     const config: VideoDeviceConfigQueueMsgDto = {
-      msgId: generateRandomMsgId(),
+      msgId,
       configType,
       nvrId: this.id,
+      tenantId: this.getProps().tenantId,
       data: {},
       metadata: {
         topic: this.getCloudPubToFogMqttTopics().videoDeviceConfigs,
@@ -209,7 +213,7 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
         retryPeriodInSecond: 10,
       },
     };
-    let data: object | string = {};
+    let data: object = {};
     switch (configType) {
       case NvrConfigs.ACTIVE:
         data = (body ?? {}) as object;
@@ -218,7 +222,13 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
       case NvrConfigs.REGISTER:
         data = (body ?? {}) as object;
         config.metadata.retryCount = 2;
-        config.metadata.retryPeriodInSecond = 40;
+        config.metadata.retryPeriodInSecond = 10;
+        break;
+
+      case NvrConfigs.SEARCH:
+        data = {};
+        config.metadata.retryCount = 2;
+        config.metadata.retryPeriodInSecond = 10;
         break;
 
       case NvrConfigs.UPDATE:
@@ -234,11 +244,11 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
         break;
 
       case NvrConfigs.FOG_LIVE_SIGNAL:
-        data = NvrConfigs.FOG_LIVE_SIGNAL;
+        data = { configType: NvrConfigs.FOG_LIVE_SIGNAL };
         break;
 
       case NvrConfigs.CLOUD_IS_RECOVERING:
-        data = NvrConfigs.CLOUD_IS_RECOVERING;
+        data = { configType: NvrConfigs.CLOUD_IS_RECOVERING };
         break;
 
       default:

@@ -9,8 +9,9 @@ export class AutoScanAllCamerasInformationResDto {
 
 export class ScanedCamera {
   id: number;
-  productModel: string;
+  cameraAggregateId: string;
   serialNumber: string;
+  productModel: string;
   username: string;
   password: string;
   macAddress: string;
@@ -20,8 +21,9 @@ export class ScanedCamera {
   hasAudio: boolean;
   constructor(
     id: number,
-    productModel: string,
+    cameraAggregateId: string,
     serialNumber: string,
+    productModel: string,
     username: string,
     password: string,
     macAddress: string,
@@ -31,8 +33,9 @@ export class ScanedCamera {
     hasAudio: boolean,
   ) {
     this.id = id;
-    this.productModel = productModel;
+    this.cameraAggregateId = cameraAggregateId;
     this.serialNumber = serialNumber;
+    this.productModel = productModel;
     this.username = username;
     this.password = password;
     this.macAddress = macAddress;

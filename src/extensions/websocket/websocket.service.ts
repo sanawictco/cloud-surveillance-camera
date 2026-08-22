@@ -19,7 +19,6 @@ import { WsClientCachedModel } from './websocketClientCachedModel';
 
 enum WsChannels {
   DEVICES_SOCKET = 'DevicesSocket',
-  RULE_CHAINS_SOCKET = 'RuleChainsSocket',
   SYSTEM_LOGS_SOCKET = 'SystemLogsSocket',
   PAGES_SOCKET = 'PagesSocket',
   ERRORS_SOCKET = 'ErrorsSocket',

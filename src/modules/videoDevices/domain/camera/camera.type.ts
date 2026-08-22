@@ -78,12 +78,16 @@ export enum CameraWebsocketTypes {
   CONFIG = 'config',
 }
 
+export enum CameraWebsocketConfigTypes {
+  UPDATE = 'update',
+}
+
 export enum CameraWebSocketDataTypes {
   LIVE_SIGNAL = 'liveSignal',
 }
 
 export enum CameraSoftwareConfigs {
-  UPDATE_CAMERA = 'UPDATE_CAMERA',
+  UPDATE = 'UPDATE',
   HARD_DELETE_MULTI_CAMERAS = 'hardDeleteMultiCameras',
 }
 
@@ -132,6 +136,9 @@ export type CameraLanguageKeys = {
         created: string;
         updated: string;
         deleted: string;
+        activated: string;
+        inactivated: string;
+        softDeleted: string;
       };
     };
     errorResponse: {

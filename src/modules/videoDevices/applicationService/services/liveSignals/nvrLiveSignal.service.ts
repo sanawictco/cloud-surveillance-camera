@@ -40,7 +40,7 @@ export class NvrLiveSignalService {
     );
   }
 
-  async toConncted(nvrEntity: NvrEntity) {
+  async toConnected(nvrEntity: NvrEntity) {
     if (!nvrEntity.isConnected()) {
       await this.serviceProvider.commandBus.execute(
         new UpdateNvrCommand({
@@ -86,7 +86,7 @@ export class NvrLiveSignalService {
       );
 
       await this.nvrRunningConfigService
-        .doneAndUnLockConfig(nvrEntity)
+        .doneAndUnlockConfig(nvrEntity)
         .catch((err) => {
           this.serviceProvider.logger.error(
             `NvrLiveSignal: failed to unlock runningConfigs on disconnect for ${nvrEntity.id}`,

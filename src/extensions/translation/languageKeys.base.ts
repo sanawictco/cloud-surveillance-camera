@@ -33,6 +33,9 @@ export const LanguageKeys: LanguageKeysBase = {
         created: 'camera.response.socket.created',
         updated: 'camera.response.socket.updated',
         deleted: 'camera.response.socket.deleted',
+        activated: 'camera.response.socket.activated',
+        inactivated: 'camera.response.socket.inactivated',
+        softDeleted: 'camera.response.socket.softDeleted',
       },
     },
     errorResponse: {
@@ -160,6 +163,8 @@ export const LanguageKeys: LanguageKeysBase = {
           'nvr.response.socket.startAutoRegisterProccessing',
         allConnectedCamerasAreUpToDate:
           'nvr.response.socket.allConnectedCamerasAreUpToDate',
+        multiCameraInactivated: 'nvr.response.socket.multiCameraInactivated',
+        multiCameraActivated: 'nvr.response.socket.multiCameraActivated',
       },
     },
     errorResponse: {

@@ -19,7 +19,7 @@ import { FindAllCamerasQuery } from 'src/modules/videoDevices/applicationService
 import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
 import { DashboardApiForVideoDevicesService } from 'src/modules/dashboard/applicationService/apiForAnotherServices/dashboardApiForDevices.service';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
-import { DeleteCameraCommand } from '../camera/deleteCamera.command';
+import { SoftDeleteCameraCommand } from '../camera/softDeleteCamera.command';
 
 export class DeleteNvrCommand extends Command {
   constructor(props: CommandProps<DeleteNvrCommand> & IdType) {
@@ -77,7 +77,7 @@ export class DeleteNvrCommandHandler implements ICommandHandler<DeleteNvrCommand
     for (const dependentCameraEntity of dependentCameraEntities) {
       dependentCameraEntity.assertTenantMatches(nvrEntity);
       await this.serviceProvider.commandBus.execute(
-        new DeleteCameraCommand({ id: dependentCameraEntity.id }),
+        new SoftDeleteCameraCommand({ id: dependentCameraEntity.id }),
       );
     }
     await this.dashboardApiForVideoDevicesService.deleteDependentPages(

@@ -18,6 +18,7 @@ export function validateMqttPayload<T extends object>(
   const instance = plainToInstance(cls, raw);
   const errors = validateSync(instance as object, {
     whitelist: true,
+    forbidNonWhitelisted: true,
     forbidUnknownValues: true,
   });
   if (errors.length > 0) {
