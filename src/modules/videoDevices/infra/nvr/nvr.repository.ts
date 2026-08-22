@@ -13,6 +13,10 @@ import { NvrMapper } from './nvr.mapper';
 import { NvrConfigs } from '../../domain/nvr/nvr.type';
 
 type ProvisioningConfig = NvrConfigs.SEARCH | NvrConfigs.REGISTER;
+const PROVISIONING_CONFIGS: readonly ProvisioningConfig[] = [
+  NvrConfigs.SEARCH,
+  NvrConfigs.REGISTER,
+];
 
 @Injectable()
 export class NvrRepository extends ParentRepository<
@@ -34,10 +38,15 @@ export class NvrRepository extends ParentRepository<
   async restoreAndInitRecordsToCache(): Promise<void> {
     const nvrs = await this.nvrModel.find().lean();
     for (const nvr of nvrs) {
-      nvr.runningConfigs = RunningConfigs.init().unpack();
+      const runningConfigs = { ...RunningConfigs.init().unpack() };
+      for (const configType of PROVISIONING_CONFIGS) {
+        const msgId = nvr.runningConfigs?.[configType];
+        if (msgId) runningConfigs[configType] = msgId;
+      }
+      nvr.runningConfigs = runningConfigs;
       await this.nvrModel.updateOne(
         { id: nvr.id },
-        { $set: { runningConfigs: nvr.runningConfigs } },
+        { $set: { runningConfigs } },
       );
       await this.cache.set(`${NvrModel.name}:${nvr.id}`, nvr);
     }

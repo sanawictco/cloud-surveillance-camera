@@ -176,6 +176,38 @@ describe('VideoDevicesConfigsMqttController', () => {
     );
   });
 
+  it('processes a duplicate acknowledgement only once', async () => {
+    const context = buildController();
+    context.queue.getRepeatableMsg
+      .mockResolvedValueOnce(context.pending)
+      .mockResolvedValueOnce(undefined);
+
+    await context.controller.handler(context.event);
+    await context.controller.handler(context.event);
+
+    expect(context.nvrMqttService.search).toHaveBeenCalledTimes(1);
+    expect(context.queue.getAndDeleteRepeatableMsg).toHaveBeenCalledTimes(1);
+    expect(context.runningConfigs.doneAndUnlockConfig).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports unlock failure after consuming the processed queue message', async () => {
+    const context = buildController();
+    context.runningConfigs.doneAndUnlockConfig.mockResolvedValue(false);
+
+    await context.controller.handler(context.event);
+
+    expect(context.nvrMqttService.search).toHaveBeenCalled();
+    expect(context.queue.getAndDeleteRepeatableMsg).toHaveBeenCalledWith(
+      context.pending.msgId,
+    );
+    expect(context.serviceProvider.eventEmitter.emit).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        message: 'failed to unlock processed NVR config',
+      }),
+    );
+  });
+
   it('accepts and finalizes an owned camera config', async () => {
     const context = buildController();
     const camera = {

@@ -119,17 +119,22 @@ export class VideoDevicesConfigsMqttController {
       if (!removed) throw new Error('failed to consume processed config');
 
       if (pendingMsg.metadata.entityType === VideoDeviceEntityTypes.NVR) {
-        await this.nvrRunningConfigService.doneAndUnlockConfig(
+        const unlocked = await this.nvrRunningConfigService.doneAndUnlockConfig(
           nvrEntity,
           configType,
           msgId,
         );
+        if (!unlocked) throw new Error('failed to unlock processed NVR config');
       } else if (cameraEntity) {
-        await this.cameraRunningConfigAndCommandService.doneAndUnLockConfig(
-          cameraEntity,
-          configType,
-          msgId,
-        );
+        const unlocked =
+          await this.cameraRunningConfigAndCommandService.doneAndUnLockConfig(
+            cameraEntity,
+            configType,
+            msgId,
+          );
+        if (!unlocked) {
+          throw new Error('failed to unlock processed camera config');
+        }
       }
     } catch (err) {
       this.serviceProvider.eventEmitter.emit(GLOBAL_ERROR_EVENT, err);

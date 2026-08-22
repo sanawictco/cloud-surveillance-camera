@@ -33,6 +33,46 @@ describe('NvrRepository', () => {
     return { repository, records };
   }
 
+  it('preserves provisioning claims while resetting transient configs on restart', async () => {
+    const record = {
+      id: 'nvr-1',
+      runningConfigs: {
+        init: '-1',
+        search: 'search-msg',
+        update: 'update-msg',
+      },
+    };
+    const updateOne = jest.fn().mockResolvedValue({ modifiedCount: 1 });
+    const model = {
+      find: jest.fn().mockReturnValue({
+        lean: jest.fn().mockResolvedValue([record]),
+      }),
+      updateOne,
+    };
+    const cache = { set: jest.fn().mockResolvedValue(undefined) };
+    const repository = new NvrRepository(
+      model as never,
+      {} as never,
+      cache as never,
+      {} as never,
+    );
+
+    await repository.restoreAndInitRecordsToCache();
+
+    expect(updateOne).toHaveBeenCalledWith(
+      { id: record.id },
+      {
+        $set: {
+          runningConfigs: { init: '-1', search: 'search-msg' },
+        },
+      },
+    );
+    expect(cache.set).toHaveBeenCalledWith('NvrModel:nvr-1', {
+      ...record,
+      runningConfigs: { init: '-1', search: 'search-msg' },
+    });
+  });
+
   it('admits exactly one provisioning operation for the same NVR', async () => {
     const { repository, records } = buildRepository([
       { id: 'nvr-1', runningConfigs: { init: '-1' } },
