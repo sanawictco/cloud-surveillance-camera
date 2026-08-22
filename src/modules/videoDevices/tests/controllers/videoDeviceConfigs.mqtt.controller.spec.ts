@@ -27,6 +27,9 @@ describe('VideoDevicesConfigsMqttController', () => {
       getAndDeleteRepeatableMsg: jest.fn().mockResolvedValue(pending),
     };
     const nvrMqttService = { search: jest.fn().mockResolvedValue(undefined) };
+    Object.assign(nvrMqttService, {
+      update: jest.fn().mockResolvedValue(undefined),
+    });
     const cameraMqttService = {
       update: jest.fn().mockResolvedValue(undefined),
     };
@@ -94,6 +97,53 @@ describe('VideoDevicesConfigsMqttController', () => {
     );
   });
 
+  it('rejects an invalid topic before queue lookup', async () => {
+    const context = buildController();
+    context.event.topic = 'tenant-id/nvr-id/videoDevice/config/sub';
+
+    await context.controller.handler(context.event);
+
+    expect(context.queue.getRepeatableMsg).not.toHaveBeenCalled();
+    expect(context.queue.getAndDeleteRepeatableMsg).not.toHaveBeenCalled();
+    expect(context.nvrMqttService.search).not.toHaveBeenCalled();
+    expect(context.serviceProvider.eventEmitter.emit).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(BadRequestException),
+    );
+  });
+
+  it('reports an unknown msgId without business side effects', async () => {
+    const context = buildController();
+    context.queue.getRepeatableMsg.mockResolvedValue(undefined);
+
+    await context.controller.handler(context.event);
+
+    expect(context.serviceProvider.queryBus.execute).not.toHaveBeenCalled();
+    expect(context.queue.getAndDeleteRepeatableMsg).not.toHaveBeenCalled();
+    expect(context.nvrMqttService.search).not.toHaveBeenCalled();
+    expect(context.runningConfigs.doneAndUnlockConfig).not.toHaveBeenCalled();
+    expect(context.serviceProvider.eventEmitter.emit).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ message: 'msg not found' }),
+    );
+  });
+
+  it('rejects unexpected MQTT fields before queue lookup', async () => {
+    const context = buildController();
+    context.event.message = JSON.stringify({
+      msgId: context.pending.msgId,
+      macAddresses: [],
+      status: 'success',
+    });
+
+    await context.controller.handler(context.event);
+
+    expect(context.queue.getRepeatableMsg).not.toHaveBeenCalled();
+    expect(context.queue.getAndDeleteRepeatableMsg).not.toHaveBeenCalled();
+    expect(context.nvrMqttService.search).not.toHaveBeenCalled();
+    expect(context.serviceProvider.eventEmitter.emit).toHaveBeenCalled();
+  });
+
   it('keeps the queue and lock when processing fails', async () => {
     const context = buildController();
     context.nvrMqttService.search.mockRejectedValue(
@@ -156,6 +206,32 @@ describe('VideoDevicesConfigsMqttController', () => {
     ).toHaveBeenCalledWith(
       camera,
       CameraSoftwareConfigs.UPDATE,
+      context.pending.msgId,
+    );
+  });
+
+  it('applies and finalizes an owned NVR lifecycle acknowledgement', async () => {
+    const context = buildController();
+    context.pending.msgId = 'update-msg';
+    context.pending.configType = NvrConfigs.UPDATE;
+    context.pending.data = { id: context.nvr.id, name: 'Updated NVR' };
+    context.event.message = JSON.stringify({ msgId: context.pending.msgId });
+
+    await context.controller.handler(context.event);
+
+    expect(context.nvrMqttService.update).toHaveBeenCalledWith(
+      context.pending.data,
+      expect.objectContaining({
+        msgId: context.pending.msgId,
+        actorProps: context.pending.metadata.actorProps,
+      }),
+    );
+    expect(context.queue.getAndDeleteRepeatableMsg).toHaveBeenCalledWith(
+      context.pending.msgId,
+    );
+    expect(context.runningConfigs.doneAndUnlockConfig).toHaveBeenCalledWith(
+      context.nvr,
+      NvrConfigs.UPDATE,
       context.pending.msgId,
     );
   });
