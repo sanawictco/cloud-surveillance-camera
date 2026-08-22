@@ -30,14 +30,21 @@ const nvrConfigsArr: string[] = Object.values(NvrConfigs);
 
 const CameraSoftwareConfigsArr: string[] = Object.values(CameraSoftwareConfigs);
 
+enum FogResponseKind {
+  SEARCH = NvrConfigs.SEARCH,
+  REGISTER = NvrConfigs.REGISTER,
+  LIVE_SIGNAL = NvrConfigs.FOG_LIVE_SIGNAL,
+  LIFECYCLE = 'lifecycle',
+}
+
 type ParsedFogResponse =
-  | { configType: NvrConfigs.SEARCH; payload: NvrSearchMqttResponseDto }
-  | { configType: NvrConfigs.REGISTER; payload: NvrRegisterMqttResponseDto }
+  | { kind: FogResponseKind.SEARCH; payload: NvrSearchMqttResponseDto }
+  | { kind: FogResponseKind.REGISTER; payload: NvrRegisterMqttResponseDto }
   | {
-      configType: NvrConfigs.FOG_LIVE_SIGNAL;
+      kind: FogResponseKind.LIVE_SIGNAL;
       payload: NvrLiveSignalMqttResponseDto;
     }
-  | { configType: 'lifecycle'; payload: NvrLifecycleMqttResponseDto };
+  | { kind: FogResponseKind.LIFECYCLE; payload: NvrLifecycleMqttResponseDto };
 
 @Injectable()
 export class VideoDevicesConfigsMqttController {
@@ -59,17 +66,22 @@ export class VideoDevicesConfigsMqttController {
       const msgId = response.payload.msgId;
       const pendingMsg = await this.queue.getRepeatableMsg(msgId);
       if (!pendingMsg) throw new Error('msg not found');
-      this.assertTopicOwnsQueuedMessage(topic, pendingMsg);
-      const nvrEntity: NvrEntity = await this.serviceProvider.queryBus.execute(
-        new FindNvrByIdQuery(topic.nvrId),
-      );
-      if (nvrEntity.id !== pendingMsg.nvrId)
-        throw new Error('nvrId dont match');
+      this.assertTopicOwnsQueuedEnvelope(topic, pendingMsg);
+      this.assertResponseMatchesQueuedConfig(response, pendingMsg);
+      const nvrEntity: NvrEntity | undefined =
+        await this.serviceProvider.queryBus.execute(
+          new FindNvrByIdQuery(topic.nvrId),
+        );
+      this.assertNvrOwnsTopic(topic, nvrEntity);
       const actorProps: ActorDto = pendingMsg.metadata.actorProps as ActorDto;
       const { configType, data } = pendingMsg;
       const metadata: ActorPropsMsgIdDto = { actorProps, msgId };
       let cameraEntity: CameraEntity | undefined;
-      if (nvrConfigsArr.includes(configType)) {
+      if (pendingMsg.metadata.entityType === VideoDeviceEntityTypes.NVR) {
+        this.assertNvrOwnsQueuedMessage(nvrEntity, pendingMsg);
+        if (!nvrConfigsArr.includes(configType)) {
+          throw new BadRequestException('queued NVR config type mismatch');
+        }
         await this._nvrHandler({
           nvrEntity,
           configType,
@@ -77,21 +89,36 @@ export class VideoDevicesConfigsMqttController {
           mqttData: response.payload,
           metadata,
         });
-      } else if (CameraSoftwareConfigsArr.includes(configType)) {
+      } else if (
+        pendingMsg.metadata.entityType === VideoDeviceEntityTypes.CAMERA
+      ) {
+        cameraEntity = await this.serviceProvider.queryBus.execute(
+          new FindCameraByIdQuery(pendingMsg.metadata.entityId),
+        );
+        this.assertCameraOwnsQueuedMessage(
+          topic,
+          nvrEntity,
+          cameraEntity,
+          pendingMsg,
+        );
+        if (!CameraSoftwareConfigsArr.includes(configType)) {
+          throw new BadRequestException('queued camera config type mismatch');
+        }
         cameraEntity = await this._cameraHandler({
+          cameraEntity,
           configType,
           data,
           mqttData: response.payload,
           metadata,
         });
       } else {
-        throw new Error(`software config not found ==> ${configType}`);
+        throw new BadRequestException('queued entity type is unsupported');
       }
 
       const removed = await this.queue.getAndDeleteRepeatableMsg(msgId);
       if (!removed) throw new Error('failed to consume processed config');
 
-      if (nvrConfigsArr.includes(configType)) {
+      if (pendingMsg.metadata.entityType === VideoDeviceEntityTypes.NVR) {
         await this.nvrRunningConfigService.doneAndUnlockConfig(
           nvrEntity,
           configType,
@@ -167,16 +194,13 @@ export class VideoDevicesConfigsMqttController {
   }
 
   private async _cameraHandler(props: {
+    cameraEntity: CameraEntity;
     configType: string;
     data: any;
     mqttData: NvrLifecycleMqttResponseDto;
     metadata: ActorPropsMsgIdDto;
   }): Promise<CameraEntity> {
-    const { metadata, configType, data } = props;
-    const cameraEntity: CameraEntity =
-      await this.serviceProvider.queryBus.execute(
-        new FindCameraByIdQuery(data.id || data.cameraId),
-      );
+    const { metadata, configType, data, cameraEntity } = props;
     switch (configType) {
       case CameraSoftwareConfigs.UPDATE:
         await this.cameraMqttService.update(data, metadata);
@@ -203,17 +227,85 @@ export class VideoDevicesConfigsMqttController {
     return { tenantId: segments[0], nvrId: segments[1] };
   }
 
-  private assertTopicOwnsQueuedMessage(
+  private assertTopicOwnsQueuedEnvelope(
     topic: { tenantId: string; nvrId: string },
     queued: VideoDeviceConfigQueueMsgDto,
   ): void {
+    if (queued.nvrId !== topic.nvrId || queued.tenantId !== topic.tenantId) {
+      throw new BadRequestException('queued config topic identity mismatch');
+    }
+  }
+
+  private assertResponseMatchesQueuedConfig(
+    response: ParsedFogResponse,
+    queued: VideoDeviceConfigQueueMsgDto,
+  ): void {
+    let expectedKind: ParsedFogResponse['kind'] = FogResponseKind.LIFECYCLE;
+    switch (queued.configType) {
+      case NvrConfigs.SEARCH:
+        expectedKind = FogResponseKind.SEARCH;
+        break;
+      case NvrConfigs.REGISTER:
+        expectedKind = FogResponseKind.REGISTER;
+        break;
+      case NvrConfigs.FOG_LIVE_SIGNAL:
+        expectedKind = FogResponseKind.LIVE_SIGNAL;
+        break;
+    }
+    if (response.kind !== expectedKind) {
+      throw new BadRequestException(
+        'Fog response does not match queued config',
+      );
+    }
+  }
+
+  private assertNvrOwnsTopic(
+    topic: { tenantId: string; nvrId: string },
+    nvr: NvrEntity | undefined,
+  ): asserts nvr is NvrEntity {
     if (
-      queued.nvrId !== topic.nvrId ||
-      queued.tenantId !== topic.tenantId ||
-      queued.metadata.entityId !== topic.nvrId ||
-      queued.metadata.entityType !== VideoDeviceEntityTypes.NVR
+      !nvr ||
+      nvr.id !== topic.nvrId ||
+      nvr.getProps().tenantId !== topic.tenantId
     ) {
+      throw new BadRequestException('NVR config topic ownership mismatch');
+    }
+  }
+
+  private assertNvrOwnsQueuedMessage(
+    nvr: NvrEntity,
+    queued: VideoDeviceConfigQueueMsgDto,
+  ): void {
+    if (queued.metadata.entityId !== nvr.id) {
       throw new BadRequestException('queued NVR config identity mismatch');
+    }
+  }
+
+  private assertCameraOwnsQueuedMessage(
+    topic: { tenantId: string; nvrId: string },
+    nvr: NvrEntity,
+    camera: CameraEntity | undefined,
+    queued: VideoDeviceConfigQueueMsgDto,
+  ): asserts camera is CameraEntity {
+    if (!camera) {
+      throw new BadRequestException('queued camera does not exist');
+    }
+    const cameraProps = camera.getProps();
+    if (
+      camera.id !== queued.metadata.entityId ||
+      cameraProps.nvrId !== nvr.id ||
+      cameraProps.tenantId !== topic.tenantId
+    ) {
+      throw new BadRequestException('queued camera config identity mismatch');
+    }
+
+    const data = queued.data as { id?: unknown; cameraId?: unknown };
+    const payloadEntityId = data.id ?? data.cameraId;
+    if (
+      payloadEntityId !== undefined &&
+      payloadEntityId !== queued.metadata.entityId
+    ) {
+      throw new BadRequestException('queued camera payload identity mismatch');
     }
   }
 
@@ -224,24 +316,24 @@ export class VideoDevicesConfigsMqttController {
     }
     if (Object.hasOwn(raw, 'macAddresses')) {
       return {
-        configType: NvrConfigs.SEARCH,
+        kind: FogResponseKind.SEARCH,
         payload: validateMqttPayload(NvrSearchMqttResponseDto, raw),
       };
     }
     if (Object.hasOwn(raw, 'unRegisteredCameraSerialNumbers')) {
       return {
-        configType: NvrConfigs.REGISTER,
+        kind: FogResponseKind.REGISTER,
         payload: validateMqttPayload(NvrRegisterMqttResponseDto, raw),
       };
     }
     if (Object.hasOwn(raw, 'disconnectedMacAddresses')) {
       return {
-        configType: NvrConfigs.FOG_LIVE_SIGNAL,
+        kind: FogResponseKind.LIVE_SIGNAL,
         payload: validateMqttPayload(NvrLiveSignalMqttResponseDto, raw),
       };
     }
     return {
-      configType: 'lifecycle',
+      kind: FogResponseKind.LIFECYCLE,
       payload: validateMqttPayload(NvrLifecycleMqttResponseDto, raw),
     };
   }
