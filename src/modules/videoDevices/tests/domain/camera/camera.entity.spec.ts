@@ -73,4 +73,14 @@ describe('CameraEntity tenant ownership', () => {
       'Camera and NVR must belong to the same tenant',
     );
   });
+
+  it('omits credentials and connection secrets from creation events', () => {
+    const camera = createCamera();
+
+    expect(camera.getProps().username).toBe('admin');
+    expect(camera.getProps().password).toBe('valid-password');
+    expect(JSON.stringify(camera.domainEvents)).not.toMatch(
+      /admin|valid-password|AA:BB:CC:DD:EE:FF|record|live|username|password|macAddress|streams|port/,
+    );
+  });
 });

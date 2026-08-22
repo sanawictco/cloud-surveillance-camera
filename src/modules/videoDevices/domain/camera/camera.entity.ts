@@ -89,7 +89,13 @@ export class CameraEntity extends AggregateRoot<
     camera.addEvent(
       new CameraCreatedDomainEvent({
         aggregateId: id,
-        ...camera.getProps(),
+        tenantId: createCameraProps.tenantId,
+        name: createCameraProps.name,
+        productModel: createCameraProps.productModel,
+        serialNumber: createCameraProps.serialNumber,
+        hasPtz: createCameraProps.hasPtz,
+        hasAudio: createCameraProps.hasAudio,
+        nvrId: createCameraProps.nvrId,
         metadata: {
           causationId: CameraCreatedDomainEvent.name,
         },

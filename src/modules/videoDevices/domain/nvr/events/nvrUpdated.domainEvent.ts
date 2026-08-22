@@ -8,7 +8,6 @@ export class NvrUpdatedDomainEvent
   implements Partial<UpdateNvrProps>
 {
   readonly name?: string;
-  readonly password?: string;
   readonly lang?: LanguageCode;
   readonly liveSignalStatus?: LiveSignalStatuses;
   readonly cloudIsRecovering?: boolean;
@@ -16,7 +15,6 @@ export class NvrUpdatedDomainEvent
   constructor(props: DomainEventProps<NvrUpdatedDomainEvent>) {
     super(props);
     this.name = props.name;
-    this.password = props.password;
     this.lang = props.lang;
     this.liveSignalStatus = props.liveSignalStatus;
     this.cloudIsRecovering = props.cloudIsRecovering;

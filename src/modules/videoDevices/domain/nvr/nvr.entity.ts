@@ -63,7 +63,11 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
     nvr.addEvent(
       new NvrCreatedDomainEvent({
         aggregateId: id,
-        ...nvr.getProps(),
+        name: createNvrProps.name,
+        serialNumber: createNvrProps.serialNumber,
+        tenantId: createNvrProps.tenantId,
+        productModel: createNvrProps.productModel,
+        maxCameras: createNvrProps.maxCameras,
       }),
     );
     return nvr;
@@ -101,8 +105,11 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
 
     this.addEvent(
       new NvrUpdatedDomainEvent({
-        ...cleanedProps,
         aggregateId: this.id,
+        name: cleanedProps.name,
+        lang: cleanedProps.lang,
+        liveSignalStatus: cleanedProps.liveSignalStatus,
+        cloudIsRecovering: cleanedProps.cloudIsRecovering,
       }),
     );
     return this;
