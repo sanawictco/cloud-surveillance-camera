@@ -65,13 +65,11 @@ export class VideoDevicesConfigsMqttController {
       );
       if (nvrEntity.id !== pendingMsg.nvrId)
         throw new Error('nvrId dont match');
-      const msg = await this.queue.getAndDeleteRepeatableMsg(msgId);
-      if (!msg) throw new Error('msg not found');
-
-      const actorProps: ActorDto = msg.metadata.actorProps as ActorDto;
-      const { configType, data } = msg;
+      const actorProps: ActorDto = pendingMsg.metadata.actorProps as ActorDto;
+      const { configType, data } = pendingMsg;
       const metadata: ActorPropsMsgIdDto = { actorProps, msgId };
-      if (nvrConfigsArr.includes(configType))
+      let cameraEntity: CameraEntity | undefined;
+      if (nvrConfigsArr.includes(configType)) {
         await this._nvrHandler({
           nvrEntity,
           configType,
@@ -79,13 +77,33 @@ export class VideoDevicesConfigsMqttController {
           mqttData: response.payload,
           metadata,
         });
-      else if (CameraSoftwareConfigsArr.includes(configType))
-        await this._cameraHandler({
+      } else if (CameraSoftwareConfigsArr.includes(configType)) {
+        cameraEntity = await this._cameraHandler({
           configType,
           data,
           mqttData: response.payload,
           metadata,
         });
+      } else {
+        throw new Error(`software config not found ==> ${configType}`);
+      }
+
+      const removed = await this.queue.getAndDeleteRepeatableMsg(msgId);
+      if (!removed) throw new Error('failed to consume processed config');
+
+      if (nvrConfigsArr.includes(configType)) {
+        await this.nvrRunningConfigService.doneAndUnlockConfig(
+          nvrEntity,
+          configType,
+          msgId,
+        );
+      } else if (cameraEntity) {
+        await this.cameraRunningConfigAndCommandService.doneAndUnLockConfig(
+          cameraEntity,
+          configType,
+          msgId,
+        );
+      }
     } catch (err) {
       this.serviceProvider.eventEmitter.emit(GLOBAL_ERROR_EVENT, err);
     }
@@ -103,10 +121,6 @@ export class VideoDevicesConfigsMqttController {
     metadata: ActorPropsMsgIdDto;
   }) {
     const { configType, metadata, data, mqttData, nvrEntity } = props;
-    await this.nvrRunningConfigService.doneAndUnlockConfig(
-      nvrEntity,
-      configType,
-    );
     switch (configType) {
       case NvrConfigs.UPDATE:
         if (!metadata.actorProps) throw new Error('actor not found');
@@ -157,16 +171,12 @@ export class VideoDevicesConfigsMqttController {
     data: any;
     mqttData: NvrLifecycleMqttResponseDto;
     metadata: ActorPropsMsgIdDto;
-  }) {
+  }): Promise<CameraEntity> {
     const { metadata, configType, data } = props;
     const cameraEntity: CameraEntity =
       await this.serviceProvider.queryBus.execute(
         new FindCameraByIdQuery(data.id || data.cameraId),
       );
-    await this.cameraRunningConfigAndCommandService.doneAndUnLockConfig(
-      cameraEntity,
-      configType,
-    );
     switch (configType) {
       case CameraSoftwareConfigs.UPDATE:
         await this.cameraMqttService.update(data, metadata);
@@ -175,6 +185,7 @@ export class VideoDevicesConfigsMqttController {
       default:
         throw new Error(`software config not found ==> ${configType}`);
     }
+    return cameraEntity;
   }
 
   private parseTopic(topic: string): { tenantId: string; nvrId: string } {

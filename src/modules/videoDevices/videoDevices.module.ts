@@ -60,6 +60,8 @@ import { NvrRepository } from './infra/nvr/nvr.repository';
 import { NvrModel, NvrSchema } from './infra/nvr/nvr.schema';
 import { NvrMqttService } from './applicationService/services/mqtt/nvrMqtt.service';
 import { VideoDevicesConfigsMqttController } from './controllers/videoDeviceConfigs.mqtt.controller';
+import { MutateNvrRunningConfigCommandHandler } from './applicationService/commands/nvr/mutateNvrRunningConfig.command';
+import { UnsetCameraRunningConfigCommandHandler } from './applicationService/commands/camera/unsetCameraRunningConfig.command';
 
 const commandHandlers: Provider[] = [
   ...[
@@ -69,6 +71,7 @@ const commandHandlers: Provider[] = [
     ActiveNvrCommandHandler,
     InActiveNvrCommandHandler,
     RestoreNvrsToCacheCommandHandler,
+    MutateNvrRunningConfigCommandHandler,
   ],
   ...[
     UpdateCameraCommandHandler,
@@ -77,6 +80,7 @@ const commandHandlers: Provider[] = [
     ActiveCameraCommandHandler,
     InActiveCameraCommandHandler,
     RestoreCamerasToCacheCommandHandler,
+    UnsetCameraRunningConfigCommandHandler,
   ],
 ];
 const queryHandlers: Provider[] = [

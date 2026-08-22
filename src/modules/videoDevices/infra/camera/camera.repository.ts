@@ -40,4 +40,25 @@ export class CameraRepository
       await this.cache.set(`${CameraModel.name}:${camera.id}`, camera);
     }
   }
+
+  async unsetRunningConfigIfMatches(
+    cameraId: string,
+    configType: string,
+    msgId: string,
+  ): Promise<boolean> {
+    const path = `runningConfigs.${configType}`;
+    const record = await this.cameraModel
+      .findOneAndUpdate(
+        { id: cameraId, [path]: msgId },
+        {
+          $unset: { [path]: '' },
+          $currentDate: { updatedAt: true },
+        },
+        { new: true },
+      )
+      .lean();
+    if (!record) return false;
+    await this.cache.delete(`${CameraModel.name}:${record.id}`);
+    return true;
+  }
 }

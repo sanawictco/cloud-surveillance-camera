@@ -20,6 +20,7 @@ import { UpdateCameraCommand } from '../../commands/camera/updateCamera.command'
 import { FindCameraByIdQuery } from '../../queries/camera/findCameraById.queryHandler';
 import { VideoDeviceConfigQueueService } from '../queues/videoDeviceConfig/videoDeviceQueue.service';
 import { VideoDeviceDataQueueService } from '../queues/videoDeviceData/videoDeviceDataQueue.service';
+import { UnsetCameraRunningConfigCommand } from '../../commands/camera/unsetCameraRunningConfig.command';
 
 @Injectable()
 export class CameraRunningConfigAndCommandService {
@@ -84,7 +85,18 @@ export class CameraRunningConfigAndCommandService {
   async doneAndUnLockConfig(
     cameraEntity: CameraEntity,
     configType: string = 'all',
-  ): Promise<void> {
+    msgId?: string,
+  ): Promise<boolean> {
+    if (configType !== 'all') {
+      if (!msgId) return false;
+      return this.serviceProvider.commandBus.execute(
+        new UnsetCameraRunningConfigCommand(
+          cameraEntity.id,
+          configType.replace('_receive', '_send'),
+          msgId,
+        ),
+      );
+    }
     configType = configType.replace('_receive', '_send');
     cameraEntity = await this.serviceProvider.queryBus.execute(
       new FindCameraByIdQuery(cameraEntity.id),
@@ -98,6 +110,7 @@ export class CameraRunningConfigAndCommandService {
         runningConfigs,
       }),
     );
+    return true;
   }
 
   async stopAndRemoveAllRunningConfigs(

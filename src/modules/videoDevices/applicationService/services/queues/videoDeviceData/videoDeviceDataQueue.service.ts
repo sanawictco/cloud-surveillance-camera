@@ -99,10 +99,13 @@ export class VideoDeviceDataQueueService implements OnModuleInit {
         await this.serviceProvider.queryBus.execute(
           new FindCameraByIdQuery(entityId),
         );
-      await this.cameraConfigAndCommandService.doneAndUnLockConfig(
-        cameraEntity,
-        msg.configType,
-      );
+      const expired =
+        await this.cameraConfigAndCommandService.doneAndUnLockConfig(
+          cameraEntity,
+          msg.configType,
+          msg.msgId,
+        );
+      if (!expired) return;
       await this.cameraSystemLogService.handle(cameraEntity, {
         configType: msg.configType,
         msgId: msg.msgId,

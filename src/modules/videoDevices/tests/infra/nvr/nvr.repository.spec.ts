@@ -90,12 +90,12 @@ describe('NvrRepository', () => {
       },
     ]);
 
-    const stale = await repository.compareAndSetRunningConfig(
+    const stale = await repository.unsetRunningConfigIfMatches(
       'nvr-1',
       NvrConfigs.SEARCH,
       'stale-msg',
     );
-    const current = await repository.compareAndSetRunningConfig(
+    const current = await repository.unsetRunningConfigIfMatches(
       'nvr-1',
       NvrConfigs.SEARCH,
       'search-msg',

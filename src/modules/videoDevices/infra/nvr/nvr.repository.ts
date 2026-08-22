@@ -93,18 +93,15 @@ export class NvrRepository extends ParentRepository<
     );
   }
 
-  async compareAndSetRunningConfig(
+  async unsetRunningConfigIfMatches(
     nvrId: string,
     configType: string,
-    expectedValue: string,
-    nextValue?: string,
+    msgId: string,
   ): Promise<boolean> {
     const path = `runningConfigs.${configType}`;
     return this.updateRunningConfig(
-      { id: nvrId, [path]: expectedValue },
-      nextValue === undefined
-        ? { $unset: { [path]: '' } }
-        : { $set: { [path]: nextValue } },
+      { id: nvrId, [path]: msgId },
+      { $unset: { [path]: '' } },
     );
   }
 
