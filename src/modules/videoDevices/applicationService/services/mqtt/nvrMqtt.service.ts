@@ -49,6 +49,8 @@ import { FindNvrByIdQuery } from '../../queries/nvr/findNvrById.queryHandler';
 import { NvrLiveSignalService } from '../liveSignals/nvrLiveSignal.service';
 import { VideoDeviceConfigQueueMsgDto } from '../queues/videoDeviceConfig/videoDeviceConfigQueueMsg.dto';
 
+const SEARCH_CACHE_TTL_SECONDS = 1800;
+
 @Injectable()
 export class NvrMqttService {
   constructor(
@@ -181,7 +183,7 @@ export class NvrMqttService {
     nvr: NvrEntity,
     msgId: string,
     payload: NvrSearchMqttResponseDto,
-  ): Promise<any> {
+  ): Promise<void> {
     const discoveredMacs = new Set(
       payload.macAddresses.map(normalizeMacAddress),
     );
@@ -240,43 +242,45 @@ export class NvrMqttService {
     await this.cache.set(
       nvr.getCacheKeys().autoSearchNvrData!,
       privateCache,
-      120,
+      SEARCH_CACHE_TTL_SECONDS,
     );
     const stored = await this.cache.get(nvr.getCacheKeys().autoSearchNvrData!);
     if (!stored) throw new Error('private NVR search cache is unavailable');
 
-    if (additions.length === 0 && deletedCameras.length === 0) {
-      return {
-        type: WebSocketTypes.CONFIG,
-        data: { nvrId: nvr.id },
-        message: {
-          msgKey:
-            LanguageKeys.nvr.response.socket.allConnectedCamerasAreUpToDate,
-        },
-        metadata: { configType: NvrWebSocketConfigTypes.SEARCH, msgId },
-      };
-    }
+    const websocketMessage: SearchNvrWsResponseDto =
+      additions.length === 0 && deletedCameras.length === 0
+        ? {
+            type: WebSocketTypes.CONFIG,
+            data: { nvrId: nvr.id },
+            message: {
+              msgKey:
+                LanguageKeys.nvr.response.socket.allConnectedCamerasAreUpToDate,
+            },
+            metadata: { configType: NvrWebSocketConfigTypes.SEARCH, msgId },
+          }
+        : {
+            type: WebSocketTypes.CONFIG,
+            data: {
+              nvrId: nvr.id,
+              videoDevices: [
+                {
+                  addedCameras: additions.map((camera) => ({
+                    productModel: camera.productModel,
+                    serialNumber: camera.serialNumber,
+                    name: camera.name,
+                    hasPtz: camera.hasPtz,
+                    hasAudio: camera.hasAudio,
+                  })),
+                  deletedCameras,
+                },
+              ],
+            },
+            metadata: { configType: NvrWebSocketConfigTypes.SEARCH, msgId },
+          };
+
     this.websocketService.sendMessage<SearchNvrWsResponseDto>(
       this.websocketService.channels.DEVICES_SOCKET,
-      {
-        type: WebSocketTypes.CONFIG,
-        data: {
-          nvrId: nvr.id,
-          videoDevices: [
-            {
-              addedCameras: additions.map((camera) => ({
-                productModel: camera.productModel,
-                serialNumber: camera.serialNumber,
-                name: camera.name,
-                hasPtz: camera.hasPtz,
-                hasAudio: camera.hasAudio,
-              })),
-              deletedCameras,
-            },
-          ],
-        },
-        metadata: { configType: NvrWebSocketConfigTypes.SEARCH, msgId },
-      },
+      websocketMessage,
     );
   }
 
