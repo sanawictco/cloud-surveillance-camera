@@ -31,12 +31,14 @@ export class NvrValidator {
     const overlap = request.addedCameras.some((serialNumber) =>
       request.deletedCameras.includes(serialNumber),
     );
-    if (overlap) throw new BadRequestException('camera cannot be added and deleted');
+    if (overlap)
+      throw new BadRequestException('camera cannot be added and deleted');
 
     const cached = await this.cacheService.get(
       nvrEntity.getCacheKeys().autoSearchNvrData!,
     );
-    if (!cached) throw new BadRequestException('auto-search result has expired');
+    if (!cached)
+      throw new BadRequestException('auto-search result has expired');
 
     const cachedAdditions = new Map(
       cached.addedCameras.map((camera) => [camera.serialNumber, camera]),
@@ -53,12 +55,16 @@ export class NvrValidator {
 
     const currentCameras: CameraEntity[] =
       await this.serviceProvider.queryBus.execute(
-        new FindAllCamerasQuery({ filter: { nvrId: nvrEntity.id } }),
+        new FindAllCamerasQuery({
+          filter: { nvrId: nvrEntity.id, isDeleted: { $ne: true } },
+        }),
       );
     const currentSerialNumbers = new Set(
       currentCameras.map((camera) => camera.getProps().serialNumber),
     );
-    if (request.deletedCameras.some((serial) => !currentSerialNumbers.has(serial))) {
+    if (
+      request.deletedCameras.some((serial) => !currentSerialNumbers.has(serial))
+    ) {
       throw new BadRequestException('camera does not belong to this NVR');
     }
     if (
@@ -81,23 +87,23 @@ export class NvrValidator {
       addedCameras: request.addedCameras.map((serialNumber) => {
         const camera = cachedAdditions.get(serialNumber)!;
         return {
-        id: camera.cameraAggregateId,
-        tenantId: nvrEntity.getProps().tenantId,
-        name: camera.name,
-        serialNumber,
-        productModel: camera.productModel,
-        macAddress: camera.macAddress,
-        nvrId: nvrEntity.id,
-        username: camera.username,
-        password: camera.password,
-        port: camera.port,
-        streams: JSON.parse(camera.streams),
-        hasPtz: camera.hasPtz,
-        hasAudio: camera.hasAudio,
+          id: camera.cameraAggregateId,
+          tenantId: nvrEntity.getProps().tenantId,
+          name: camera.name,
+          serialNumber,
+          productModel: camera.productModel,
+          macAddress: camera.macAddress,
+          nvrId: nvrEntity.id,
+          username: camera.username,
+          password: camera.password,
+          port: camera.port,
+          streams: JSON.parse(camera.streams),
+          hasPtz: camera.hasPtz,
+          hasAudio: camera.hasAudio,
         };
       }),
-      deletedCameras: request.deletedCameras.map(
-        (serialNumber) => cachedDeletions.get(serialNumber)!,
+      deletedCameras: request.deletedCameras.map((serialNumber) =>
+        cachedDeletions.get(serialNumber)!,
       ),
     };
   }

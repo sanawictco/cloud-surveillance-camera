@@ -137,7 +137,7 @@ export class NvrsHttpService {
     const dependentCameraEntities: CameraEntity[] =
       await this.serviceProvider.queryBus.execute(
         new FindAllCamerasQuery({
-          filter: { nvrId: id },
+          filter: { nvrId: id, isDeleted: { $ne: true } },
         }),
       );
     for (const dependentCameraEntity of dependentCameraEntities)
@@ -243,7 +243,9 @@ export class NvrsHttpService {
 
     const dependentCameras: CameraEntity[] =
       await this.serviceProvider.queryBus.execute(
-        new FindAllCamerasQuery({ filter: { nvrId: id } }),
+        new FindAllCamerasQuery({
+          filter: { nvrId: id, isDeleted: { $ne: true } },
+        }),
       );
 
     const dependentPages: DashboardPageProjection[] =

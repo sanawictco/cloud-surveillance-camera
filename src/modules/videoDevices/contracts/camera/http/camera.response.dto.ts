@@ -10,6 +10,7 @@ interface CameraResponseProps extends BaseResponseProps {
   hasAudio: boolean;
   nvrId: string;
   isActive: boolean;
+  isDeleted: boolean;
 }
 
 export class CameraResponseDto extends ResponseBase {
@@ -20,6 +21,7 @@ export class CameraResponseDto extends ResponseBase {
   hasAudio: boolean;
   nvrId: string;
   isActive: boolean;
+  isDeleted: boolean;
 
   constructor(props: CameraResponseProps) {
     super(props);
@@ -30,5 +32,6 @@ export class CameraResponseDto extends ResponseBase {
     this.hasAudio = props.hasAudio;
     this.nvrId = props.nvrId;
     this.isActive = props.isActive;
+    this.isDeleted = props.isDeleted;
   }
 }

@@ -16,6 +16,7 @@ import {
   LiveSignalStatuses,
 } from '../../shared/valueObjects/liveSignalStatus.vo';
 import { SerialNumber } from '../../shared/valueObjects/serialNumber.vo';
+import { IsDeleted } from '../../shared/valueObjects/isDeleted.vo';
 import { VideoDeviceEntityTypes } from '../../shared/valueObjects/videoDeviceEntityTypes';
 import { NvrEntity } from '../nvr/nvr.entity';
 import {
@@ -83,6 +84,7 @@ export class CameraEntity extends AggregateRoot<
       hasAudio: new HasAudio(hasAudio),
       nvrId: new BusinessId(nvrId),
       isActive: new IsActive(false),
+      isDeleted: IsDeleted.init(),
       liveSignalStatus: LiveSignalStatus.init(),
       runningConfigs: RunningConfigs.init(),
     };
@@ -107,7 +109,19 @@ export class CameraEntity extends AggregateRoot<
 
   update(updateCameraProps: UpdateCameraProps) {
     const updateCameraValueObjects: Partial<CameraValueObjects> = {
+      tenantId: this.createValueObjectIfDefined(
+        updateCameraProps.tenantId,
+        BusinessId,
+      ),
       name: this.createValueObjectIfDefined(updateCameraProps.name, Name),
+      nvrId: this.createValueObjectIfDefined(
+        updateCameraProps.nvrId,
+        BusinessId,
+      ),
+      isDeleted: this.createValueObjectIfDefined(
+        updateCameraProps.isDeleted,
+        IsDeleted,
+      ),
       runningConfigs: this.createValueObjectIfDefined(
         updateCameraProps.runningConfigs,
         RunningConfigs,
@@ -156,6 +170,12 @@ export class CameraEntity extends AggregateRoot<
   }
 
   softDelete(): void {
+    this.props.isDeleted = new IsDeleted(true);
+    this.props.isActive = new IsActive(false);
+    this.props.liveSignalStatus = new LiveSignalStatus(
+      LiveSignalStatuses.CONNECTED,
+    );
+    this.props.runningConfigs = RunningConfigs.init();
     this.addEvent(
       new CameraSoftDeletedDomainEvent({
         aggregateId: this.id,

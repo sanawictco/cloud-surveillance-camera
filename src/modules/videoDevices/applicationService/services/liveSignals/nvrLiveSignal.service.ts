@@ -54,6 +54,7 @@ export class NvrLiveSignalService {
             filter: {
               nvrId: nvrEntity.id,
               isActive: true,
+              isDeleted: { $ne: true },
             },
           }),
         );
@@ -100,6 +101,7 @@ export class NvrLiveSignalService {
             filter: {
               nvrId: nvrEntity.id,
               isActive: true,
+              isDeleted: { $ne: true },
             },
           }),
         );

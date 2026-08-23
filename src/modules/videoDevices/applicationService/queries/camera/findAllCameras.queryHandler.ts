@@ -11,6 +11,7 @@ interface CameraQueryFilter {
   isActive: boolean;
   nvrId: string;
   liveSignalStatus: LiveSignalStatuses;
+  isDeleted: boolean | { $ne: boolean };
 }
 
 export class FindAllCamerasQuery extends QueryBase<CameraQueryFilter> {}

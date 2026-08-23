@@ -15,6 +15,7 @@ import {
   LiveSignalStatuses,
 } from '../../shared/valueObjects/liveSignalStatus.vo';
 import { SerialNumber } from '../../shared/valueObjects/serialNumber.vo';
+import { IsDeleted } from '../../shared/valueObjects/isDeleted.vo';
 
 export interface CameraValueObjects {
   readonly tenantId: BusinessId;
@@ -30,6 +31,7 @@ export interface CameraValueObjects {
   hasAudio: HasAudio;
   nvrId: BusinessId;
   isActive: IsActive;
+  isDeleted: IsDeleted;
   liveSignalStatus: LiveSignalStatus;
   runningConfigs: RunningConfigs;
 }
@@ -48,6 +50,7 @@ export interface CameraProps {
   hasAudio: boolean;
   nvrId: string;
   isActive: boolean;
+  isDeleted: boolean;
   liveSignalStatus: LiveSignalStatuses;
   runningConfigs: Record<string, string>;
 }
@@ -69,7 +72,10 @@ export interface CreateCameraProps {
 }
 
 export class UpdateCameraProps {
+  tenantId?: string;
   name?: string;
+  nvrId?: string;
+  isDeleted?: boolean;
   liveSignalStatus?: LiveSignalStatuses;
   runningConfigs?: Record<string, string>;
 }

@@ -42,15 +42,17 @@ export class SoftDeleteCameraCommandHandler implements ICommandHandler<SoftDelet
       new FindNvrByIdQuery(cameraEntity.getProps().nvrId),
     );
     cameraEntity.assertTenantMatches(nvrEntity);
+    const { runningConfigs } = cameraEntity.getProps();
     cameraEntity.softDelete();
-    await this.cameraRepo.delete(cameraEntity);
+    await this.cameraRepo.update(cameraEntity);
     const actorId = command.actorProps?.actorId;
-    await this.processDependencies(cameraEntity, actorId);
+    await this.processDependencies(cameraEntity, runningConfigs, actorId);
     return command.id;
   }
 
   private async processDependencies(
     cameraEntity: CameraEntity,
+    runningConfigs: Record<string, string>,
     actorId?: string,
   ) {
     const { id } = cameraEntity.getProps();
@@ -59,6 +61,7 @@ export class SoftDeleteCameraCommandHandler implements ICommandHandler<SoftDelet
     );
     await this.cameraRunningConfigAndCommandService.stopAndRemoveAllRunningConfigs(
       cameraEntity,
+      runningConfigs,
     );
     await this.cameraActorLogService.delete({
       cameraEntity,

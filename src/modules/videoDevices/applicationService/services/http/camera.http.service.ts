@@ -25,7 +25,9 @@ export class CamerasHttpService {
     private readonly cameraValidator: CameraValidator,
   ) {}
   async find(): Promise<CameraResponseDto[]> {
-    const query = new FindAllCamerasQuery();
+    const query = new FindAllCamerasQuery({
+      filter: { isDeleted: { $ne: true } },
+    });
     const cameraEntity: CameraEntity[] =
       await this.serviceProvider.queryBus.execute(query);
     return this.mapper.toResponseAll(cameraEntity);

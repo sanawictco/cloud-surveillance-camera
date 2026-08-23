@@ -39,6 +39,7 @@ import { ActiveCameraCommand } from '../../commands/camera/activeCamera.command'
 import { CreateCameraCommand } from '../../commands/camera/createCamera.command';
 import { InActiveCameraCommand } from '../../commands/camera/inactiveCamera.command';
 import { SoftDeleteCameraCommand } from '../../commands/camera/softDeleteCamera.command';
+import { UpdateCameraCommand } from '../../commands/camera/updateCamera.command';
 import { ActiveNvrCommand } from '../../commands/nvr/activeNvr.command';
 import { InActiveNvrCommand } from '../../commands/nvr/inactiveNvr.command';
 import { UpdateNvrCommand } from '../../commands/nvr/updateNvr.command';
@@ -134,7 +135,11 @@ export class NvrMqttService {
     const dependentCameraEntities: CameraEntity[] =
       await this.serviceProvider.queryBus.execute(
         new FindAllCamerasQuery({
-          filter: { nvrId: nvrEntity.id, isActive: true },
+          filter: {
+            nvrId: nvrEntity.id,
+            isActive: true,
+            isDeleted: { $ne: true },
+          },
         }),
       );
     const inactivatedCameras: CameraResponseDto[] =
@@ -189,7 +194,9 @@ export class NvrMqttService {
     );
     const currentCameras: CameraEntity[] =
       await this.serviceProvider.queryBus.execute(
-        new FindAllCamerasQuery({ filter: { nvrId: nvr.id } }),
+        new FindAllCamerasQuery({
+          filter: { nvrId: nvr.id, isDeleted: { $ne: true } },
+        }),
       );
     const currentMacs = new Set(
       currentCameras.map((camera) =>
@@ -312,15 +319,54 @@ export class NvrMqttService {
 
     const addedCameras: SanitizedNvrCameraDto[] = [];
     for (const camera of successfulAdditions) {
-      const existing: CameraEntity | undefined =
+      const existingById: CameraEntity | undefined = camera.id
+        ? await this.serviceProvider.queryBus.execute(
+            new FindCameraByIdQuery(camera.id),
+          )
+        : undefined;
+      const existingOnNvr: CameraEntity | undefined =
         await this.serviceProvider.queryBus.execute(
           new FindCameraBySerialNumberQuery(camera.serialNumber, nvr.id),
         );
+      if (
+        existingById &&
+        existingById.getProps().serialNumber !== camera.serialNumber
+      ) {
+        throw new BadRequestException('camera registration identity mismatch');
+      }
+      if (camera.id && existingOnNvr && camera.id !== existingOnNvr.id) {
+        throw new BadRequestException('camera registration identity mismatch');
+      }
+      const existing: CameraEntity | undefined = existingById ?? existingOnNvr;
       if (existing) {
-        if (existing.getProps().nvrId !== nvr.id) {
-          throw new BadRequestException('camera belongs to another NVR');
+        const existingProps = existing.getProps();
+        if (existingProps.isDeleted) {
+          await this.serviceProvider.commandBus.execute(
+            new UpdateCameraCommand({
+              id: existing.id,
+              tenantId: nvr.getProps().tenantId,
+              nvrId: nvr.id,
+              isDeleted: false,
+              actorProps: queued.metadata.actorProps,
+            }),
+          );
+          await this.serviceProvider.commandBus.execute(
+            new ActiveCameraCommand({
+              id: existing.id,
+              actorProps: queued.metadata.actorProps,
+            }),
+          );
+          const restored: CameraEntity =
+            await this.serviceProvider.queryBus.execute(
+              new FindCameraByIdQuery(existing.id),
+            );
+          addedCameras.push(toSanitizedCamera(restored));
+        } else {
+          if (existingProps.nvrId !== nvr.id) {
+            throw new BadRequestException('camera belongs to another NVR');
+          }
+          addedCameras.push(toSanitizedCamera(existing));
         }
-        addedCameras.push(toSanitizedCamera(existing));
         continue;
       }
       await this.serviceProvider.commandBus.execute(
@@ -358,6 +404,7 @@ export class NvrMqttService {
       if (existing.getProps().nvrId !== nvr.id) {
         throw new BadRequestException('camera belongs to another NVR');
       }
+      if (existing.getProps().isDeleted) continue;
       await this.serviceProvider.commandBus.execute(
         new SoftDeleteCameraCommand({
           id: existing.id,
@@ -402,8 +449,8 @@ export class NvrMqttService {
         await this.serviceProvider.queryBus.execute(
           new FindCameraByIdQuery(cameraId),
         );
-      const { isActive } = cameraEntity.getProps();
-      if (isActive) continue;
+      const { isActive, isDeleted } = cameraEntity.getProps();
+      if (isActive || isDeleted) continue;
       await this.serviceProvider.commandBus.execute(
         new ActiveCameraCommand({
           id: cameraId,
@@ -496,6 +543,7 @@ export class NvrMqttService {
         new FindCameraByIdQuery(cameraId),
       );
       if (!cameraEntity) return;
+      if (cameraEntity.getProps().isDeleted) continue;
       await this.serviceProvider.commandBus.execute(
         new SoftDeleteCameraCommand({
           id: cameraEntity.id,

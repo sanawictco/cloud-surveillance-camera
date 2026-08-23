@@ -17,6 +17,7 @@ import { IsActive } from '../../shared/valueObjects/isActive.vo';
 import { LiveSignalStatus } from '../../shared/valueObjects/liveSignalStatus.vo';
 import { CameraModel } from './camera.schema';
 import { SerialNumber } from '../../shared/valueObjects/serialNumber.vo';
+import { IsDeleted } from '../../shared/valueObjects/isDeleted.vo';
 
 @Injectable()
 export class CameraMapper implements Mapper<
@@ -42,6 +43,7 @@ export class CameraMapper implements Mapper<
       nvrId: copy.nvrId,
       liveSignalStatus: copy.liveSignalStatus,
       isActive: copy.isActive,
+      isDeleted: copy.isDeleted,
       runningConfigs: copy.runningConfigs,
       createdAt: copy.createdAt,
       updatedAt: copy.updatedAt,
@@ -69,6 +71,7 @@ export class CameraMapper implements Mapper<
         nvrId: new BusinessId(record.nvrId),
         liveSignalStatus: new LiveSignalStatus(record.liveSignalStatus),
         isActive: new IsActive(record.isActive),
+        isDeleted: new IsDeleted(record.isDeleted ?? false),
         runningConfigs: new RunningConfigs(record.runningConfigs),
       },
     });

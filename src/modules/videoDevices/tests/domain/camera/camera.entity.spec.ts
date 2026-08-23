@@ -58,6 +58,47 @@ function createNvr(tenantId: string): NvrEntity {
 }
 
 describe('CameraEntity tenant ownership', () => {
+  it('starts as not deleted', () => {
+    const camera = createCamera();
+
+    expect(camera.getProps().isDeleted).toBe(false);
+  });
+
+  it('marks the camera deleted and resets its operational state', () => {
+    const camera = createCamera();
+    camera.active();
+    camera.update({ runningConfigs: { update: 'update-msg' } });
+
+    camera.softDelete();
+
+    expect(camera.getProps()).toEqual(
+      expect.objectContaining({
+        isDeleted: true,
+        isActive: false,
+        runningConfigs: { init: '-1' },
+      }),
+    );
+  });
+
+  it('can restore a soft-deleted camera for auto-registration', () => {
+    const camera = createCamera();
+    camera.softDelete();
+
+    camera.update({
+      tenantId: '11705ad5-9e70-4930-8680-7cc593687049',
+      nvrId: '22222222-2222-4222-8222-222222222222',
+      isDeleted: false,
+    });
+
+    expect(camera.getProps()).toEqual(
+      expect.objectContaining({
+        tenantId: '11705ad5-9e70-4930-8680-7cc593687049',
+        nvrId: '22222222-2222-4222-8222-222222222222',
+        isDeleted: false,
+      }),
+    );
+  });
+
   it('accepts an NVR from the same tenant', () => {
     const camera = createCamera();
     const nvr = createNvr(cameraTenantId);

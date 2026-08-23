@@ -71,6 +71,7 @@ export class DeleteNvrCommandHandler implements ICommandHandler<DeleteNvrCommand
           filter: {
             tenantId: nvrEntity.getProps().tenantId,
             nvrId: nvrEntity.id,
+            isDeleted: { $ne: true },
           },
         }),
       );

@@ -47,6 +47,9 @@ export class CameraModel implements CameraProps {
   @Prop({ required: true })
   isActive: boolean;
 
+  @Prop({ default: false, required: true })
+  isDeleted: boolean;
+
   @Prop({ required: true, type: String, enum: LiveSignalStatuses })
   liveSignalStatus: LiveSignalStatuses;
 
@@ -79,6 +82,7 @@ export class CameraModel implements CameraProps {
     this.hasAudio = props?.hasAudio ?? false;
     this.nvrId = props?.nvrId ?? '';
     this.isActive = props?.isActive ?? false;
+    this.isDeleted = props?.isDeleted ?? false;
     this.liveSignalStatus =
       props?.liveSignalStatus ?? LiveSignalStatuses.DIS_CONNECTED;
     this.createdAt = new Date();

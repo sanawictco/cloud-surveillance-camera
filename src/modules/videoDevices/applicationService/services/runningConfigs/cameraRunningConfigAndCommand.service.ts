@@ -115,11 +115,15 @@ export class CameraRunningConfigAndCommandService {
 
   async stopAndRemoveAllRunningConfigs(
     cameraEntity: CameraEntity,
+    existingRunningConfigs?: Record<string, string>,
   ): Promise<void> {
-    cameraEntity = await this.serviceProvider.queryBus.execute(
-      new FindCameraByIdQuery(cameraEntity.id),
-    );
-    const { runningConfigs } = cameraEntity.getProps();
+    if (!existingRunningConfigs) {
+      cameraEntity = await this.serviceProvider.queryBus.execute(
+        new FindCameraByIdQuery(cameraEntity.id),
+      );
+    }
+    const runningConfigs =
+      existingRunningConfigs ?? cameraEntity.getProps().runningConfigs;
     for (const msgId of Object.values(runningConfigs)) {
       if (msgId) {
         await this.videoDeviceConfigQueueService.getAndDeleteRepeatableMsg(

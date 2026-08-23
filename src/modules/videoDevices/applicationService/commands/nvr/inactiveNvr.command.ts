@@ -55,6 +55,7 @@ export class InActiveNvrCommandHandler implements ICommandHandler<InActiveNvrCom
             tenantId: nvrEntity.getProps().tenantId,
             nvrId: nvrEntity.id,
             isActive: true,
+            isDeleted: { $ne: true },
           },
         }),
       );
