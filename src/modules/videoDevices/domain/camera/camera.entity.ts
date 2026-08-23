@@ -8,11 +8,15 @@ import { ActorLogTypes } from 'src/modules/shared/dtos/actor.dto';
 import { Name } from 'src/modules/shared/valueObjects/name.vo';
 import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.vo';
 
+import { VideoDeviceConfigQueueMsgDto } from '../../applicationService/services/queues/videoDeviceConfig/videoDeviceConfigQueueMsg.dto';
+import { VideoDeviceDataQueueMsgDto } from '../../applicationService/services/queues/videoDeviceData/videoDeviceDataQueueMsg.dto';
 import { IsActive } from '../../shared/valueObjects/isActive.vo';
 import {
   LiveSignalStatus,
   LiveSignalStatuses,
 } from '../../shared/valueObjects/liveSignalStatus.vo';
+import { SerialNumber } from '../../shared/valueObjects/serialNumber.vo';
+import { VideoDeviceEntityTypes } from '../../shared/valueObjects/videoDeviceEntityTypes';
 import { NvrEntity } from '../nvr/nvr.entity';
 import {
   CameraCloudPubToFogMqttTopics,
@@ -25,9 +29,11 @@ import {
 } from './camera.type';
 import { CameraActivatedDomainEvent } from './events/cameraActivated.domainEvent';
 import { CameraCreatedDomainEvent } from './events/cameraCreated.domainEvent';
-import { CameraDeletedDomainEvent } from './events/cameraDeleted.domainEvent';
+import { CameraHardDeletedDomainEvent } from './events/cameraHardDeleted.domainEvent';
 import { CameraInActivatedDomainEvent } from './events/cameraInActivated.domainEvent';
+import { CameraSoftDeletedDomainEvent } from './events/cameraSoftDeleted.domainEvent';
 import { CameraUpdatedDomainEvent } from './events/cameraUpdated.domainEvent';
+import { CameraTenantMismatchError } from './exceptions/camera.exception';
 import { HasAudio } from './valueObjects/hasAudio';
 import { HasPtz } from './valueObjects/hasPtz.vo';
 import { MacAddress } from './valueObjects/macAddress.vo';
@@ -36,11 +42,6 @@ import { Port } from './valueObjects/port.vo';
 import { ProductModel } from './valueObjects/productModel.vo';
 import { Streams } from './valueObjects/streams.vo';
 import { Username } from './valueObjects/username.vo';
-import { SerialNumber } from '../../shared/valueObjects/serialNumber.vo';
-import { VideoDeviceConfigQueueMsgDto } from '../../applicationService/services/queues/videoDeviceConfig/videoDeviceConfigQueueMsg.dto';
-import { VideoDeviceEntityTypes } from '../../shared/valueObjects/videoDeviceEntityTypes';
-import { VideoDeviceDataQueueMsgDto } from '../../applicationService/services/queues/videoDeviceData/videoDeviceDataQueueMsg.dto';
-import { CameraTenantMismatchError } from './exceptions/camera.exception';
 
 export class CameraEntity extends AggregateRoot<
   CameraValueObjects,
@@ -154,9 +155,17 @@ export class CameraEntity extends AggregateRoot<
     );
   }
 
-  delete(): void {
+  softDelete(): void {
     this.addEvent(
-      new CameraDeletedDomainEvent({
+      new CameraSoftDeletedDomainEvent({
+        aggregateId: this.id,
+      }),
+    );
+  }
+
+  hardDelete(): void {
+    this.addEvent(
+      new CameraHardDeletedDomainEvent({
         aggregateId: this.id,
       }),
     );

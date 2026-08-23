@@ -67,4 +67,15 @@ export class CameraActorLogService {
       },
     });
   }
+
+  async hardDelete(props: { cameraEntity: CameraEntity }) {
+    const { cameraEntity } = props;
+    const { name, serialNumber } = cameraEntity.getProps();
+    await this.actorLogApiService.registerActorLog({
+      messageProps: {
+        key: LanguageKeys.camera.actorLog.deleted,
+        params: [name, serialNumber],
+      },
+    });
+  }
 }

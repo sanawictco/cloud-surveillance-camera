@@ -139,6 +139,8 @@ export type CameraLanguageKeys = {
         activated: string;
         inactivated: string;
         softDeleted: string;
+        multiHardDeleted: string;
+        hardDeleted: string;
       };
     };
     errorResponse: {

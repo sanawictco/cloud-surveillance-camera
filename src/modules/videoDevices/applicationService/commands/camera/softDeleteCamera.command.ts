@@ -42,7 +42,7 @@ export class SoftDeleteCameraCommandHandler implements ICommandHandler<SoftDelet
       new FindNvrByIdQuery(cameraEntity.getProps().nvrId),
     );
     cameraEntity.assertTenantMatches(nvrEntity);
-    cameraEntity.delete();
+    cameraEntity.softDelete();
     await this.cameraRepo.delete(cameraEntity);
     const actorId = command.actorProps?.actorId;
     await this.processDependencies(cameraEntity, actorId);

@@ -87,4 +87,14 @@ export class CameraValidator {
         ),
       );
   }
+
+  checkCameraShoudBeSoftDeleted(cameraEntity: CameraEntity): void {
+    if (!cameraEntity.getProps().isDeleted)
+      throw new BadRequestException("the camera isn't soft deleted");
+  }
+
+  checkCameraShoudNotBeSoftDeleted(cameraEntity: CameraEntity): void {
+    if (cameraEntity.getProps().isDeleted)
+      throw new BadRequestException('the camera has been soft deleted');
+  }
 }
