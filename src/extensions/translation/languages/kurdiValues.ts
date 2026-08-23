@@ -23,6 +23,8 @@ export const kurdiValues: LanguageKeysBase = {
         activated: 'دوربین فعال شد',
         inactivated: 'دوربین غیرفعال شد',
         softDeleted: 'دوربین به سطل بازیافت منتقل شد',
+        hardDeleted: 'کامێرا سڕایەوە',
+        multiHardDeleted: 'کامێراکان سڕانەوە',
       },
     },
     errorResponse: {

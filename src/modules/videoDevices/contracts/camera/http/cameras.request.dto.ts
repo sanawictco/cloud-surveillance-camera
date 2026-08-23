@@ -8,15 +8,15 @@ import {
   IsUUID,
 } from 'class-validator';
 import { AggregateID } from 'src/dddLib/core';
-import { Guard } from 'src/dddLib/utils';
 export class CameraIdsRequestDto {
   @ApiProperty({
     type: [String],
     description: 'array of camera UUIDs',
   })
-  @Transform(({ value }) => (Guard.isString(value) ? value.split(',') : value))
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.split(',') : value,
+  )
   @IsArray()
-  @ArrayNotEmpty()
   @ArrayNotEmpty()
   @ArrayMaxSize(100)
   @ArrayUnique()

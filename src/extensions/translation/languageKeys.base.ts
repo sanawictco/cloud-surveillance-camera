@@ -36,6 +36,8 @@ export const LanguageKeys: LanguageKeysBase = {
         activated: 'camera.response.socket.activated',
         inactivated: 'camera.response.socket.inactivated',
         softDeleted: 'camera.response.socket.softDeleted',
+        hardDeleted: 'camera.response.socket.hardDeleted',
+        multiHardDeleted: 'camera.response.socket.multiHardDeleted',
       },
     },
     errorResponse: {

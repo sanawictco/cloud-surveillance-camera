@@ -23,6 +23,8 @@ export const arabicValues: LanguageKeysBase = {
         activated: 'دوربین فعال شد',
         inactivated: 'دوربین غیرفعال شد',
         softDeleted: 'دوربین به سطل بازیافت منتقل شد',
+        hardDeleted: 'تم حذف الكاميرا',
+        multiHardDeleted: 'تم حذف الكاميرات',
       },
     },
     errorResponse: {
