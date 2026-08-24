@@ -5,16 +5,16 @@ import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.v
 import { BusinessId } from 'src/dddLib/core/businessId.vo';
 import { Name } from 'src/modules/shared/valueObjects/name.vo';
 import { NvrResponseDto } from '../../contracts/nvr/http/response/nvr.response.dto';
-import { NvrEntity } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/domain/nvr/nvr.entity';
-import { AccessToken } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/domain/nvr/valueObjects/accessToken.vo';
-import { CloudIsRecovering } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/domain/nvr/valueObjects/cloudIsRecovering.vo';
-import { NvrLanguage } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/domain/nvr/valueObjects/NvrLanguage.vo';
-import { NvrPassword } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/domain/nvr/valueObjects/nvrPassword.vo';
-import { IsActive } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/shared/valueObjects/isActive.vo';
-import { LiveSignalStatus } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/shared/valueObjects/liveSignalStatus.vo';
-import { SerialNumber } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/shared/valueObjects/serialNumber.vo';
+import { NvrEntity } from '../../domain/nvr/nvr.entity';
+import { AccessToken } from '../../domain/nvr/valueObjects/accessToken.vo';
+import { CloudIsRecovering } from '../../domain/nvr/valueObjects/cloudIsRecovering.vo';
+import { NvrLanguage } from '../../domain/nvr/valueObjects/NvrLanguage.vo';
+import { NvrPassword } from '../../domain/nvr/valueObjects/nvrPassword.vo';
+import { IsActive } from '../../shared/valueObjects/isActive.vo';
+import { LiveSignalStatus } from '../../shared/valueObjects/liveSignalStatus.vo';
+import { SerialNumber } from '../../shared/valueObjects/serialNumber.vo';
 import { NvrModel } from './nvr.schema';
-import { MaxCameras } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/domain/nvr/valueObjects/maxCameras.vo';
+import { MaxCameras } from '../../domain/nvr/valueObjects/maxCameras.vo';
 import { ProductModel } from '../../domain/camera/valueObjects/productModel.vo';
 
 @Injectable()

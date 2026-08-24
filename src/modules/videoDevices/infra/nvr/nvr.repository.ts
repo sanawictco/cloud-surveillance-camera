@@ -6,8 +6,8 @@ import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.
 import { ParentRepository } from 'src/modules/shared/parent.repository';
 import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.vo';
 import { NvrResponseDto } from '../../contracts/nvr/http/response/nvr.response.dto';
-import { NvrValueObjects } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/domain/nvr/nvr.type';
-import { NvrEntity } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/domain/nvr/nvr.entity';
+import { NvrValueObjects } from '../../domain/nvr/nvr.type';
+import { NvrEntity } from '../../domain/nvr/nvr.entity';
 import { NvrModel } from './nvr.schema';
 import { NvrMapper } from './nvr.mapper';
 import { NvrConfigs } from '../../domain/nvr/nvr.type';

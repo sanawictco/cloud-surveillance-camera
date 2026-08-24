@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { LanguageCode } from 'src/extensions/translation/languageCode.enum';
-import type { NvrProps } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/domain/nvr/nvr.type';
-import { LiveSignalStatuses } from '../../../../../../cloud-surveillance-camera/src/modules/videoDevices/shared/valueObjects/liveSignalStatus.vo';
+import type { NvrProps } from '../../domain/nvr/nvr.type';
+import { LiveSignalStatuses } from '../../shared/valueObjects/liveSignalStatus.vo';
 
 @Schema({ collection: 'nvrs' })
 export class NvrModel implements NvrProps {
