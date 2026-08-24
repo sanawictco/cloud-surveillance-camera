@@ -59,6 +59,7 @@ import { NvrMapper } from './infra/nvr/nvr.mapper';
 import { NvrRepository } from './infra/nvr/nvr.repository';
 import { NvrModel, NvrSchema } from './infra/nvr/nvr.schema';
 import { NvrMqttService } from './applicationService/services/mqtt/nvrMqtt.service';
+import { CameraMqttService } from './applicationService/services/mqtt/cameraMqtt.service';
 import { VideoDevicesConfigsMqttController } from './controllers/videoDeviceConfigs.mqtt.controller';
 import { MutateNvrRunningConfigCommandHandler } from './applicationService/commands/nvr/mutateNvrRunningConfig.command';
 import { UnsetCameraRunningConfigCommandHandler } from './applicationService/commands/camera/unsetCameraRunningConfig.command';
@@ -125,6 +126,7 @@ const services: Provider[] = [
   NvrSystemLogService,
   CameraSystemLogService,
   NvrMqttService,
+  CameraMqttService,
 ];
 
 const validators: Provider[] = [NvrValidator, CameraValidator];

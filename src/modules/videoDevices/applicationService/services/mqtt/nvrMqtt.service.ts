@@ -80,7 +80,7 @@ export class NvrMqttService {
         new FindNvrByIdQuery(data.id),
       );
     this.websocketService.sendMessage<UpdateNvrWsResponseDto>(
-      this.websocketService.channels.DEVICES_SOCKET,
+      this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.CONFIG,
         data: this.nvrMapper.toResponse(updatedNvrEntity),
@@ -111,7 +111,7 @@ export class NvrMqttService {
       );
 
     this.websocketService.sendMessage<ActiveNvrWsResponseDto>(
-      this.websocketService.channels.DEVICES_SOCKET,
+      this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.CONFIG,
         data: this.nvrMapper.toResponse(activatedNvrEntity),
@@ -157,7 +157,7 @@ export class NvrMqttService {
         new FindNvrByIdQuery(data.id),
       );
     this.websocketService.sendMessage<InActiveNvrWsResponseDto>(
-      this.websocketService.channels.DEVICES_SOCKET,
+      this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.CONFIG,
         data: {
@@ -286,7 +286,7 @@ export class NvrMqttService {
           };
 
     this.websocketService.sendMessage<SearchNvrWsResponseDto>(
-      this.websocketService.channels.DEVICES_SOCKET,
+      this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       websocketMessage,
     );
   }
@@ -418,7 +418,7 @@ export class NvrMqttService {
       this.cache.delete(nvr.getCacheKeys().namingCamerasData!),
     ]);
     this.websocketService.sendMessage<RegisterNvrWsResponseDto>(
-      this.websocketService.channels.DEVICES_SOCKET,
+      this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.CONFIG,
         data: {
@@ -465,7 +465,7 @@ export class NvrMqttService {
     }
     if (activatedCameraEntities.length)
       this.websocketService.sendMessage<ActiveMultiCamerastWsResponseDto>(
-        this.websocketService.channels.DEVICES_SOCKET,
+        this.websocketService.channels.VIDEO_DEVICES_SOCKET,
         {
           type: WebSocketTypes.CONFIG,
           data: this.cameraMapper.toResponseAll(activatedCameraEntities),
@@ -511,7 +511,7 @@ export class NvrMqttService {
     }
     if (inactivatedCameraEntities.length)
       this.websocketService.sendMessage<InActiveMultiCamerastWsResponseDto>(
-        this.websocketService.channels.DEVICES_SOCKET,
+        this.websocketService.channels.VIDEO_DEVICES_SOCKET,
         {
           type: WebSocketTypes.CONFIG,
           data: {
@@ -554,7 +554,7 @@ export class NvrMqttService {
       for (let ruleChain of allDependentRuleChains) ruleChain.isActive = false;
     }
     this.websocketService.sendMessage<SoftDeleteMultiCamerastWsResponseDto>(
-      this.websocketService.channels.DEVICES_SOCKET,
+      this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.CONFIG,
         data: { cameraIds },

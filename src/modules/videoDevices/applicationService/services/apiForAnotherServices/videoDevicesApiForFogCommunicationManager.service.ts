@@ -102,7 +102,7 @@ export class VideoDevicesApiForFogCommunicationManagerService {
     );
     // send cloud is recovering signal to fog
     this.websocketService.sendMessage<CloudIsRecoveringWsResponseDto>(
-      this.websocketService.channels.DEVICES_SOCKET,
+      this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.DATA,
         data: {
@@ -140,7 +140,7 @@ export class VideoDevicesApiForFogCommunicationManagerService {
     );
     // send cloud is recovered signal to fog
     this.websocketService.sendMessage<CloudIsRecoveringWsResponseDto>(
-      this.websocketService.channels.DEVICES_SOCKET,
+      this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.DATA,
         data: {
@@ -162,4 +162,5 @@ export class VideoDevicesApiForFogCommunicationManagerService {
       'cloud recovery finished',
     );
   }
+
 }

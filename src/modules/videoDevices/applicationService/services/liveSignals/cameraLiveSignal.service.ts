@@ -35,7 +35,7 @@ export class CameraLiveSignalService {
       }),
     );
     this.websocketService.sendMessage<ToConnectedCameraLiveSignalWsResponseDto>(
-      this.websocketService.channels.DEVICES_SOCKET,
+      this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.DATA,
         data: {
@@ -57,7 +57,7 @@ export class CameraLiveSignalService {
       }),
     );
     this.websocketService.sendMessage<ToConnectingCameraLiveSignalWsResponseDto>(
-      this.websocketService.channels.DEVICES_SOCKET,
+      this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.DATA,
         data: {
@@ -83,7 +83,7 @@ export class CameraLiveSignalService {
       cameraEntity,
     );
     this.websocketService.sendMessage<ToDisconnectedCameraLiveSignalWsResponseDto>(
-      this.websocketService.channels.DEVICES_SOCKET,
+      this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.DATA,
         data: {

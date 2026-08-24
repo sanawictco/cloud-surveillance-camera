@@ -39,7 +39,7 @@ export class CameraMqttService {
         new FindCameraByIdQuery(data.id),
       );
     this.websocketService.sendMessage<UpdateCameraWsResponseDto>(
-      this.websocketService.channels.DEVICES_SOCKET,
+      this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.CONFIG,
         data: this.cameraMapper.toResponse(updatedCameraEntity),

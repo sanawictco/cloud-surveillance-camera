@@ -90,7 +90,7 @@ export class NvrsHttpService {
     const msgId = generateRandomMsgId();
     setTimeout(() => {
       this.websocketService.sendMessage<CreateNvrWsResponseDto>(
-        this.websocketService.channels.DEVICES_SOCKET,
+        this.websocketService.channels.VIDEO_DEVICES_SOCKET,
         {
           type: WebSocketTypes.CONFIG,
           data: this.nvrMapper.toResponse(createdNvrEntity),
@@ -156,7 +156,7 @@ export class NvrsHttpService {
     const msgId = generateRandomMsgId();
     setTimeout(() => {
       this.websocketService.sendMessage<DeleteNvrWsResponseDto>(
-        this.websocketService.channels.DEVICES_SOCKET,
+        this.websocketService.channels.VIDEO_DEVICES_SOCKET,
         {
           type: WebSocketTypes.CONFIG,
           data: {

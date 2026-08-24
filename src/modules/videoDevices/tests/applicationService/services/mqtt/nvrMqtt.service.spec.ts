@@ -24,7 +24,7 @@ describe('NvrMqttService', () => {
       commandBus: { execute: jest.fn().mockResolvedValue(undefined) },
     };
     const websocket = {
-      channels: { DEVICES_SOCKET: 'DevicesSocket' },
+      channels: { VIDEO_DEVICES_SOCKET: 'VIDEO_DevicesSocket' },
       sendMessage: jest.fn(),
     };
     const sanawApi = { getNvrCameraSearchInfo: jest.fn() };
@@ -67,7 +67,7 @@ describe('NvrMqttService', () => {
       }),
     );
     expect(context.websocket.sendMessage).toHaveBeenCalledWith(
-      'DevicesSocket',
+      'VIDEO_DevicesSocket',
       {
         type: WebSocketTypes.CONFIG,
         data: { nvrId: context.nvr.id },

@@ -63,7 +63,7 @@ export class NvrLiveSignalService {
       }
     }
     this.websocketService.sendMessage<ToConnectedNvrLiveSignalWsResponseDto>(
-      this.websocketService.channels.DEVICES_SOCKET,
+      this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.DATA,
         data: {
@@ -111,7 +111,7 @@ export class NvrLiveSignalService {
         );
       }
       this.websocketService.sendMessage<ToDisconnectedNvrLiveSignalWsResponseDto>(
-        this.websocketService.channels.DEVICES_SOCKET,
+        this.websocketService.channels.VIDEO_DEVICES_SOCKET,
         {
           type: WebSocketTypes.DATA,
           data: {
