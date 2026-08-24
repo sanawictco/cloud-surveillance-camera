@@ -23,6 +23,14 @@ import { VideoDeviceConfigQueueService } from '../queues/videoDeviceConfig/video
 import { timingSafeEqual } from 'node:crypto';
 import { FogVideoDeviceConfigRequestDto } from 'src/modules/videoDevices/contracts/nvr/http/request/fogConfig.request.dto';
 import { VideoDeviceEntityTypes } from 'src/modules/videoDevices/shared/valueObjects/videoDeviceEntityTypes';
+import { FindNvrBySerialNumberQuery } from '../../queries/nvr/findNvrBySerialNumber.queryHandler';
+import { AggregateID } from 'src/dddLib/core';
+
+export interface FogNvrProjection {
+  id: AggregateID;
+  accessToken: string;
+  cloudIsRecovering: boolean;
+}
 
 @Injectable()
 export class VideoDevicesApiForFogCommunicationManagerService {
@@ -163,4 +171,47 @@ export class VideoDevicesApiForFogCommunicationManagerService {
     );
   }
 
+  async findFogNvrBySerialNumber(
+    serialNumber: string,
+  ): Promise<FogNvrProjection | undefined> {
+    const nvrEntity: NvrEntity | undefined =
+      await this.serviceProvider.queryBus.execute(
+        new FindNvrBySerialNumberQuery(serialNumber),
+      );
+    if (!nvrEntity) return undefined;
+    const { accessToken, cloudIsRecovering } = nvrEntity.getProps();
+    return {
+      id: nvrEntity.id,
+      accessToken,
+      cloudIsRecovering,
+    };
+  }
+
+  async resetFogCloudRecovery(nvrId: AggregateID) {
+    await this.serviceProvider.commandBus.execute(
+      new UpdateNvrCommand({ id: nvrId, cloudIsRecovering: false }),
+    );
+  }
+
+  async completeFogCloudRecovery(serialNumber: string) {
+    await this.postProcessCloudRecovery(
+      await this.checkExistsNvrWithSerialNumber(serialNumber),
+    );
+  }
+
+  async startFogCloudRecovery(nvrId: AggregateID) {
+    await this.serviceProvider.commandBus.execute(
+      new UpdateNvrCommand({ id: nvrId, cloudIsRecovering: true }),
+    );
+    this.websocketService.sendMessage<CloudIsRecoveringWsResponseDto>(
+      this.websocketService.channels.VIDEO_DEVICES_SOCKET,
+      {
+        type: WebSocketTypes.DATA,
+        data: { id: nvrId, cloudIsRecovering: true },
+        metadata: {
+          dataType: NvrWebSocketDataTypes.CLOUD_IS_RECOVERING,
+        },
+      },
+    );
+  }
 }
