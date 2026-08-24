@@ -36,6 +36,7 @@ import { CameraActorLogService } from './applicationService/services/actorLogs/c
 import { NvrActorLogService } from './applicationService/services/actorLogs/nvrActorLog.service';
 import { VideoDevicesApiForDashboardService } from './applicationService/services/apiForAnotherServices/videoDevicesApiForDashboard.service';
 import { VideoDevicesApiForFogCommunicationManagerService } from './applicationService/services/apiForAnotherServices/videoDevicesApiForFogCommunicationManager.service';
+import { VideoDevicesApiforTrashService } from './applicationService/services/apiForAnotherServices/videoDevicesApiForTrash.service';
 import { NvrsHttpService } from './applicationService/services/http/nvr.http.service';
 import { VideoDeviceInitService } from './applicationService/services/init.service';
 import { CameraLiveSignalService } from './applicationService/services/liveSignals/cameraLiveSignal.service';
@@ -103,6 +104,7 @@ const queryHandlers: Provider[] = [
 const apiServiceForAnotherModules: Provider[] = [
   VideoDevicesApiForDashboardService,
   VideoDevicesApiForFogCommunicationManagerService,
+  VideoDevicesApiforTrashService,
 ];
 const repositories: Provider[] = [
   { provide: NVR_REPOSITORY, useClass: NvrRepository },
