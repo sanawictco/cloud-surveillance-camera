@@ -6,6 +6,7 @@ import { SerializerService } from 'src/extensions/serialization/serializer.servi
 import { TranslatorService } from 'src/extensions/translation/translatorService';
 import { UserInfoService } from 'src/extensions/userInfo/userInfo.service';
 import { SchedulerService } from '../scheduler/scheduler.service';
+import { HttpService } from '../http/http.service';
 
 @Injectable()
 export class ServiceProvider {
@@ -19,5 +20,6 @@ export class ServiceProvider {
     readonly queryBus: QueryBus,
     readonly translatorService: TranslatorService,
     readonly scheduler: SchedulerService,
+    readonly httpService: HttpService,
   ) {}
 }
