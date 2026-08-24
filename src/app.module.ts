@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, RequestMethod } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
@@ -19,39 +19,62 @@ import { TDengineModule } from './extensions/tdengine/tdengine.module';
 import { TranslatorModule } from './extensions/translation/translator.module';
 import { UserInfoModule } from './extensions/userInfo/userInfo.module';
 import { WsModule } from './extensions/websocket/ws.module';
-import { AppController } from './app.controller';
+import { ScheduleModule } from '@nestjs/schedule';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { ContextInterceptor } from './utilities/context.interceptor';
 import { GlobalExceptionFilter } from './utilities/exception.filter';
 import { VideoDevicesModule } from './modules/videoDevices/videoDevices.module';
+import { ProtectionMiddleware } from './utilities/auth/protection.middleware';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { SystemLogModule } from './modules/systemLogs/systemLog.module';
+import { FogCommunicationManagerModule } from './modules/fogCommunicationManager/fogCommunicationManager.module';
+import { EmployeeModule } from './modules/employees/employees.module';
+import { ActorLogModule } from './modules/actorLogs/actorLog.module';
+import { SystemMonitorModule } from './modules/systemMonitor/systemMonitor.module';
+import { TrashModule } from './modules/trash/trash.module';
 
 @Module({
   imports: [
-    ShutdownModule,
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: `.env.${process.env.NODE_ENV}`,
-      load: [AppConfig],
-    }),
+    // ── MUST be first: ShutdownModule is @Global and must be ready
+    //    before any other module registers a shutdown handler ──────────────────
+    ShutdownModule, // 1. always first
+    // Infrastructure modules (no shutdown handlers yet)
     LoggerModule,
     TranslatorModule,
     ServiceProviderModule,
     SerializerModule,
     UserInfoModule,
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: `.env.${process.env.NODE_ENV}`,
+      load: [AppConfig],
+    }),
     EventEmitterModule.forRoot(),
     RequestContextModule,
     CqrsModule,
-    WsModule,
-    QueueModule,
-    SchedulerModule,
-    MqttModule,
-    CachingModule,
-    TDengineModule,
-    MongoModule,
-    TenantsModule,
+    ScheduleModule.forRoot(),
+    // Shutdown-ordered (registration order = shutdown order)
+    WsModule, // 2. WebSocket first
+    QueueModule, // 3. Queue infrastructure
+    SchedulerModule, // 4. Scheduler (uses QueueModule)
+    MqttModule, // 5. MQTT
+    CachingModule, // 6. Cache
+    TDengineModule, // 7. TDengine
+
+    // Domain modules
     VideoDevicesModule,
+    DashboardModule,
+    TenantsModule,
+    SystemLogModule,
+    TrashModule,
+    FogCommunicationManagerModule,
+    EmployeeModule,
+    ActorLogModule,
+    SystemMonitorModule,
+    // 8. Always last - domain modules read from it during shutdown
+    MongoModule,
   ],
-  controllers: [AppController],
+  controllers: [],
   providers: [
     {
       provide: APP_FILTER,
@@ -64,4 +87,29 @@ import { VideoDevicesModule } from './modules/videoDevices/videoDevices.module';
     ServiceProvider,
   ],
 })
-export class AppModule {}
+export class AppModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(ProtectionMiddleware)
+      .exclude(
+        { path: '/exposed-api/rest/control', method: RequestMethod.POST },
+        {
+          path: '/fog-communication-manager/restore-fog-backup-to-cloud',
+          method: RequestMethod.POST,
+        },
+        {
+          path: '/fog-communication-manager/configs',
+          method: RequestMethod.POST,
+        },
+        {
+          path: '/fog-communication-manager/api-node/request',
+          method: RequestMethod.POST,
+        },
+        {
+          path: '/system-monitor/health',
+          method: RequestMethod.GET,
+        },
+      )
+      .forRoutes('*');
+  }
+}
