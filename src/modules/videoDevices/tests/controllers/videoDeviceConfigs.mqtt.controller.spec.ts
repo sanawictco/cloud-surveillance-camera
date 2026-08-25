@@ -2,7 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { VideoDevicesConfigsMqttController } from '../../controllers/videoDeviceConfigs.mqtt.controller';
 import { CameraSoftwareConfigs } from '../../domain/camera/camera.type';
 import { NvrConfigs } from '../../domain/nvr/nvr.type';
-import { VideoDeviceEntityTypes } from '../../shared/valueObjects/videoDeviceEntityTypes';
+import { EntityTypes } from '../../shared/valueObjects/entityTypes';
 
 describe('VideoDevicesConfigsMqttController', () => {
   function buildController() {
@@ -11,15 +11,18 @@ describe('VideoDevicesConfigsMqttController', () => {
       getProps: () => ({ tenantId: 'tenant-id' }),
     };
     const pending = {
-      msgId: 'search-msg',
+      msgId: '101',
       nvrId: nvr.id,
       tenantId: 'tenant-id',
       configType: NvrConfigs.SEARCH,
       data: {},
       metadata: {
         entityId: nvr.id,
-        entityType: VideoDeviceEntityTypes.NVR,
+        entityType: EntityTypes.NVR,
         actorProps: { actorId: 'employee-id', actorType: 'EMPLOYEE' },
+        issuedAt: Date.now() - 1000,
+        expiresAt: Date.now() + 60_000,
+        topic: 'tenant-id/nvr-id/videoDevice/Config/pub',
       },
     };
     const queue = {
@@ -78,6 +81,8 @@ describe('VideoDevicesConfigsMqttController', () => {
     await context.controller.handler(context.event);
 
     expect(context.queue.getAndDeleteRepeatableMsg).toHaveBeenCalledWith(
+      'tenant-id',
+      context.nvr.id,
       context.pending.msgId,
     );
     expect(context.runningConfigs.doneAndUnlockConfig).toHaveBeenCalledWith(
@@ -198,6 +203,8 @@ describe('VideoDevicesConfigsMqttController', () => {
 
     expect(context.nvrMqttService.search).toHaveBeenCalled();
     expect(context.queue.getAndDeleteRepeatableMsg).toHaveBeenCalledWith(
+      'tenant-id',
+      context.nvr.id,
       context.pending.msgId,
     );
     expect(context.serviceProvider.eventEmitter.emit).toHaveBeenCalledWith(
@@ -214,11 +221,11 @@ describe('VideoDevicesConfigsMqttController', () => {
       id: 'camera-id',
       getProps: () => ({ nvrId: context.nvr.id, tenantId: 'tenant-id' }),
     };
-    context.pending.msgId = 'camera-msg';
+    context.pending.msgId = '102';
     context.pending.configType = CameraSoftwareConfigs.UPDATE as never;
     context.pending.data = { id: camera.id, name: 'Updated camera' };
     context.pending.metadata.entityId = camera.id;
-    context.pending.metadata.entityType = VideoDeviceEntityTypes.CAMERA;
+    context.pending.metadata.entityType = EntityTypes.CAMERA;
     context.event.message = JSON.stringify({ msgId: context.pending.msgId });
     context.serviceProvider.queryBus.execute
       .mockResolvedValueOnce(context.nvr)
@@ -231,6 +238,8 @@ describe('VideoDevicesConfigsMqttController', () => {
       expect.objectContaining({ msgId: context.pending.msgId }),
     );
     expect(context.queue.getAndDeleteRepeatableMsg).toHaveBeenCalledWith(
+      'tenant-id',
+      context.nvr.id,
       context.pending.msgId,
     );
     expect(
@@ -244,7 +253,7 @@ describe('VideoDevicesConfigsMqttController', () => {
 
   it('applies and finalizes an owned NVR lifecycle acknowledgement', async () => {
     const context = buildController();
-    context.pending.msgId = 'update-msg';
+    context.pending.msgId = '103';
     context.pending.configType = NvrConfigs.UPDATE;
     context.pending.data = { id: context.nvr.id, name: 'Updated NVR' };
     context.event.message = JSON.stringify({ msgId: context.pending.msgId });
@@ -259,6 +268,8 @@ describe('VideoDevicesConfigsMqttController', () => {
       }),
     );
     expect(context.queue.getAndDeleteRepeatableMsg).toHaveBeenCalledWith(
+      'tenant-id',
+      context.nvr.id,
       context.pending.msgId,
     );
     expect(context.runningConfigs.doneAndUnlockConfig).toHaveBeenCalledWith(
@@ -289,11 +300,11 @@ describe('VideoDevicesConfigsMqttController', () => {
     async ({ cameraProps, dataId }) => {
       const context = buildController();
       const camera = { id: 'camera-id', getProps: () => cameraProps };
-      context.pending.msgId = 'camera-msg';
+      context.pending.msgId = '102';
       context.pending.configType = CameraSoftwareConfigs.UPDATE as never;
       context.pending.data = { id: dataId, name: 'Updated camera' };
       context.pending.metadata.entityId = camera.id;
-      context.pending.metadata.entityType = VideoDeviceEntityTypes.CAMERA;
+      context.pending.metadata.entityType = EntityTypes.CAMERA;
       context.event.message = JSON.stringify({ msgId: context.pending.msgId });
       context.serviceProvider.queryBus.execute
         .mockResolvedValueOnce(context.nvr)
@@ -328,43 +339,57 @@ describe('VideoDevicesConfigsMqttController', () => {
     );
   });
 
+  it('rejects an expired queued config before business side effects', async () => {
+    const context = buildController();
+    context.pending.metadata.expiresAt = Date.now() - 1;
+
+    await context.controller.handler(context.event);
+
+    expect(context.nvrMqttService.search).not.toHaveBeenCalled();
+    expect(context.queue.getAndDeleteRepeatableMsg).not.toHaveBeenCalled();
+    expect(context.serviceProvider.eventEmitter.emit).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(BadRequestException),
+    );
+  });
+
   it.each([
     {
       name: 'search queue with lifecycle response',
       configType: NvrConfigs.SEARCH,
-      entityType: VideoDeviceEntityTypes.NVR,
-      message: { msgId: 'mismatch-msg' },
+      entityType: EntityTypes.NVR,
+      message: { msgId: '104' },
     },
     {
       name: 'register queue with search response',
       configType: NvrConfigs.REGISTER,
-      entityType: VideoDeviceEntityTypes.NVR,
-      message: { msgId: 'mismatch-msg', macAddresses: [] },
+      entityType: EntityTypes.NVR,
+      message: { msgId: '104', macAddresses: [] },
     },
     {
       name: 'live-signal queue with register response',
       configType: NvrConfigs.FOG_LIVE_SIGNAL,
-      entityType: VideoDeviceEntityTypes.NVR,
+      entityType: EntityTypes.NVR,
       message: {
-        msgId: 'mismatch-msg',
+        msgId: '104',
         unRegisteredCameraSerialNumbers: [],
       },
     },
     {
       name: 'NVR lifecycle queue with live-signal response',
       configType: NvrConfigs.UPDATE,
-      entityType: VideoDeviceEntityTypes.NVR,
-      message: { msgId: 'mismatch-msg', disconnectedMacAddresses: [] },
+      entityType: EntityTypes.NVR,
+      message: { msgId: '104', disconnectedMacAddresses: [] },
     },
     {
       name: 'camera lifecycle queue with search response',
       configType: CameraSoftwareConfigs.UPDATE,
-      entityType: VideoDeviceEntityTypes.CAMERA,
-      message: { msgId: 'mismatch-msg', macAddresses: [] },
+      entityType: EntityTypes.CAMERA,
+      message: { msgId: '104', macAddresses: [] },
     },
   ])('rejects $name before side effects', async (testCase) => {
     const context = buildController();
-    context.pending.msgId = 'mismatch-msg';
+    context.pending.msgId = '104';
     context.pending.configType = testCase.configType as never;
     context.pending.metadata.entityType = testCase.entityType;
     context.event.message = JSON.stringify(testCase.message);

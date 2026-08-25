@@ -18,6 +18,10 @@
     "test:cov": "cross-env NODE_ENV=test jest --coverage",
     "test:debug": "cross-env NODE_ENV=test node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "cross-env NODE_ENV=test jest --config ./test/jest-e2e.json",
+    "qualify:fog-restore": "bash test/qualification/run-fog-restore-http.sh",
+    "qualify:fog-restore:image": "bash test/qualification/run-fog-restore-image.sh",
+    "qualify:fog-restore:producer": "bash test/qualification/run-fog-producer-to-cloud.sh",
+    "qualify:emqx": "bash test/qualification/verify-emqx.sh",
     "prepare": "husky",
     "commitlint": "commitlint --edit"
   },

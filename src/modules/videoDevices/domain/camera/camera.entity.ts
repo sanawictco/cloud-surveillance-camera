@@ -17,7 +17,7 @@ import {
 } from '../../shared/valueObjects/liveSignalStatus.vo';
 import { SerialNumber } from '../../shared/valueObjects/serialNumber.vo';
 import { IsDeleted } from '../../shared/valueObjects/isDeleted.vo';
-import { VideoDeviceEntityTypes } from '../../shared/valueObjects/videoDeviceEntityTypes';
+import { EntityTypes } from '../../shared/valueObjects/entityTypes';
 import { NvrEntity } from '../nvr/nvr.entity';
 import {
   CameraCloudPubToFogMqttTopics,
@@ -212,7 +212,7 @@ export class CameraEntity extends AggregateRoot<
       metadata: {
         topic: nvrEntity.getCloudPubToFogMqttTopics().videoDeviceConfigs,
         entityId: this.id,
-        entityType: VideoDeviceEntityTypes.CAMERA,
+        entityType: EntityTypes.CAMERA,
         retryCount: 3,
         retryPeriodInSecond: 10,
       },
@@ -249,10 +249,12 @@ export class CameraEntity extends AggregateRoot<
       msgId,
       configType: cmdKey,
       data: command,
+      nvrId: this.getProps().nvrId,
+      tenantId: this.getProps().tenantId,
       metadata: {
         topic: this.getCloudPubToFogMqttTopics().cameraData,
         entityId: this.id,
-        entityType: VideoDeviceEntityTypes.CAMERA,
+        entityType: EntityTypes.CAMERA,
         retryCount: 2,
         retryPeriodInSecond: 5,
         actorProps: optionalProps || undefined,

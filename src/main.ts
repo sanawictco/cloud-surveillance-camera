@@ -9,6 +9,7 @@ import { setupSwaggerRegisteration } from './utilities/swaggerRegisteration';
 import { ShutdownOrchestratorService } from './extensions/shutdown/shutdown.service';
 import {
   assertNotTestEnvInProd,
+  assertMqttProductionSecurity,
   assertRedisNoeviction,
 } from './extensions/bootChecks/bootChecks';
 import type { Redis } from 'ioredis';
@@ -32,6 +33,13 @@ async function bootstrap() {
   app.useLogger(logger);
 
   const isProduction = AppConfig().environment === 'production';
+  const mqttConfig = AppConfig().mqtt;
+  assertMqttProductionSecurity({
+    brokerUrl: mqttConfig.server.host,
+    apiUrl: mqttConfig.api.apiUrl,
+    username: mqttConfig.server.username,
+    password: mqttConfig.server.password,
+  });
   try {
     const redis = app.get<Redis>(CACHE_CLIENT);
     await assertRedisNoeviction(redis, logger);

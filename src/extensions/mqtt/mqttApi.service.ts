@@ -237,15 +237,15 @@ export class MqttApiService {
     }
 
     if (!token) {
-      this.serviceProvider.logger.warn(
-        `MQTT ACL lock for NVR ${nvrSerialNumber} was not acquired; proceeding without it`,
+      throw new Error(
+        `MQTT ACL lock for NVR ${nvrSerialNumber} was not acquired`,
       );
     }
 
     try {
       return await operation();
     } finally {
-      if (token) await this.cacheService.releaseLock(lockKey, token);
+      await this.cacheService.releaseLock(lockKey, token);
     }
   }
 

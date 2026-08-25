@@ -39,9 +39,17 @@ export class MqttService
   }
 
   async onApplicationBootstrap(): Promise<void> {
-    const connectUrl = `${AppConfig().mqtt.server.host}:${AppConfig().mqtt.server.port}`;
+    const server = AppConfig().mqtt.server;
+    const brokerUrl = server.host.includes('://')
+      ? server.host
+      : `mqtt://${server.host}`;
+    const connectUrl = `${brokerUrl}:${server.port}`;
     this.mqttClient = connect(connectUrl, {
-      ...AppConfig().mqtt.server,
+      username: server.username,
+      password: server.password,
+      clientId: server.clientId,
+      clean: server.clean,
+      keepalive: server.keepalive,
       reconnectPeriod: 1000,
       resubscribe: true,
     });

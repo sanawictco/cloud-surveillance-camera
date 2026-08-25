@@ -35,7 +35,6 @@ import { FindAllTenantsQuery } from 'src/modules/tenants/applicationService/quer
 import { TenantEntity } from 'src/modules/tenants/domain/tenant.entity';
 import { BadRequestException } from '@nestjs/common';
 import { AutoRegisterBatchConfig } from 'src/modules/videoDevices/contracts/nvr/dtos/autoSearchDevices.dto';
-import { randomUUID } from 'node:crypto';
 
 @Injectable()
 export class NvrsHttpService {
@@ -211,7 +210,7 @@ export class NvrsHttpService {
       nvrEntity,
       NvrConfigs.SEARCH,
       undefined,
-      randomUUID(),
+      generateRandomMsgId(),
     );
   }
 
@@ -227,7 +226,7 @@ export class NvrsHttpService {
         body,
         nvrEntity,
       );
-    const msgId = randomUUID();
+    const msgId = generateRandomMsgId();
     return await this.NvrRunningConfigService.runConfigIfNotDuplicated(
       nvrEntity,
       NvrConfigs.REGISTER,

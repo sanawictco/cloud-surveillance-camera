@@ -92,17 +92,12 @@ export class AppModule {
     consumer
       .apply(ProtectionMiddleware)
       .exclude(
-        { path: '/exposed-api/rest/control', method: RequestMethod.POST },
-        {
-          path: '/fog-communication-manager/restore-fog-backup-to-cloud',
-          method: RequestMethod.POST,
-        },
         {
           path: '/fog-communication-manager/configs',
           method: RequestMethod.POST,
         },
         {
-          path: '/fog-communication-manager/api-node/request',
+          path: '/fog-communication-manager/restore-fog-backup-to-cloud',
           method: RequestMethod.POST,
         },
         {

@@ -20,6 +20,7 @@ import { generateRandomMsgId } from 'src/dddLib/utils/randomIdGenerator';
 import { BusinessId } from 'src/dddLib/core/businessId.vo';
 import { Name } from 'src/modules/shared/valueObjects/name.vo';
 import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.vo';
+import { EntityTypes } from 'src/modules/videoDevices/shared/valueObjects/entityTypes';
 
 export class PageEntity extends AggregateRoot<PageValueObjects, PageProps> {
   protected readonly _id: AggregateID;
@@ -94,13 +95,14 @@ export class PageEntity extends AggregateRoot<PageValueObjects, PageProps> {
       }),
     );
   }
-  getCloudPubToFogMqttTopics() {
+  getCloudPubToFogMqttTopics(tenantId: string) {
     const mqttPublishTopicsObject = {
-      pageConfig: `${this.props.nvrId.unpack()}/page/config/pub`,
+      pageConfig: `${tenantId}/${this.props.nvrId.unpack()}/page/config/pub`,
     };
     return Object.freeze(mqttPublishTopicsObject);
   }
   getConfigForFog(
+    tenantId: string,
     configType: PageConfigs,
     body?: UpdatePageProps,
   ): PageConfigQueueMsgDto {
@@ -108,10 +110,12 @@ export class PageEntity extends AggregateRoot<PageValueObjects, PageProps> {
       msgId: generateRandomMsgId(),
       configType,
       nvrId: this.props.nvrId.unpack(),
+      tenantId,
       data: {},
       metadata: {
-        topic: this.getCloudPubToFogMqttTopics().pageConfig,
+        topic: this.getCloudPubToFogMqttTopics(tenantId).pageConfig,
         entityId: this.id,
+        entityType: EntityTypes.PAGE,
         retryCount: 3,
         retryPeriodInSecond: 10,
       },

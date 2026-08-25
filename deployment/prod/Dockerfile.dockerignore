@@ -1,0 +1,15 @@
+**/.git
+**/.github
+**/.husky
+**/.vscode
+**/coverage
+**/dist
+**/node_modules
+**/*.log
+**/*.md
+**/*.spec.ts
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+test
+logs

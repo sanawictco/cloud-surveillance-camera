@@ -13,6 +13,7 @@ import { PageMqttRequestDto } from '../contracts/page.mqttRequest.dto';
 import { NvrCloudSubOnFogMqttTopics } from 'src/modules/videoDevices/domain/nvr/nvr.type';
 import { ActorPropsMsgIdDto } from 'src/modules/shared/dtos/actorPropsMsgId.dto';
 import { validateMqttPayload } from 'src/extensions/mqtt/validateMqttPayload';
+import { EntityTypes } from 'src/modules/videoDevices/shared/valueObjects/entityTypes';
 
 @Injectable()
 export class PageMqttController {
@@ -32,17 +33,53 @@ export class PageMqttController {
         JSON.parse(message),
       );
       const { msgId } = parsedMessage;
-      const msg = await this.queue.getAndDeleteRepeatableMsg(msgId);
+      const topic = this.parseTopic(mqttEventData.topic);
+      const msg = await this.queue.getRepeatableMsg(
+        topic.tenantId,
+        topic.nvrId,
+        msgId,
+      );
+      if (
+        !msg ||
+        msg.msgId !== msgId ||
+        msg.tenantId !== topic.tenantId ||
+        msg.nvrId !== topic.nvrId ||
+        msg.metadata.entityType !== EntityTypes.PAGE ||
+        typeof msg.metadata.issuedAt !== 'number' ||
+        typeof msg.metadata.expiresAt !== 'number' ||
+        msg.metadata.issuedAt > Date.now() ||
+        msg.metadata.expiresAt <= msg.metadata.issuedAt ||
+        msg.metadata.expiresAt < Date.now() ||
+        msg.metadata.topic !==
+          `${topic.tenantId}/${topic.nvrId}/page/config/pub` ||
+        !Object.values(PageConfigs).includes(msg.configType as PageConfigs)
+      ) {
+        throw new Error('page configuration is unavailable');
+      }
       const actorProps = msg?.metadata?.actorProps;
       const metadata: ActorPropsMsgIdDto = { actorProps, msgId };
       if (!actorProps) return;
       if (msg) {
         const data: any = msg.data;
+        if (
+          data.id !== msg.metadata.entityId ||
+          (data.nvrId !== undefined && data.nvrId !== topic.nvrId)
+        ) {
+          throw new Error('page configuration payload identity mismatch');
+        }
 
-        const pageEntity: PageEntity =
+        const pageEntity: PageEntity | undefined =
           await this.serviceProvider.queryBus.execute(
             new FindPageByIdQuery(data.id),
           );
+        if (
+          msg.configType !== PageConfigs.CREATE_PAGE &&
+          (!pageEntity ||
+            pageEntity.id !== msg.metadata.entityId ||
+            pageEntity.getProps().nvrId !== topic.nvrId)
+        ) {
+          throw new Error('page configuration entity ownership mismatch');
+        }
 
         switch (msg.configType) {
           case PageConfigs.CREATE_PAGE:
@@ -52,18 +89,40 @@ export class PageMqttController {
             await this.pagesMqttService.update(data, metadata);
             break;
           case PageConfigs.DELETE_PAGE:
-            await this.pagesMqttService.delete(pageEntity, data, metadata);
+            await this.pagesMqttService.delete(pageEntity!, data, metadata);
             break;
           default:
             break;
         }
+        const consumed = await this.queue.getAndDeleteRepeatableMsg(
+          topic.tenantId,
+          topic.nvrId,
+          msgId,
+        );
+        if (!consumed)
+          throw new Error('failed to consume processed page config');
         await this.pageRunningConfigService.doneAndUnLockConfig(
-          pageEntity,
+          pageEntity!,
           msg.configType as PageConfigs,
         );
       }
     } catch (err) {
       this.serviceProvider.eventEmitter.emit(GLOBAL_ERROR_EVENT, err);
     }
+  }
+
+  private parseTopic(topic: string): { tenantId: string; nvrId: string } {
+    const segments = topic.split('/');
+    if (
+      segments.length !== 5 ||
+      segments[2] !== 'page' ||
+      segments[3] !== 'config' ||
+      segments[4] !== 'sub' ||
+      !segments[0] ||
+      !segments[1]
+    ) {
+      throw new Error('invalid page config topic');
+    }
+    return { tenantId: segments[0], nvrId: segments[1] };
   }
 }

@@ -30,6 +30,31 @@ export function assertNotTestEnvInProd(): void {
   }
 }
 
+export function assertMqttProductionSecurity(config: {
+  brokerUrl: string;
+  apiUrl: string;
+  username: string;
+  password: string;
+}): void {
+  if (process.env.NODE_ENV !== 'production') return;
+
+  if (!config.brokerUrl.startsWith('mqtts://')) {
+    throw new Error(
+      '[bootChecks] MQTT broker URL must use mqtts:// in production',
+    );
+  }
+  if (!config.apiUrl.startsWith('https://')) {
+    throw new Error(
+      '[bootChecks] EMQX management API URL must use https:// in production',
+    );
+  }
+  if (!config.username.trim() || !config.password.trim()) {
+    throw new Error(
+      '[bootChecks] MQTT client credentials are required in production',
+    );
+  }
+}
+
 type MinimalLogger = {
   warn: (msg: string) => void;
   error: (msg: string) => void;

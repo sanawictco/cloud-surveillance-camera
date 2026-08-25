@@ -1,29 +1,26 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { CqrsModule } from '@nestjs/cqrs';
-import { MulterModule } from '@nestjs/platform-express';
 import { MqttModule } from 'src/extensions/mqtt/mqtt.module';
 import { WsModule } from 'src/extensions/websocket/ws.module';
-import { DashboardModule } from '../dashboard/dashboard.module';
 import { VideoDevicesModule } from '../videoDevices/videoDevices.module';
 import { FogCommunicationManagerController } from './fogCommunicationManager.controller';
 import { FogCommunicationManagerService } from './fogCommunicationManager.service';
-import { HttpModule } from 'src/extensions/http/http.module';
+import { MulterModule } from '@nestjs/platform-express';
+import { FogBackupAuthGuard } from './fogBackupAuth.guard';
 @Module({
   imports: [
     MulterModule.register({
-      dest: '/cloud_shared_backups',
+      dest: process.env.FOG_BACKUP_ROOT ?? '/cloud_shared_backups',
     }),
     ConfigModule,
     VideoDevicesModule,
     CqrsModule,
     MqttModule,
     WsModule,
-    DashboardModule,
-    HttpModule,
   ],
 
-  providers: [FogCommunicationManagerService],
+  providers: [FogCommunicationManagerService, FogBackupAuthGuard],
   controllers: [FogCommunicationManagerController],
   exports: [],
 })

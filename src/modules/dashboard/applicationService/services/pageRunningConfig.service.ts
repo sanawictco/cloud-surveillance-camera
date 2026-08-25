@@ -19,6 +19,7 @@ export class PageRunningConfigService {
 
   async runConfigIfNotDuplicated(
     pageEntity: PageEntity,
+    tenantId: string,
     configType: PageConfigs,
     data?: UpdatePageProps,
   ): Promise<string> {
@@ -33,7 +34,7 @@ export class PageRunningConfigService {
       return '';
     } else {
       const msgId = await this.pageConfigQueueService.addRepeatableMsg(
-        pageEntity.getConfigForFog(configType, data),
+        pageEntity.getConfigForFog(tenantId, configType, data),
       );
       await this.runAndLockConfig(pageEntity, configType, msgId);
       return msgId;
@@ -57,15 +58,22 @@ export class PageRunningConfigService {
     );
   }
 
-  async stopAndRemoveAllRunningConfigs(pageEntity: PageEntity) {
+  async stopAndRemoveAllRunningConfigs(
+    pageEntity: PageEntity,
+    tenantId: string,
+  ) {
     const { id } = pageEntity.getProps();
     pageEntity = await this.serviceProvider.queryBus.execute(
       new FindPageByIdQuery(id),
     );
     const { runningConfigs } = pageEntity.getProps();
     for (const msgId of Object.values(runningConfigs)) {
-      if (msgId) {
-        await this.pageConfigQueueService.getAndDeleteRepeatableMsg(msgId);
+      if (msgId !== '-1') {
+        await this.pageConfigQueueService.getAndDeleteRepeatableMsg(
+          tenantId,
+          pageEntity.getProps().nvrId,
+          msgId,
+        );
       }
     }
     await this.serviceProvider.commandBus.execute(

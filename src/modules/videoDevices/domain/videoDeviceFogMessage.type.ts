@@ -1,13 +1,14 @@
 import { AggregateID } from 'src/dddLib/core';
-import { VideoDeviceEntityTypes } from '../shared/valueObjects/videoDeviceEntityTypes';
+import { EntityTypes } from '../shared/valueObjects/entityTypes';
 
 interface VideoDeviceFogMessageMetadata {
   topic: string;
   retryCount: number;
   retryPeriodInSecond: number;
   entityId: AggregateID;
-  entityType: VideoDeviceEntityTypes;
+  entityType: EntityTypes;
   issuedAt?: number;
+  expiresAt?: number;
 }
 
 export interface VideoDeviceFogConfigMessage {
@@ -23,5 +24,7 @@ export interface VideoDeviceFogCommandMessage {
   msgId: string;
   configType: string;
   data: string;
+  nvrId: AggregateID;
+  tenantId: AggregateID;
   metadata: VideoDeviceFogMessageMetadata;
 }

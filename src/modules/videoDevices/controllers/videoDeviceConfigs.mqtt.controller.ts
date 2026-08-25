@@ -24,7 +24,7 @@ import { CameraEntity } from '../domain/camera/camera.entity';
 import { CameraSoftwareConfigs } from '../domain/camera/camera.type';
 import { NvrEntity } from '../domain/nvr/nvr.entity';
 import { NvrCloudSubOnFogMqttTopics, NvrConfigs } from '../domain/nvr/nvr.type';
-import { VideoDeviceEntityTypes } from '../shared/valueObjects/videoDeviceEntityTypes';
+import { EntityTypes } from '../shared/valueObjects/entityTypes';
 
 const nvrConfigsArr: string[] = Object.values(NvrConfigs);
 
@@ -64,7 +64,11 @@ export class VideoDevicesConfigsMqttController {
       const topic = this.parseTopic(mqttEventData.topic);
       const response = this.parseResponse(message);
       const msgId = response.payload.msgId;
-      const pendingMsg = await this.queue.getRepeatableMsg(msgId);
+      const pendingMsg = await this.queue.getRepeatableMsg(
+        topic.tenantId,
+        topic.nvrId,
+        msgId,
+      );
       if (!pendingMsg) throw new Error('msg not found');
       this.assertTopicOwnsQueuedEnvelope(topic, pendingMsg);
       this.assertResponseMatchesQueuedConfig(response, pendingMsg);
@@ -77,7 +81,7 @@ export class VideoDevicesConfigsMqttController {
       const { configType, data } = pendingMsg;
       const metadata: ActorPropsMsgIdDto = { actorProps, msgId };
       let cameraEntity: CameraEntity | undefined;
-      if (pendingMsg.metadata.entityType === VideoDeviceEntityTypes.NVR) {
+      if (pendingMsg.metadata.entityType === EntityTypes.NVR) {
         this.assertNvrOwnsQueuedMessage(nvrEntity, pendingMsg);
         if (!nvrConfigsArr.includes(configType)) {
           throw new BadRequestException('queued NVR config type mismatch');
@@ -89,9 +93,7 @@ export class VideoDevicesConfigsMqttController {
           mqttData: response.payload,
           metadata,
         });
-      } else if (
-        pendingMsg.metadata.entityType === VideoDeviceEntityTypes.CAMERA
-      ) {
+      } else if (pendingMsg.metadata.entityType === EntityTypes.CAMERA) {
         cameraEntity = await this.serviceProvider.queryBus.execute(
           new FindCameraByIdQuery(pendingMsg.metadata.entityId),
         );
@@ -115,10 +117,14 @@ export class VideoDevicesConfigsMqttController {
         throw new BadRequestException('queued entity type is unsupported');
       }
 
-      const removed = await this.queue.getAndDeleteRepeatableMsg(msgId);
+      const removed = await this.queue.getAndDeleteRepeatableMsg(
+        topic.tenantId,
+        topic.nvrId,
+        msgId,
+      );
       if (!removed) throw new Error('failed to consume processed config');
 
-      if (pendingMsg.metadata.entityType === VideoDeviceEntityTypes.NVR) {
+      if (pendingMsg.metadata.entityType === EntityTypes.NVR) {
         const unlocked = await this.nvrRunningConfigService.doneAndUnlockConfig(
           nvrEntity,
           configType,
@@ -236,7 +242,18 @@ export class VideoDevicesConfigsMqttController {
     topic: { tenantId: string; nvrId: string },
     queued: VideoDeviceConfigQueueMsgDto,
   ): void {
-    if (queued.nvrId !== topic.nvrId || queued.tenantId !== topic.tenantId) {
+    const now = Date.now();
+    if (
+      queued.nvrId !== topic.nvrId ||
+      queued.tenantId !== topic.tenantId ||
+      typeof queued.metadata.issuedAt !== 'number' ||
+      typeof queued.metadata.expiresAt !== 'number' ||
+      queued.metadata.issuedAt > now ||
+      queued.metadata.expiresAt <= queued.metadata.issuedAt ||
+      queued.metadata.expiresAt < now ||
+      queued.metadata.topic !==
+        `${topic.tenantId}/${topic.nvrId}/videoDevice/Config/pub`
+    ) {
       throw new BadRequestException('queued config topic identity mismatch');
     }
   }

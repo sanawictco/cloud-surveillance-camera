@@ -38,15 +38,19 @@ describe('CameraRunningConfigAndCommandService', () => {
     );
 
     await service.stopAndRemoveAllRunningConfigs(camera, {
-      update: 'update-msg',
+      update: '101',
     });
 
     expect(serviceProvider.queryBus.execute).not.toHaveBeenCalled();
     expect(configQueue.getAndDeleteRepeatableMsg).toHaveBeenCalledWith(
-      'update-msg',
+      camera.getProps().tenantId,
+      camera.getProps().nvrId,
+      '101',
     );
     expect(dataQueue.getAndDeleteRepeatableMsg).toHaveBeenCalledWith(
-      'update-msg',
+      camera.getProps().tenantId,
+      camera.getProps().nvrId,
+      '101',
     );
     expect(serviceProvider.commandBus.execute).toHaveBeenCalledWith(
       expect.any(UpdateCameraCommand),

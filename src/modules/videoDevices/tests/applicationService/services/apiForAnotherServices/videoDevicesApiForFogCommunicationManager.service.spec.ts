@@ -1,46 +1,61 @@
 import { VideoDevicesApiForFogCommunicationManagerService } from '../../../../applicationService/services/apiForAnotherServices/videoDevicesApiForFogCommunicationManager.service';
+import { NvrEntity } from '../../../../domain/nvr/nvr.entity';
 import { NvrConfigs } from '../../../../domain/nvr/nvr.type';
-import { VideoDeviceEntityTypes } from '../../../../shared/valueObjects/videoDeviceEntityTypes';
+import { EntityTypes } from '../../../../shared/valueObjects/entityTypes';
 
 describe('VideoDevicesApiForFogCommunicationManagerService', () => {
-  const nvr = {
-    id: '11111111-1111-4111-8111-111111111111',
-    getProps: () => ({
-      tenantId: '22222222-2222-4222-8222-222222222222',
-      accessToken: '12345678901234567890123456789012',
-    }),
-  };
+  const tenantId = '22222222-2222-4222-8222-222222222222';
+  const accessToken = '12345678901234567890123456789012';
+  const msgId = '101';
 
-  function buildService(configType: NvrConfigs) {
+  function buildService(configType: NvrConfigs = NvrConfigs.UPDATE) {
+    const nvr = NvrEntity.create({
+      tenantId,
+      name: 'NVR',
+      productModel: 'NVR-16',
+      serialNumber: 'NVR00001',
+      accessToken,
+      maxCameras: 16,
+      password: 'nvr-password',
+    });
     const data = { id: nvr.id };
-    const queue = {
-      getRepeatableMsg: jest.fn().mockResolvedValue({
-        msgId: 'msg-id',
-        nvrId: nvr.id,
-        tenantId: nvr.getProps().tenantId,
-        configType,
-        data,
-        metadata: {
-          entityId: nvr.id,
-          entityType: VideoDeviceEntityTypes.NVR,
-        },
-      }),
+    const queued = {
+      msgId,
+      nvrId: nvr.id,
+      tenantId,
+      configType,
+      data,
+      metadata: {
+        topic: nvr.getCloudPubToFogMqttTopics().videoDeviceConfigs,
+        entityId: nvr.id,
+        entityType: EntityTypes.NVR,
+        issuedAt: Date.now() - 1000,
+        expiresAt: Date.now() + 60_000,
+      },
     };
+    const queue = { getRepeatableMsg: jest.fn().mockResolvedValue(queued) };
     const validator = {
       checkExistsNvrBySerialNumber: jest.fn().mockResolvedValue(nvr),
+    };
+    const dashboardFogApi = {
+      getOwnedPageConfig: jest.fn().mockResolvedValue({
+        configType: 'CREATE_PAGE',
+        data: { id: 'page-id' },
+      }),
     };
     const service = new VideoDevicesApiForFogCommunicationManagerService(
       validator as never,
       queue as never,
+      { queryBus: { execute: jest.fn() } } as never,
       {} as never,
       {} as never,
       {} as never,
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
+      dashboardFogApi as never,
     );
-    return { service, data };
+    return { service, nvr, queue, queued, data, dashboardFogApi };
   }
 
   it.each([
@@ -53,28 +68,84 @@ describe('VideoDevicesApiForFogCommunicationManagerService', () => {
     NvrConfigs.SEARCH,
     NvrConfigs.REGISTER,
   ])('returns an owned %s NVR configuration', async (configType) => {
-    const { service, data } = buildService(configType);
+    const context = buildService(configType);
 
     await expect(
-      service.getOwnedVideoDeviceConfig({
+      context.service.getOwnedFogConfig({
         serialNumber: 'NVR00001',
-        accessToken: nvr.getProps().accessToken,
-        msgId: 'msg-id',
+        accessToken,
+        msgId,
         configType: 'videoDevice',
       }),
-    ).resolves.toEqual({ configType, data });
+    ).resolves.toEqual({ configType, data: context.data });
+    expect(context.queue.getRepeatableMsg).toHaveBeenCalledWith(
+      tenantId,
+      context.nvr.id,
+      msgId,
+    );
   });
 
-  it('rejects an NVR enum value that has no Fog config handler', async () => {
-    const { service } = buildService(NvrConfigs.SOFT_DELETE_MULTI_CAMERAS);
+  it('rejects an expired NVR configuration', async () => {
+    const context = buildService();
+    context.queued.metadata.expiresAt = Date.now() - 1;
 
     await expect(
-      service.getOwnedVideoDeviceConfig({
+      context.service.getOwnedFogConfig({
         serialNumber: 'NVR00001',
-        accessToken: nvr.getProps().accessToken,
-        msgId: 'msg-id',
+        accessToken,
+        msgId,
         configType: 'videoDevice',
       }),
     ).rejects.toThrow('configuration is unavailable');
+  });
+
+  it('rejects a configuration owned by another tenant', async () => {
+    const context = buildService();
+    context.queued.tenantId = '33333333-3333-4333-8333-333333333333';
+
+    await expect(
+      context.service.getOwnedFogConfig({
+        serialNumber: 'NVR00001',
+        accessToken,
+        msgId,
+        configType: 'videoDevice',
+      }),
+    ).rejects.toThrow('configuration is unavailable');
+  });
+
+  it('rejects invalid credentials before queue lookup', async () => {
+    const context = buildService();
+
+    await expect(
+      context.service.getOwnedFogConfig({
+        serialNumber: 'NVR00001',
+        accessToken: 'x'.repeat(32),
+        msgId,
+        configType: 'videoDevice',
+      }),
+    ).rejects.toThrow('configuration is unavailable');
+    expect(context.queue.getRepeatableMsg).not.toHaveBeenCalled();
+  });
+
+  it('loads a page configuration with the authenticated NVR scope', async () => {
+    const context = buildService();
+
+    await expect(
+      context.service.getOwnedFogConfig({
+        serialNumber: 'NVR00001',
+        accessToken,
+        msgId,
+        configType: 'page',
+      }),
+    ).resolves.toEqual({
+      configType: 'CREATE_PAGE',
+      data: { id: 'page-id' },
+    });
+    expect(context.dashboardFogApi.getOwnedPageConfig).toHaveBeenCalledWith(
+      tenantId,
+      context.nvr.id,
+      msgId,
+    );
+    expect(context.queue.getRepeatableMsg).not.toHaveBeenCalled();
   });
 });

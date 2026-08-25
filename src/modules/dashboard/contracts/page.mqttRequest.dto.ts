@@ -1,7 +1,6 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsDeviceMsgId } from 'src/dddLib/utils/isDeviceMsgId.validator';
 
 export class PageMqttRequestDto {
-  @IsString()
-  @IsNotEmpty()
+  @IsDeviceMsgId()
   msgId!: string;
 }

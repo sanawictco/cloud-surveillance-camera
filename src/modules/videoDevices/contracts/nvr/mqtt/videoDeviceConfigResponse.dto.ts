@@ -3,14 +3,13 @@ import {
   ArrayUnique,
   IsArray,
   IsMACAddress,
-  IsString,
   Length,
   Matches,
 } from 'class-validator';
+import { IsDeviceMsgId } from 'src/dddLib/utils/isDeviceMsgId.validator';
 
 export class NvrSearchMqttResponseDto {
-  @IsString()
-  @Length(1, 128)
+  @IsDeviceMsgId()
   msgId!: string;
 
   @IsArray()
@@ -21,8 +20,7 @@ export class NvrSearchMqttResponseDto {
 }
 
 export class NvrLiveSignalMqttResponseDto {
-  @IsString()
-  @Length(1, 128)
+  @IsDeviceMsgId()
   msgId!: string;
 
   @IsArray()
@@ -33,8 +31,7 @@ export class NvrLiveSignalMqttResponseDto {
 }
 
 export class NvrRegisterMqttResponseDto {
-  @IsString()
-  @Length(1, 128)
+  @IsDeviceMsgId()
   msgId!: string;
 
   @IsArray()
@@ -46,7 +43,6 @@ export class NvrRegisterMqttResponseDto {
 }
 
 export class NvrLifecycleMqttResponseDto {
-  @IsString()
-  @Length(1, 128)
+  @IsDeviceMsgId()
   msgId!: string;
 }

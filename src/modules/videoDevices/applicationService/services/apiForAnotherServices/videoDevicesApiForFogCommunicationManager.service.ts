@@ -16,18 +16,24 @@ import {
   NvrConfigs,
   NvrWebSocketDataTypes,
 } from 'src/modules/videoDevices/domain/nvr/nvr.type';
-import { RestoreNvrsToCacheCommand } from '../../commands/nvr/restoreNvrsToCache.command';
-import { RestoreCamerasToCacheCommand } from '../../commands/camera/restoreCamerasToCache.command';
-import { DashboardApiForVideoDevicesService } from 'src/modules/dashboard/applicationService/apiForAnotherServices/dashboardApiForDevices.service';
 import { VideoDeviceConfigQueueService } from '../queues/videoDeviceConfig/videoDeviceQueue.service';
 import { timingSafeEqual } from 'node:crypto';
 import { FogVideoDeviceConfigRequestDto } from 'src/modules/videoDevices/contracts/nvr/http/request/fogConfig.request.dto';
-import { VideoDeviceEntityTypes } from 'src/modules/videoDevices/shared/valueObjects/videoDeviceEntityTypes';
+import { EntityTypes } from 'src/modules/videoDevices/shared/valueObjects/entityTypes';
 import { FindNvrBySerialNumberQuery } from '../../queries/nvr/findNvrBySerialNumber.queryHandler';
 import { AggregateID } from 'src/dddLib/core';
+import { DashboardApiForFogCommunicationManagerService } from 'src/modules/dashboard/applicationService/apiForAnotherServices/dashboardApiForFogCommunicationManager.service';
+import { CameraSoftwareConfigs } from 'src/modules/videoDevices/domain/camera/camera.type';
+import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
+import { FindCameraByIdQuery } from '../../queries/camera/findCameraById.queryHandler';
+import { FindAllCamerasQuery } from '../../queries/camera/findAllCameras.queryHandler';
+import { FindNvrByIdQuery } from '../../queries/nvr/findNvrById.queryHandler';
+import { CameraRunningConfigAndCommandService } from '../runningConfigs/cameraRunningConfigAndCommand.service';
 
 export interface FogNvrProjection {
   id: AggregateID;
+  tenantId: AggregateID;
+  serialNumber: string;
   accessToken: string;
   cloudIsRecovering: boolean;
 }
@@ -42,8 +48,9 @@ export class VideoDevicesApiForFogCommunicationManagerService {
     private readonly nvrSystemLogService: NvrSystemLogService,
     private readonly nvrLiveSignalService: NvrLiveSignalService,
     private readonly nvrRunningConfigAndCommandService: NvrRunningConfigService,
+    private readonly cameraRunningConfigAndCommandService: CameraRunningConfigAndCommandService,
     private readonly websocketService: WebsocketService,
-    private readonly dashboardApiForVideoDevicesService: DashboardApiForVideoDevicesService,
+    private readonly dashboardApiForFogCommunicationManagerService: DashboardApiForFogCommunicationManagerService,
   ) {}
   async checkExistsNvrWithSerialNumber(
     serialNumber: string,
@@ -51,14 +58,7 @@ export class VideoDevicesApiForFogCommunicationManagerService {
     return await this.nvrValidator.checkExistsNvrBySerialNumber(serialNumber);
   }
 
-  async getVideoDeviceConfigFromQueue(msgId: string) {
-    return await this.videoDeviceConfigQueueService.getRepeatableMsg(msgId);
-  }
-
-  async getOwnedVideoDeviceConfig(body: FogVideoDeviceConfigRequestDto) {
-    if (body.configType !== 'videoDevice') {
-      throw new Error('configuration is unavailable');
-    }
+  async getOwnedFogConfig(body: FogVideoDeviceConfigRequestDto) {
     const nvr = await this.checkExistsNvrWithSerialNumber(body.serialNumber);
     const expectedToken = Buffer.from(nvr.getProps().accessToken);
     const suppliedToken = Buffer.from(body.accessToken);
@@ -69,17 +69,73 @@ export class VideoDevicesApiForFogCommunicationManagerService {
       throw new Error('configuration is unavailable');
     }
 
-    const queued = await this.getVideoDeviceConfigFromQueue(body.msgId);
+    const nvrProps = nvr.getProps();
+    if (body.configType === 'page') {
+      const queued =
+        await this.dashboardApiForFogCommunicationManagerService.getOwnedPageConfig(
+          nvrProps.tenantId,
+          nvr.id,
+          body.msgId,
+        );
+      return { configType: queued.configType, data: queued.data };
+    }
+
+    const queued = await this.videoDeviceConfigQueueService.getRepeatableMsg(
+      nvrProps.tenantId,
+      nvr.id,
+      body.msgId,
+    );
+    const now = Date.now();
     if (
       !queued ||
+      queued.msgId !== body.msgId ||
       queued.nvrId !== nvr.id ||
-      queued.tenantId !== nvr.getProps().tenantId ||
-      queued.metadata.entityId !== nvr.id ||
-      queued.metadata.entityType !== VideoDeviceEntityTypes.NVR ||
-      !NVR_FOG_FETCHABLE_CONFIGS.includes(
-        queued.configType as (typeof NVR_FOG_FETCHABLE_CONFIGS)[number],
-      )
+      queued.tenantId !== nvrProps.tenantId ||
+      typeof queued.metadata.issuedAt !== 'number' ||
+      typeof queued.metadata.expiresAt !== 'number' ||
+      queued.metadata.issuedAt > now ||
+      queued.metadata.expiresAt <= queued.metadata.issuedAt ||
+      queued.metadata.expiresAt < now ||
+      queued.metadata.topic !==
+        nvr.getCloudPubToFogMqttTopics().videoDeviceConfigs
     ) {
+      throw new Error('configuration is unavailable');
+    }
+
+    const queuedData = queued.data as { id?: unknown; cameraId?: unknown };
+    const payloadEntityId = queuedData.id ?? queuedData.cameraId;
+    if (
+      payloadEntityId !== undefined &&
+      payloadEntityId !== queued.metadata.entityId
+    ) {
+      throw new Error('configuration is unavailable');
+    }
+
+    if (queued.metadata.entityType === EntityTypes.NVR) {
+      if (
+        queued.metadata.entityId !== nvr.id ||
+        !NVR_FOG_FETCHABLE_CONFIGS.includes(
+          queued.configType as (typeof NVR_FOG_FETCHABLE_CONFIGS)[number],
+        )
+      ) {
+        throw new Error('configuration is unavailable');
+      }
+    } else if (queued.metadata.entityType === EntityTypes.CAMERA) {
+      const camera: CameraEntity | undefined =
+        await this.serviceProvider.queryBus.execute(
+          new FindCameraByIdQuery(queued.metadata.entityId),
+        );
+      if (
+        !camera ||
+        camera.getProps().tenantId !== nvrProps.tenantId ||
+        camera.getProps().nvrId !== nvr.id ||
+        !Object.values(CameraSoftwareConfigs).includes(
+          queued.configType as CameraSoftwareConfigs,
+        )
+      ) {
+        throw new Error('configuration is unavailable');
+      }
+    } else {
       throw new Error('configuration is unavailable');
     }
 
@@ -125,26 +181,11 @@ export class VideoDevicesApiForFogCommunicationManagerService {
   }
 
   async postProcessCloudRecovery(nvrEntity: NvrEntity) {
-    // restore all mongodb data to cache (update cache)
-    // point: update cache operation must be done before any other operation, otherwise the cache data will not be valid
-    await this.serviceProvider.commandBus.execute(
-      new RestoreNvrsToCacheCommand(),
-    );
-
-    await this.serviceProvider.commandBus.execute(
-      new RestoreCamerasToCacheCommand(),
-    );
-    await this.dashboardApiForVideoDevicesService.restoreToCache();
-
     await this.serviceProvider.commandBus.execute(
       new UpdateNvrCommand({
         id: nvrEntity.id,
         cloudIsRecovering: false,
       }),
-    );
-    // stop all running config of the nvr (mostly because of stop and remove the running liveSignal config)
-    await this.nvrRunningConfigAndCommandService.stopAndRemoveAllRunningConfigs(
-      nvrEntity,
     );
     // send cloud is recovered signal to fog
     this.websocketService.sendMessage<CloudIsRecoveringWsResponseDto>(
@@ -179,9 +220,16 @@ export class VideoDevicesApiForFogCommunicationManagerService {
         new FindNvrBySerialNumberQuery(serialNumber),
       );
     if (!nvrEntity) return undefined;
-    const { accessToken, cloudIsRecovering } = nvrEntity.getProps();
+    const {
+      tenantId,
+      serialNumber: persistedSerialNumber,
+      accessToken,
+      cloudIsRecovering,
+    } = nvrEntity.getProps();
     return {
       id: nvrEntity.id,
+      tenantId,
+      serialNumber: persistedSerialNumber,
       accessToken,
       cloudIsRecovering,
     };
@@ -200,18 +248,30 @@ export class VideoDevicesApiForFogCommunicationManagerService {
   }
 
   async startFogCloudRecovery(nvrId: AggregateID) {
-    await this.serviceProvider.commandBus.execute(
-      new UpdateNvrCommand({ id: nvrId, cloudIsRecovering: true }),
+    const nvrEntity: NvrEntity = await this.serviceProvider.queryBus.execute(
+      new FindNvrByIdQuery(nvrId),
     );
-    this.websocketService.sendMessage<CloudIsRecoveringWsResponseDto>(
-      this.websocketService.channels.VIDEO_DEVICES_SOCKET,
-      {
-        type: WebSocketTypes.DATA,
-        data: { id: nvrId, cloudIsRecovering: true },
-        metadata: {
-          dataType: NvrWebSocketDataTypes.CLOUD_IS_RECOVERING,
+    if (!nvrEntity) throw new Error('NVR does not exist');
+    await this.preProcessCloudRecovery(nvrEntity);
+    await this.nvrRunningConfigAndCommandService.stopAndRemoveAllRunningConfigs(
+      nvrEntity,
+    );
+    const cameras: CameraEntity[] = await this.serviceProvider.queryBus.execute(
+      new FindAllCamerasQuery({
+        filter: {
+          tenantId: nvrEntity.getProps().tenantId,
+          nvrId: nvrEntity.id,
         },
-      },
+      }),
+    );
+    for (const camera of cameras) {
+      await this.cameraRunningConfigAndCommandService.stopAndRemoveAllRunningConfigs(
+        camera,
+      );
+    }
+    await this.dashboardApiForFogCommunicationManagerService.stopRunningConfigsForNvr(
+      nvrEntity.getProps().tenantId,
+      nvrEntity.id,
     );
   }
 }

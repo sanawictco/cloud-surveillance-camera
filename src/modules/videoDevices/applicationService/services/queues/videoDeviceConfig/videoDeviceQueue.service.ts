@@ -9,14 +9,20 @@ import { CameraRunningConfigAndCommandService } from '../../runningConfigs/camer
 import { NvrSystemLogService } from '../../systemLogs/nvrSystemLog.service';
 import { CameraSystemLogService } from '../../systemLogs/cameraSystemLog.service';
 import { ActorLogTypes } from 'src/modules/shared/dtos/actor.dto';
-import { VideoDeviceEntityTypes } from 'src/modules/videoDevices/shared/valueObjects/videoDeviceEntityTypes';
+import { EntityTypes } from 'src/modules/videoDevices/shared/valueObjects/entityTypes';
 import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
 import { FindCameraByIdQuery } from '../../../queries/camera/findCameraById.queryHandler';
 import { FindNvrByIdQuery } from '../../../queries/nvr/findNvrById.queryHandler';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
+import { buildDeviceJobId } from 'src/dddLib/utils/deviceMessageId';
+import { generateRandomMsgId } from 'src/dddLib/utils/randomIdGenerator';
+
+const MAX_MSG_ID_GENERATION_ATTEMPTS = 5;
 
 @Injectable()
 export class VideoDeviceConfigQueueService implements OnModuleInit {
+  private readonly activeAllocations = new Set<string>();
+
   constructor(
     private readonly mqttService: MqttService,
     private readonly serviceProvider: ServiceProvider,
@@ -40,6 +46,48 @@ export class VideoDeviceConfigQueueService implements OnModuleInit {
   async addRepeatableMsg(
     msgData: VideoDeviceConfigQueueMsgDto,
   ): Promise<string> {
+    await this.reserveMsgId(msgData);
+    return this.addReservedRepeatableMsg(msgData);
+  }
+
+  async reserveMsgId(msgData: VideoDeviceConfigQueueMsgDto): Promise<string> {
+    for (let attempt = 0; attempt < MAX_MSG_ID_GENERATION_ATTEMPTS; attempt++) {
+      const jobId = this.buildJobId(
+        msgData.tenantId,
+        msgData.nvrId,
+        msgData.msgId,
+      );
+      if (
+        this.activeAllocations.has(jobId) ||
+        (await this.queue.getMsg(jobId))
+      ) {
+        msgData.msgId = generateRandomMsgId();
+        continue;
+      }
+      this.activeAllocations.add(jobId);
+      return msgData.msgId;
+    }
+    throw new Error('could not allocate an active scoped device message ID');
+  }
+
+  async addReservedRepeatableMsg(
+    msgData: VideoDeviceConfigQueueMsgDto,
+  ): Promise<string> {
+    const jobId = this.buildJobId(
+      msgData.tenantId,
+      msgData.nvrId,
+      msgData.msgId,
+    );
+    if (!this.activeAllocations.has(jobId)) {
+      throw new Error('device message ID is not reserved');
+    }
+    const issuedAt = Date.now();
+    msgData.metadata.issuedAt = issuedAt;
+    msgData.metadata.expiresAt =
+      issuedAt +
+      (msgData.metadata.retryCount + 1) *
+        msgData.metadata.retryPeriodInSecond *
+        1000;
     const userInfo = this.serviceProvider.userInfoService.getProps();
     msgData.metadata.actorProps = userInfo
       ? {
@@ -47,22 +95,44 @@ export class VideoDeviceConfigQueueService implements OnModuleInit {
           actorType: ActorLogTypes.EMPLOYEE,
         }
       : undefined;
-    await this.queue.addMsg(msgData, {
-      repeat: {
-        retryCount: msgData.metadata.retryCount,
-        retryPeriodInSecond: msgData.metadata.retryPeriodInSecond,
-      },
-      msgId: msgData.msgId,
-    });
-    return msgData.msgId;
+    try {
+      await this.queue.addMsg(msgData, {
+        repeat: {
+          retryCount: msgData.metadata.retryCount,
+          retryPeriodInSecond: msgData.metadata.retryPeriodInSecond,
+        },
+        msgId: jobId,
+      });
+      return msgData.msgId;
+    } finally {
+      this.activeAllocations.delete(jobId);
+    }
   }
 
-  async getRepeatableMsg(msgId: string) {
-    return await this.queue.getMsg(msgId);
+  releaseMsgIdReservation(
+    tenantId: string,
+    nvrId: string,
+    msgId: string,
+  ): void {
+    this.activeAllocations.delete(this.buildJobId(tenantId, nvrId, msgId));
   }
 
-  async getAndDeleteRepeatableMsg(msgId: string) {
-    return await this.queue.getAndDeleteMsg(msgId);
+  async getRepeatableMsg(tenantId: string, nvrId: string, msgId: string) {
+    return await this.queue.getMsg(this.buildJobId(tenantId, nvrId, msgId));
+  }
+
+  async getAndDeleteRepeatableMsg(
+    tenantId: string,
+    nvrId: string,
+    msgId: string,
+  ) {
+    return await this.queue.getAndDeleteMsg(
+      this.buildJobId(tenantId, nvrId, msgId),
+    );
+  }
+
+  private buildJobId(tenantId: string, nvrId: string, msgId: string): string {
+    return buildDeviceJobId(tenantId, nvrId, msgId);
   }
 
   private async workerMsgHandler(queueMsg: QueueMsg) {
@@ -81,7 +151,7 @@ export class VideoDeviceConfigQueueService implements OnModuleInit {
       msg.configType,
     );
     const { entityType, entityId } = msg.metadata;
-    if (entityType === VideoDeviceEntityTypes.NVR) {
+    if (entityType === EntityTypes.NVR) {
       const nvrEntity: NvrEntity = await this.serviceProvider.queryBus.execute(
         new FindNvrByIdQuery(entityId),
       );

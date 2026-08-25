@@ -14,9 +14,13 @@ describe('NvrRunningConfigService', () => {
       maxCameras: 16,
       password: 'nvr-password',
     });
-    nvr.update({ runningConfigs: { search: 'stale-search-msg' } });
+    nvr.update({ runningConfigs: { search: '101' } });
     const queue = {
-      addRepeatableMsg: jest.fn().mockImplementation(({ msgId }) => msgId),
+      reserveMsgId: jest.fn().mockImplementation(({ msgId }) => msgId),
+      addReservedRepeatableMsg: jest
+        .fn()
+        .mockImplementation(({ msgId }) => msgId),
+      releaseMsgIdReservation: jest.fn(),
       getRepeatableMsg: jest.fn(),
       getAndDeleteRepeatableMsg: jest.fn(),
     };
@@ -49,9 +53,9 @@ describe('NvrRunningConfigService', () => {
         context.nvr,
         NvrConfigs.REGISTER,
         {},
-        'register-msg',
+        '202',
       ),
-    ).resolves.toBe('register-msg');
+    ).resolves.toBe('202');
 
     expect(context.commandBus.execute).toHaveBeenCalledTimes(3);
     expect(context.commandBus.execute.mock.calls[1]![0]).toEqual(
@@ -60,17 +64,17 @@ describe('NvrRunningConfigService', () => {
         mutation: {
           operation: 'unsetIfMatches',
           configType: NvrConfigs.SEARCH,
-          msgId: 'stale-search-msg',
+          msgId: '101',
         },
       }),
     );
-    expect(context.queue.addRepeatableMsg).toHaveBeenCalled();
+    expect(context.queue.addReservedRepeatableMsg).toHaveBeenCalled();
   });
 
   it('keeps an active search claim and rejects register', async () => {
     const context = buildService();
     context.queue.getRepeatableMsg.mockResolvedValue({
-      msgId: 'stale-search-msg',
+      msgId: '101',
     });
 
     await expect(
@@ -78,11 +82,16 @@ describe('NvrRunningConfigService', () => {
         context.nvr,
         NvrConfigs.REGISTER,
         {},
-        'register-msg',
+        '202',
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(context.commandBus.execute).toHaveBeenCalledTimes(1);
-    expect(context.queue.addRepeatableMsg).not.toHaveBeenCalled();
+    expect(context.queue.addReservedRepeatableMsg).not.toHaveBeenCalled();
+    expect(context.queue.releaseMsgIdReservation).toHaveBeenCalledWith(
+      context.nvr.getProps().tenantId,
+      context.nvr.id,
+      '202',
+    );
   });
 });

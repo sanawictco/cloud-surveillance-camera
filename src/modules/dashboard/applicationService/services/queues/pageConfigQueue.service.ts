@@ -14,9 +14,15 @@ import {
 import { FindPageByIdQuery } from '../../queries/findPageById.queryHandler';
 import { PageEntity } from 'src/modules/dashboard/domain/page.entity';
 import { PageSystemLogService } from '../pageSystemLog.service';
+import { buildDeviceJobId } from 'src/dddLib/utils/deviceMessageId';
+import { generateRandomMsgId } from 'src/dddLib/utils/randomIdGenerator';
+
+const MAX_MSG_ID_GENERATION_ATTEMPTS = 5;
 
 @Injectable()
 export class PageConfigQueueService implements OnModuleInit {
+  private readonly activeAllocations = new Set<string>();
+
   constructor(
     private readonly mqttService: MqttService,
     private readonly serviceProvider: ServiceProvider,
@@ -35,6 +41,13 @@ export class PageConfigQueueService implements OnModuleInit {
   }
 
   async addRepeatableMsg(msgData: PageConfigQueueMsgDto): Promise<string> {
+    const issuedAt = Date.now();
+    msgData.metadata.issuedAt = issuedAt;
+    msgData.metadata.expiresAt =
+      issuedAt +
+      (msgData.metadata.retryCount + 1) *
+        msgData.metadata.retryPeriodInSecond *
+        1000;
     const userInfo = this.serviceProvider.userInfoService.getProps();
     msgData.metadata.actorProps = userInfo
       ? {
@@ -42,40 +55,67 @@ export class PageConfigQueueService implements OnModuleInit {
           actorType: ActorLogTypes.EMPLOYEE,
         }
       : undefined;
-    await this.queue.addMsg(msgData, {
-      repeat: {
-        retryCount: msgData.metadata.retryCount,
-        retryPeriodInSecond: msgData.metadata.retryPeriodInSecond,
-      },
-      msgId: msgData.msgId,
-    });
-    return msgData.msgId;
+    for (let attempt = 0; attempt < MAX_MSG_ID_GENERATION_ATTEMPTS; attempt++) {
+      const jobId = this.buildJobId(
+        msgData.tenantId,
+        msgData.nvrId,
+        msgData.msgId,
+      );
+      if (
+        this.activeAllocations.has(jobId) ||
+        (await this.queue.getMsg(jobId))
+      ) {
+        msgData.msgId = generateRandomMsgId();
+        continue;
+      }
+      this.activeAllocations.add(jobId);
+      try {
+        await this.queue.addMsg(msgData, {
+          repeat: {
+            retryCount: msgData.metadata.retryCount,
+            retryPeriodInSecond: msgData.metadata.retryPeriodInSecond,
+          },
+          msgId: jobId,
+        });
+        return msgData.msgId;
+      } finally {
+        this.activeAllocations.delete(jobId);
+      }
+    }
+    throw new Error('could not allocate an active scoped device message ID');
   }
 
-  async getRepeatableMsg(msgId: string) {
-    return await this.queue.getMsg(msgId);
+  async getRepeatableMsg(tenantId: string, nvrId: string, msgId: string) {
+    return await this.queue.getMsg(this.buildJobId(tenantId, nvrId, msgId));
   }
 
-  async getAndDeleteRepeatableMsg(msgId: string) {
-    return await this.queue.getAndDeleteMsg(msgId);
+  async getAndDeleteRepeatableMsg(
+    tenantId: string,
+    nvrId: string,
+    msgId: string,
+  ) {
+    return await this.queue.getAndDeleteMsg(
+      this.buildJobId(tenantId, nvrId, msgId),
+    );
+  }
+
+  private buildJobId(tenantId: string, nvrId: string, msgId: string): string {
+    return buildDeviceJobId(tenantId, nvrId, msgId);
   }
 
   private async workerMsgHandler(queueMsg: QueueMsg) {
     const msg: PageConfigQueueMsgDto = queueMsg.data;
     if (msg.metadata.retryCount === queueMsg.opts.repeat?.count) return;
     await this.mqttService.publish(msg.metadata.topic, msg.msgId);
-    console.log(
-      'send pageConfig on mqtt=> ',
-      msg,
-      'currentRetryCount =>',
-      queueMsg.opts.repeat?.count,
-      'sendTime: ',
-      new Date(queueMsg.timestamp).toLocaleString(),
+    this.serviceProvider.logger.debug(
+      `publish pageConfig msgId=${msg.msgId} configType=${msg.configType} retry=${queueMsg.opts.repeat?.count}`,
     );
   }
   private async expiredMsgHandler(queueMsg: QueueMsg) {
     const msg: PageConfigQueueMsgDto = queueMsg.data;
-    console.log('expired pageConfig msg ===============', msg.msgId);
+    this.serviceProvider.logger.debug(
+      `expired pageConfig msgId=${msg.msgId} configType=${msg.configType}`,
+    );
     const { entityId } = msg.metadata;
     let pageEntity: PageEntity = await this.serviceProvider.queryBus.execute(
       new FindPageByIdQuery(entityId),

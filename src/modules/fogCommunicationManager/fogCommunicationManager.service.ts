@@ -1,333 +1,300 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   OnApplicationBootstrap,
 } from '@nestjs/common';
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import { createWriteStream } from 'node:fs';
+import { mkdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { DashboardApiForFogCommunicationManagerService } from '../dashboard/applicationService/apiForAnotherServices/dashboardApiForFogCommunicationManager.service';
+import { pipeline } from 'node:stream/promises';
+import { CacheService } from 'src/extensions/caching/cache.service';
+import { PageModel } from '../dashboard/infra/schemas/page.schema';
+import {
+  FogNvrProjection,
+  VideoDevicesApiForFogCommunicationManagerService,
+} from '../videoDevices/applicationService/services/apiForAnotherServices/videoDevicesApiForFogCommunicationManager.service';
+import { CameraModel } from '../videoDevices/infra/camera/camera.schema';
+import { NvrModel } from '../videoDevices/infra/nvr/nvr.schema';
+import { selectMongoBackupMembers } from './fogBackupArchive';
+const BACKUP_ROOT =
+  process.env.FOG_BACKUP_ROOT ?? '/cloud_shared_backups';
+const RESTORE_TIMEOUT_MS = 10 * 60 * 1000;
+const RESTORE_LOCK_TTL_SECONDS = 60 * 60;
+const MAX_EXTRACTED_MONGO_FILE_SIZE = 256 * 1024 * 1024;
 
-import { UploadFileDto } from './contracts/fileUpload.request.dto';
-import { FogConfigReqDto } from './contracts/fogConfig.dto';
-import { FogConfigResponseDto } from './contracts/fogConfig.response.dto';
-import { VideoDevicesApiForFogCommunicationManagerService } from '../videoDevices/applicationService/services/apiForAnotherServices/videoDevicesApiForFogCommunicationManager.service';
-import { ApiNodeProxyService } from 'src/extensions/http/apiNodeProxy.service';
-import { ApiNodeProxyRequestDto } from './contracts/apiNodeProxy.request.dto';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const fs = require('node:fs');
-
-// Shared bind-mount where the multipart upload lands and the DB dumps are
-// extracted (see fileUpload.ts: diskStorage destination + docker-compose backend
-// volume /var/sanaw/cloud_shared_backups:/cloud_shared_backups).
-const BACKUP_ROOT = '/cloud_shared_backups';
-const BACKUP_ARCHIVE = `${BACKUP_ROOT}/backups.tar.zst`;
-const MONGO_BACKUP_DIR = `${BACKUP_ROOT}/mongo`;
-const TDENGINE_BACKUP_DIR = `${BACKUP_ROOT}/tdengine`;
-// Vetted restore script shipped WITH the app, resolved relative to the process
-// cwd so the SAME code works in production (Dockerfile COPYs it to /app/scripts;
-// cwd=/app) and in dev via `npm run start:dev` (cwd = repo root → scripts/).
-// Override with FOG_MONGO_RESTORE_SCRIPT if the process is launched elsewhere.
-// Deliberately NOT run from BACKUP_ROOT, so a fog-supplied tarball can never get
-// its own mongo-restore.sh executed.
-const MONGO_RESTORE_SCRIPT =
-  process.env.FOG_MONGO_RESTORE_SCRIPT ??
-  join(process.cwd(), 'scripts', 'mongo-restore.sh');
-// Per-step wall-clock cap, configurable via FOG_RESTORE_STEP_TIMEOUT_MS. The
-// default is generous (10 min): unlike the previous SOFT timeout, hitting it now
-// actually terminates the tool, so a hard 60s would kill a large dump mid-write.
-// On timeout the child gets SIGTERM, then SIGKILL after the grace window, giving
-// the tool a chance to flush/exit cleanly first.
-const _parsedStepTimeout = Number(process.env.FOG_RESTORE_STEP_TIMEOUT_MS);
-const RESTORE_STEP_TIMEOUT_MS =
-  Number.isFinite(_parsedStepTimeout) && _parsedStepTimeout > 0
-    ? _parsedStepTimeout
-    : 600000;
-const RESTORE_KILL_GRACE_MS = 10000;
-const API_NODE_PROXY_DEADLINE_MS = 10000;
+interface FogRestoreResult {
+  completed: boolean;
+  nvrIds: string[];
+  cameraIds: string[];
+  pageIds: string[];
+}
 
 @Injectable()
 export class FogCommunicationManagerService implements OnApplicationBootstrap {
   constructor(
     private readonly videoDevicesApiForFogCommunicationManagerService: VideoDevicesApiForFogCommunicationManagerService,
-    private readonly dashboardApiForFogCommunicationManagerService: DashboardApiForFogCommunicationManagerService,
-    private readonly apiNodeProxyService: ApiNodeProxyService,
+    private readonly cacheService: CacheService<unknown>,
   ) {}
   async onApplicationBootstrap() {
     await this.videoDevicesApiForFogCommunicationManagerService.sendCloudIsAvailableSignalToFog();
   }
 
-  async deliverMqttConfigOverHttpToFog(
-    body: FogConfigReqDto,
-  ): Promise<FogConfigResponseDto> {
-    const nvr =
-      await this.videoDevicesApiForFogCommunicationManagerService.findFogNvrBySerialNumber(
-        body.serialNumber,
-      );
-    if (!nvr) throw new BadRequestException('the nvr does not exist');
-    if (nvr.accessToken !== body.accessToken)
-      throw new BadRequestException('invalid nvr');
-    let fogConfig: FogConfigResponseDto | undefined;
-    if (body.configType === 'videoDevice') {
-      fogConfig =
-        await this.videoDevicesApiForFogCommunicationManagerService.getVideoDeviceConfigFromQueue(
-          String(body.msgId),
-        );
-    } else if (body.configType === 'page') {
-      fogConfig =
-        await this.dashboardApiForFogCommunicationManagerService.getPageConfigFromQueue(
-          String(body.msgId),
-        );
-    }
-
-    if (!fogConfig) throw new BadRequestException('no msg with this msgId');
-    return fogConfig;
-  }
-
-  async proxyApiNodeRequest(body: ApiNodeProxyRequestDto) {
-    const deadlineAt = Date.now() + API_NODE_PROXY_DEADLINE_MS;
-    let timeoutId: NodeJS.Timeout | undefined;
-    const nvr = await Promise.race([
-      this.videoDevicesApiForFogCommunicationManagerService.findFogNvrBySerialNumber(
-        body.serialNumber,
-      ),
-      new Promise<never>((_resolve, reject) => {
-        timeoutId = setTimeout(
-          () =>
-            reject(
-              new BadRequestException('apiNode proxy authentication timed out'),
-            ),
-          API_NODE_PROXY_DEADLINE_MS,
-        );
-      }),
-    ]).finally(() => {
-      if (timeoutId) clearTimeout(timeoutId);
-    });
-    if (!nvr || nvr.accessToken !== body.accessToken)
-      throw new BadRequestException('invalid nvr');
-
-    return this.apiNodeProxyService.execute(
-      {
-        url: body.url,
-        method: body.method,
-        parameters: body.parameters,
-        headers: body.headers,
-      },
-      deadlineAt,
-    );
-  }
-
-  async restoreFogBackupToCloud(body: UploadFileDto) {
-    const nvr =
-      await this.videoDevicesApiForFogCommunicationManagerService.findFogNvrBySerialNumber(
-        body.serialNumber,
-      );
-    if (!nvr) throw new BadRequestException('the nvr does not exist');
-    if (nvr.accessToken !== body.accessToken)
-      throw new BadRequestException(
-        'no nvr with this accessToken is registered',
-      );
-    // start cloud recovery
-    if (nvr.cloudIsRecovering) return;
-    try {
-      await this.videoDevicesApiForFogCommunicationManagerService.startFogCloudRecovery(
-        nvr.id,
-      );
-      const extractResult = await this._extractBackup();
-      // _extractBackup swallows its errors and returns undefined on failure;
-      // abort here so the DB restore does not run on stale/partial files.
-      if (!extractResult)
-        throw new BadRequestException('failed to extract fog backup');
-      await this._restoreMongoBackup();
-      await this._restoreTdengineBackup();
-      // finish cloud recovery
-      await this.videoDevicesApiForFogCommunicationManagerService.completeFogCloudRecovery(
-        body.serialNumber,
-      );
-    } catch (err) {
-      // On failure, clear the recovering flag so the nvr is not left
-      // permanently locked out of future restore attempts, then rethrow so the
-      // caller still observes the error.
-      await this.videoDevicesApiForFogCommunicationManagerService.resetFogCloudRecovery(
-        nvr.id,
-      );
-      throw err;
-    } finally {
-      await this._cleanBackup();
-    }
-  }
-
-  /**
-   * Run a restore tool locally (inside THIS backend container) and stream its
-   * stdout/stderr to the backend logs. Replaces the previous docker-exec
-   * (dockerode over /var/run/docker.sock) approach — the tools now talk to
-   * mongo/tdengine over the internal Docker network, so the backend no longer
-   * needs the host Docker socket. Rejects on spawn error, non-zero exit, or the
-   * per-step timeout (the child is SIGKILL'd so it cannot leak).
-   */
-  private _runCommand(
-    command: string,
-    args: string[],
-    options: { env?: NodeJS.ProcessEnv; timeoutMs?: number } = {},
+  async restoreFogBackupToCloud(
+    nvr: FogNvrProjection,
+    file: Express.Multer.File | undefined,
   ): Promise<void> {
-    const timeoutMs = options.timeoutMs ?? RESTORE_STEP_TIMEOUT_MS;
-    return new Promise<void>((resolve, reject) => {
-      const child = spawn(command, args, {
-        env: options.env ? { ...process.env, ...options.env } : process.env,
-        // stdin closed; stdout/stderr inherited so tool output lands in the logs
-        // (same visibility the old demuxStream(stream, process.stdout/stderr) gave).
-        stdio: ['ignore', 'inherit', 'inherit'],
-      });
-      let settled = false;
-      let killTimer: NodeJS.Timeout | undefined;
-      // On timeout, ask the tool to stop (SIGTERM); force-kill only if it ignores
-      // the grace window, so a long-but-legitimate restore is not torn apart
-      // mid-write. The 'close' handler settles the promise in every case.
-      const timeoutId = setTimeout(() => {
-        child.kill('SIGTERM');
-        killTimer = setTimeout(
-          () => child.kill('SIGKILL'),
-          RESTORE_KILL_GRACE_MS,
-        );
-      }, timeoutMs);
-      const cleanup = () => {
-        clearTimeout(timeoutId);
-        if (killTimer) clearTimeout(killTimer);
-      };
-      child.on('error', (err) => {
-        if (settled) return;
-        settled = true;
-        cleanup();
-        reject(err);
-      });
-      child.on('close', (code, signal) => {
-        if (settled) return;
-        settled = true;
-        cleanup();
-        if (code === 0) resolve();
-        else
-          reject(
-            new Error(
-              `${command} exited with ${code !== null ? `code ${code}` : `signal ${signal}`}`,
-            ),
+    if (!file) throw new BadRequestException('Fog backup file is required');
+
+    try {
+      if (nvr.cloudIsRecovering) {
+        throw new ConflictException('Fog backup restore is already running');
+      }
+
+      const lockKey = `fog-restore:${nvr.tenantId}:${nvr.id}`;
+      const lockToken = await this.cacheService.acquireLock(
+        lockKey,
+        RESTORE_LOCK_TTL_SECONDS,
+      );
+      if (!lockToken) {
+        throw new ConflictException('Fog backup restore is already running');
+      }
+
+      const restoreId = randomUUID();
+      const stagingRoot = join(BACKUP_ROOT, `restore-${restoreId}`);
+      const mongoDirectory = join(stagingRoot, 'mongo');
+      const resultFile = join(stagingRoot, 'result.json');
+
+      try {
+        await mkdir(mongoDirectory, { recursive: true });
+        const listing = await this.runCommand('tar', [
+          '-I',
+          'zstd',
+          '-tf',
+          file.path,
+        ]);
+        const members = selectMongoBackupMembers(listing);
+        for (const [collection, member] of Object.entries(members)) {
+          if (!member) continue;
+          await this.extractArchiveMember(
+            file.path,
+            member,
+            join(mongoDirectory, `${collection}.json`),
           );
-      });
-    });
+        }
+
+        try {
+          await this.videoDevicesApiForFogCommunicationManagerService.startFogCloudRecovery(
+            nvr.id,
+          );
+          await this.runCommand(
+            'bash',
+            [
+              process.env.FOG_MONGO_RESTORE_SCRIPT ??
+                join(process.cwd(), 'scripts', 'mongo-restore.sh'),
+            ],
+            this.mongoRestoreEnv({
+              tenantId: nvr.tenantId,
+              nvrId: nvr.id,
+              serialNumber: nvr.serialNumber,
+              mongoDirectory,
+              resultFile,
+            }),
+          );
+          const result = await this.readRestoreResult(
+            resultFile,
+            nvr.id,
+            true,
+          );
+          await this.evictRestoredRecords(result);
+          await this.videoDevicesApiForFogCommunicationManagerService.completeFogCloudRecovery(
+            nvr.serialNumber,
+          );
+        } catch (error) {
+          await this.evictPartialRestoreRecords(resultFile, nvr.id);
+          await this.videoDevicesApiForFogCommunicationManagerService.resetFogCloudRecovery(
+            nvr.id,
+          );
+          throw error;
+        }
+      } finally {
+        await Promise.all([
+          rm(stagingRoot, { recursive: true, force: true }),
+          this.cacheService.releaseLock(lockKey, lockToken),
+        ]);
+      }
+    } finally {
+      await rm(file.path, { force: true });
+    }
   }
 
-  /**
-   * Connection params for mongo-restore.sh, read from the backend's own env (in
-   * production MONGO_DB_PASSWORD is expanded from the Docker secret by
-   * docker-entrypoint.sh). Username/password empty outside production → the
-   * script connects without auth, matching app.config's mongo URL behavior.
-   */
-  private _mongoRestoreEnv(): NodeJS.ProcessEnv {
+  private mongoRestoreEnv(scope: {
+    tenantId: string;
+    nvrId: string;
+    serialNumber: string;
+    mongoDirectory: string;
+    resultFile: string;
+  }): NodeJS.ProcessEnv {
+    const host = process.env.MONGO_DB_HOST ?? 'localhost';
+    const port = process.env.MONGO_DB_PORT ?? '27017';
+    const username = process.env.MONGO_DB_USERNAME ?? '';
+    const password = process.env.MONGO_DB_PASSWORD ?? '';
+    const authSource = process.env.MONGO_DB_AUTH_SOURCE ?? 'admin';
+    const credentials =
+      username && password
+        ? `${encodeURIComponent(username)}:${encodeURIComponent(password)}@`
+        : '';
+    const authQuery = credentials
+      ? `?authSource=${encodeURIComponent(authSource)}`
+      : '';
     return {
-      MONGO_RESTORE_HOST: process.env.MONGO_DB_HOST,
-      MONGO_RESTORE_PORT: process.env.MONGO_DB_PORT,
+      ...process.env,
+      MONGO_RESTORE_HOST: host,
+      MONGO_RESTORE_PORT: port,
       MONGO_RESTORE_DB: process.env.MONGO_DB_NAME,
-      MONGO_RESTORE_USER: process.env.MONGO_DB_USERNAME ?? '',
-      MONGO_RESTORE_PASSWORD: process.env.MONGO_DB_PASSWORD ?? '',
-      MONGO_RESTORE_AUTHDB: process.env.MONGO_DB_AUTH_SOURCE ?? 'admin',
-      MONGO_RESTORE_DIR: MONGO_BACKUP_DIR,
+      MONGO_RESTORE_URI: `mongodb://${credentials}${host}:${port}/${authQuery}`,
+      MONGO_RESTORE_DIR: scope.mongoDirectory,
+      MONGO_RESTORE_TENANT_ID: scope.tenantId,
+      MONGO_RESTORE_NVR_ID: scope.nvrId,
+      MONGO_RESTORE_SERIAL_NUMBER: scope.serialNumber,
+      MONGO_RESTORE_RESULT_FILE: scope.resultFile,
     };
   }
 
-  private async _restoreMongoBackup() {
+  private async readRestoreResult(
+    resultFile: string,
+    nvrId: string,
+    requireCompleted: boolean,
+  ): Promise<FogRestoreResult> {
+    const result = JSON.parse(await readFile(resultFile, 'utf8')) as unknown;
+    if (!result || typeof result !== 'object') {
+      throw new Error('Fog restore result is invalid');
+    }
+    const value = result as Partial<FogRestoreResult>;
+    if (
+      (requireCompleted && value.completed !== true) ||
+      !Array.isArray(value.nvrIds) ||
+      !Array.isArray(value.cameraIds) ||
+      !Array.isArray(value.pageIds) ||
+      value.nvrIds.length !== 1 ||
+      value.nvrIds[0] !== nvrId ||
+      value.cameraIds.length > 10_000 ||
+      value.pageIds.length > 10_000 ||
+      ![...value.nvrIds, ...value.cameraIds, ...value.pageIds].every(
+        (id) =>
+          typeof id === 'string' &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+            id,
+          ),
+      )
+    ) {
+      throw new Error('Fog restore did not complete safely');
+    }
+    return value as FogRestoreResult;
+  }
+
+  private async evictPartialRestoreRecords(
+    resultFile: string,
+    nvrId: string,
+  ): Promise<void> {
     try {
-      if (!fs.existsSync(MONGO_BACKUP_DIR))
-        fs.mkdirSync(MONGO_BACKUP_DIR, { recursive: true });
-      // Same restore logic as before (mongoimport --mode=merge + the nvrs
-      // selective-upsert), but executed from the backend against mongo:27017
-      // with auth, instead of via docker exec inside the mongo container.
-      await this._runCommand('bash', [MONGO_RESTORE_SCRIPT], {
-        env: this._mongoRestoreEnv(),
+      const result = await this.readRestoreResult(resultFile, nvrId, false);
+      await this.evictRestoredRecords(result);
+    } catch {
+      // No manifest means validation failed before any write was attempted.
+    }
+  }
+
+  private async evictRestoredRecords(result: FogRestoreResult): Promise<void> {
+    await Promise.all([
+      ...result.nvrIds.map((id) =>
+        this.cacheService.delete(`${NvrModel.name}:${id}`),
+      ),
+      ...result.cameraIds.map((id) =>
+        this.cacheService.delete(`${CameraModel.name}:${id}`),
+      ),
+      ...result.pageIds.map((id) =>
+        this.cacheService.delete(`${PageModel.name}:${id}`),
+      ),
+    ]);
+  }
+
+  private runCommand(
+    command: string,
+    args: string[],
+    env: NodeJS.ProcessEnv = process.env,
+  ): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      const child = spawn(command, args, {
+        env,
+        stdio: ['ignore', 'pipe', 'pipe'],
       });
-      return { success: true, message: 'mongo restore completed successfully' };
-    } catch (error) {
-      console.error('Error during mongo restore:', error);
-      throw error;
-    }
-  }
-
-  private async _restoreTdengineBackup() {
-    try {
-      if (!fs.existsSync(TDENGINE_BACKUP_DIR))
-        fs.mkdirSync(TDENGINE_BACKUP_DIR, { recursive: true });
-      // taosdump -i, same as before, but run from the backend over the native
-      // connection to the tdengine service (port 6030 by default) instead of via
-      // docker exec inside the tdengine container. -p takes the password
-      // attached (taosdump getopt form).
-      const host = process.env.TIME_SERIES_DB_HOST ?? 'tdengine';
-      const port = process.env.TIME_SERIES_DB_NATIVE_PORT ?? '6030';
-      const user = process.env.TIME_SERIES_DB_USER ?? 'root';
-      const password = process.env.TIME_SERIES_DB_PASSWORD ?? '';
-      await this._runCommand('taosdump', [
-        '-h',
-        host,
-        '-P',
-        port,
-        '-u',
-        user,
-        `-p${password}`,
-        '-i',
-        TDENGINE_BACKUP_DIR,
-      ]);
-      return {
-        success: true,
-        message: 'tdengine backup completed successfully',
-      };
-    } catch (error) {
-      console.error('Error during tdengine backup:', error);
-      throw error;
-    }
-  }
-
-  private async _extractBackup(): Promise<
-    { success: boolean; message: string } | undefined
-  > {
-    try {
-      // Extract the uploaded archive locally (the backend image now ships tar +
-      // zstd). --strip-components=1 drops the tarball's top dir so the dumps land
-      // at /cloud_shared_backups/{mongo,tdengine} exactly as the restore steps
-      // expect — identical to the previous in-container extraction.
-      await this._runCommand('tar', [
-        '-I',
-        'zstd',
-        '-xf',
-        BACKUP_ARCHIVE,
-        '--strip-components=1',
-        '-C',
-        BACKUP_ROOT,
-      ]);
-      return {
-        success: true,
-        message: 'extract backup completed successfully',
-      };
-    } catch (err) {
-      console.log(err);
-      return undefined;
-    }
-  }
-
-  private async _cleanBackup(): Promise<
-    { message: string; success: boolean } | undefined
-  > {
-    try {
-      // Remove the extracted dumps + the uploaded archive from the shared dir.
-      // Local fs removal (the files live in this backend's mount) replaces the
-      // previous docker-exec `rm -rf`. force:true → no error if already gone.
-      await Promise.all(
-        [MONGO_BACKUP_DIR, TDENGINE_BACKUP_DIR, BACKUP_ARCHIVE].map((target) =>
-          fs.promises.rm(target, { recursive: true, force: true }),
-        ),
+      let stdout = '';
+      let stderr = '';
+      let settled = false;
+      const timeout = setTimeout(
+        () => child.kill('SIGKILL'),
+        RESTORE_TIMEOUT_MS,
       );
-      return {
-        success: true,
-        message: 'clean backup completed successfully',
-      };
-    } catch (err) {
-      console.log(err);
-      return undefined;
-    }
+
+      child.stdout.on('data', (chunk: Buffer) => {
+        stdout += chunk.toString();
+        if (stdout.length > 4 * 1024 * 1024) child.kill('SIGKILL');
+      });
+      child.stderr.on('data', (chunk: Buffer) => {
+        stderr += chunk.toString();
+        if (stderr.length > 1024 * 1024) child.kill('SIGKILL');
+      });
+      child.on('error', (error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        reject(error);
+      });
+      child.on('close', (code) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        if (code === 0) resolve(stdout);
+        else
+          reject(new Error(`${command} failed: ${stderr || `exit ${code}`}`));
+      });
+    });
+  }
+
+  private async extractArchiveMember(
+    archive: string,
+    member: string,
+    destination: string,
+  ): Promise<void> {
+    const child = spawn('tar', ['-I', 'zstd', '-xOf', archive, '--', member], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stderr = '';
+    let extractedBytes = 0;
+    const timeout = setTimeout(() => child.kill('SIGKILL'), RESTORE_TIMEOUT_MS);
+    child.stdout.on('data', (chunk: Buffer) => {
+      extractedBytes += chunk.length;
+      if (extractedBytes > MAX_EXTRACTED_MONGO_FILE_SIZE) {
+        child.kill('SIGKILL');
+      }
+    });
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+    const completed = new Promise<void>((resolve, reject) => {
+      child.on('error', reject);
+      child.on('close', (code) => {
+        clearTimeout(timeout);
+        if (code === 0) resolve();
+        else reject(new Error(`tar extraction failed: ${stderr || code}`));
+      });
+    });
+    await Promise.all([
+      pipeline(child.stdout, createWriteStream(destination, { flags: 'wx' })),
+      completed,
+    ]);
   }
 }

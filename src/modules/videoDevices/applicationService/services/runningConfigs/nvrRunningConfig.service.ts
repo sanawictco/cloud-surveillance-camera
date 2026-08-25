@@ -15,6 +15,7 @@ import { VideoDeviceConfigQueueService } from '../queues/videoDeviceConfig/video
 import { VideoDeviceDataQueueService } from '../queues/videoDeviceData/videoDeviceDataQueue.service';
 import { NvrConfigs } from 'src/modules/videoDevices/domain/nvr/nvr.type';
 import { MutateNvrRunningConfigCommand } from '../../commands/nvr/mutateNvrRunningConfig.command';
+import { isValidDeviceMsgId } from 'src/dddLib/utils/deviceMessageId';
 
 type ProvisioningConfig = NvrConfigs.SEARCH | NvrConfigs.REGISTER;
 const PROVISIONING_CONFIGS: readonly ProvisioningConfig[] = [
@@ -64,6 +65,8 @@ export class NvrRunningConfigService {
       return queuedMsgId;
     } catch (error) {
       await this.videoDeviceConfigQueueService.getAndDeleteRepeatableMsg(
+        nvrEntity.getProps().tenantId,
+        nvrEntity.id,
         config.msgId,
       );
       throw error;
@@ -100,11 +103,17 @@ export class NvrRunningConfigService {
     );
     const { runningConfigs } = nvrEntity.getProps();
     for (const msgId of Object.values(runningConfigs)) {
-      if (msgId) {
+      if (isValidDeviceMsgId(msgId)) {
         await this.videoDeviceConfigQueueService.getAndDeleteRepeatableMsg(
+          nvrEntity.getProps().tenantId,
+          nvrEntity.id,
           msgId,
         );
-        await this.videoDeviceDataQueueService.getAndDeleteRepeatableMsg(msgId);
+        await this.videoDeviceDataQueueService.getAndDeleteRepeatableMsg(
+          nvrEntity.getProps().tenantId,
+          nvrEntity.id,
+          msgId,
+        );
       }
     }
     await this.mutateRunningConfig(nvrEntity.id, { operation: 'reset' });
@@ -120,9 +129,26 @@ export class NvrRunningConfigService {
     const { runningConfigs } = nvrEntity.getProps();
     const msgId = runningConfigs[configType];
     if (!msgId) return false;
+    if (!isValidDeviceMsgId(msgId)) {
+      await this.mutateRunningConfig(nvrEntity.id, {
+        operation: 'unsetIfMatches',
+        configType,
+        msgId,
+      });
+      return false;
+    }
+    const tenantId = nvrEntity.getProps().tenantId;
     const configExistsInQueue =
-      (await this.videoDeviceConfigQueueService.getRepeatableMsg(msgId)) ||
-      (await this.videoDeviceDataQueueService.getRepeatableMsg(msgId));
+      (await this.videoDeviceConfigQueueService.getRepeatableMsg(
+        tenantId,
+        nvrEntity.id,
+        msgId,
+      )) ||
+      (await this.videoDeviceDataQueueService.getRepeatableMsg(
+        tenantId,
+        nvrEntity.id,
+        msgId,
+      ));
     if (configExistsInQueue) return true;
     this.serviceProvider.logger.warn(
       `NvrRunningConfig: stale lock detected for configType=${configType} nvrId=${nvrEntity.id}, msgId=${msgId} not found in queue. Auto-clearing.`,
@@ -142,27 +168,47 @@ export class NvrRunningConfigService {
     msgId?: string,
   ): Promise<string> {
     const config = nvrEntity.generateFogConfig(configType, data, msgId);
-    let claimed = await this.mutateRunningConfig(nvrEntity.id, {
-      operation: 'claimProvisioning',
-      configType,
-      msgId: config.msgId,
-    });
-    if (!claimed && (await this.clearStaleProvisioningConfig(nvrEntity.id))) {
+    const queuedMsgId =
+      await this.videoDeviceConfigQueueService.reserveMsgId(config);
+    let claimed: boolean;
+    try {
       claimed = await this.mutateRunningConfig(nvrEntity.id, {
         operation: 'claimProvisioning',
         configType,
-        msgId: config.msgId,
+        msgId: queuedMsgId,
       });
+      if (!claimed && (await this.clearStaleProvisioningConfig(nvrEntity.id))) {
+        claimed = await this.mutateRunningConfig(nvrEntity.id, {
+          operation: 'claimProvisioning',
+          configType,
+          msgId: queuedMsgId,
+        });
+      }
+    } catch (error) {
+      this.videoDeviceConfigQueueService.releaseMsgIdReservation(
+        nvrEntity.getProps().tenantId,
+        nvrEntity.id,
+        queuedMsgId,
+      );
+      throw error;
     }
-    if (!claimed) return this.rejectRunningConfig();
-
+    if (!claimed) {
+      this.videoDeviceConfigQueueService.releaseMsgIdReservation(
+        nvrEntity.getProps().tenantId,
+        nvrEntity.id,
+        queuedMsgId,
+      );
+      return this.rejectRunningConfig();
+    }
     try {
-      return await this.videoDeviceConfigQueueService.addRepeatableMsg(config);
+      return await this.videoDeviceConfigQueueService.addReservedRepeatableMsg(
+        config,
+      );
     } catch (error) {
       await this.mutateRunningConfig(nvrEntity.id, {
         operation: 'unsetIfMatches',
         configType,
-        msgId: config.msgId,
+        msgId: queuedMsgId,
       });
       throw error;
     }
@@ -179,7 +225,12 @@ export class NvrRunningConfigService {
     })).find(({ msgId }) => msgId);
     if (!active?.msgId) return false;
     if (
-      await this.videoDeviceConfigQueueService.getRepeatableMsg(active.msgId)
+      isValidDeviceMsgId(active.msgId) &&
+      (await this.videoDeviceConfigQueueService.getRepeatableMsg(
+        nvrEntity.getProps().tenantId,
+        nvrEntity.id,
+        active.msgId,
+      ))
     ) {
       return false;
     }

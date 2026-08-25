@@ -1,4 +1,5 @@
 import { IsIn, IsString, Length } from 'class-validator';
+import { IsDeviceMsgId } from 'src/dddLib/utils/isDeviceMsgId.validator';
 
 export class FogVideoDeviceConfigRequestDto {
   @IsString()
@@ -9,10 +10,9 @@ export class FogVideoDeviceConfigRequestDto {
   @Length(32, 32)
   accessToken!: string;
 
-  @IsString()
-  @Length(1, 128)
+  @IsDeviceMsgId()
   msgId!: string;
 
-  @IsIn(['videoDevice'])
-  configType!: 'videoDevice';
+  @IsIn(['videoDevice', 'page'])
+  configType!: 'videoDevice' | 'page';
 }

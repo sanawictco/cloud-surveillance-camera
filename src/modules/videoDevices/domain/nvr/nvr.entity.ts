@@ -33,7 +33,7 @@ import { BusinessId } from 'src/dddLib/core/businessId.vo';
 import { IsActive } from '../../shared/valueObjects/isActive.vo';
 import { MaxCameras } from './valueObjects/maxCameras.vo';
 import { VideoDeviceConfigQueueMsgDto } from '../../applicationService/services/queues/videoDeviceConfig/videoDeviceConfigQueueMsg.dto';
-import { VideoDeviceEntityTypes } from '../../shared/valueObjects/videoDeviceEntityTypes';
+import { EntityTypes } from '../../shared/valueObjects/entityTypes';
 import { ProductModel } from '../camera/valueObjects/productModel.vo';
 
 export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
@@ -215,7 +215,7 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
       metadata: {
         topic: this.getCloudPubToFogMqttTopics().videoDeviceConfigs,
         entityId: this.id,
-        entityType: VideoDeviceEntityTypes.NVR,
+        entityType: EntityTypes.NVR,
         retryCount: 3,
         retryPeriodInSecond: 10,
       },

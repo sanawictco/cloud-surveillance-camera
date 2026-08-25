@@ -11,7 +11,7 @@ export class FogCommunicationHttpController {
   @Post('/configs')
   async getConfig(@Body() body: FogVideoDeviceConfigRequestDto) {
     try {
-      return await this.fogApi.getOwnedVideoDeviceConfig(body);
+      return await this.fogApi.getOwnedFogConfig(body);
     } catch {
       // Authentication, ownership, expiry, and lookup failures intentionally
       // share one response so msgId cannot be used as an inventory oracle.

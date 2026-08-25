@@ -77,6 +77,7 @@ import { LoggerService } from './logger.service';
             'req.headers.authorization',
             'req.headers.cookie',
             'req.headers["x-auth-token"]',
+            'req.headers["x-nvr-access-token"]',
             '*.password',
             '*.token',
             '*.apiKey',

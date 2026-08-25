@@ -1,21 +1,18 @@
 import {
-  Body,
   Controller,
   Post,
+  Req,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
-import {
-  UploadFileDto,
-  UploadFileSwaggerDto,
-} from './contracts/fileUpload.request.dto';
-import { FogConfigReqDto } from './contracts/fogConfig.dto';
-import { FogConfigResponseDto } from './contracts/fogConfig.response.dto';
-import { fileFilter, storage } from './fileUpload';
+import { ApiBody, ApiConsumes, ApiHeader, ApiTags } from '@nestjs/swagger';
+import { FogBackupRestoreSwaggerDto } from './contracts/fogBackupRestore.request.dto';
+import type { AuthenticatedFogBackupRequest } from './fogBackupAuth.guard';
+import { FogBackupAuthGuard } from './fogBackupAuth.guard';
+import { fogBackupFileFilter, fogBackupStorage } from './fogBackupUpload';
 import { FogCommunicationManagerService } from './fogCommunicationManager.service';
-import { ApiNodeProxyRequestDto } from './contracts/apiNodeProxy.request.dto';
 
 @ApiTags('/fog-communication-manager')
 @Controller('/fog-communication-manager')
@@ -23,36 +20,28 @@ export class FogCommunicationManagerController {
   constructor(
     private readonly fogCommunicationManagerService: FogCommunicationManagerService,
   ) {}
-  @Post('/configs')
-  async deliverMqttConfigOverHttpToFog(
-    @Body() body: FogConfigReqDto,
-  ): Promise<FogConfigResponseDto> {
-    return this.fogCommunicationManagerService.deliverMqttConfigOverHttpToFog(
-      body,
-    );
-  }
 
-  @Post('/api-node/request')
-  async proxyApiNodeRequest(@Body() body: ApiNodeProxyRequestDto) {
-    return this.fogCommunicationManagerService.proxyApiNodeRequest(body);
-  }
-
+  @Post('/restore-fog-backup-to-cloud')
+  @UseGuards(FogBackupAuthGuard)
   @ApiConsumes('multipart/form-data')
-  @ApiBody({ type: UploadFileSwaggerDto })
+  @ApiBody({ type: FogBackupRestoreSwaggerDto })
+  @ApiHeader({ name: 'X-Tenant-Id', required: true })
+  @ApiHeader({ name: 'X-Nvr-Serial-Number', required: true })
+  @ApiHeader({ name: 'X-Nvr-Access-Token', required: true })
   @UseInterceptors(
     FileInterceptor('file', {
-      storage,
-      limits: { fileSize: 1024 * 1024 * 1024 }, // 1 GiB
-      fileFilter,
+      storage: fogBackupStorage,
+      fileFilter: fogBackupFileFilter,
+      limits: { fileSize: 1024 * 1024 * 1024 },
     }),
   )
-  @Post('/restore-fog-backup-to-cloud')
-  async restoreFogBackupToCloud(
-    @UploadedFile() _file: Express.Multer.File,
-    @Body() body: UploadFileDto,
-  ) {
-    return await this.fogCommunicationManagerService.restoreFogBackupToCloud(
-      body,
+  restoreFogBackupToCloud(
+    @UploadedFile() file: Express.Multer.File,
+    @Req() request: AuthenticatedFogBackupRequest,
+  ): Promise<void> {
+    return this.fogCommunicationManagerService.restoreFogBackupToCloud(
+      request.fogNvr,
+      file,
     );
   }
 }

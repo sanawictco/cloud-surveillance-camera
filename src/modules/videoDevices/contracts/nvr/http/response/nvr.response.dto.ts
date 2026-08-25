@@ -10,6 +10,7 @@ export class NvrResponseDto extends ResponseBase {
     public tenantId: string,
     public productModel: string,
     public serialNumber: string,
+    // Users need this credential to log in to the Fog NVR.
     public password: string,
     public lang: LanguageCode,
     public isActive: boolean,

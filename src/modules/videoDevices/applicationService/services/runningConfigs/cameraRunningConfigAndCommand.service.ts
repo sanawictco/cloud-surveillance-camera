@@ -125,11 +125,17 @@ export class CameraRunningConfigAndCommandService {
     const runningConfigs =
       existingRunningConfigs ?? cameraEntity.getProps().runningConfigs;
     for (const msgId of Object.values(runningConfigs)) {
-      if (msgId) {
+      if (msgId !== '-1') {
         await this.videoDeviceConfigQueueService.getAndDeleteRepeatableMsg(
+          cameraEntity.getProps().tenantId,
+          cameraEntity.getProps().nvrId,
           msgId,
         );
-        await this.videoDeviceDataQueueService.getAndDeleteRepeatableMsg(msgId);
+        await this.videoDeviceDataQueueService.getAndDeleteRepeatableMsg(
+          cameraEntity.getProps().tenantId,
+          cameraEntity.getProps().nvrId,
+          msgId,
+        );
       }
     }
     await this.serviceProvider.commandBus.execute(
@@ -157,7 +163,9 @@ export class CameraRunningConfigAndCommandService {
     configType: CameraSoftwareConfigs | CameraHardwareSendCommands,
     msgId: string,
   ): Promise<void> {
-    console.log(')))))))) lock camera => ', configType);
+    this.serviceProvider.logger.debug(
+      `lock camera config cameraId=${cameraEntity.id} configType=${configType} msgId=${msgId}`,
+    );
     cameraEntity = await this.serviceProvider.queryBus.execute(
       new FindCameraByIdQuery(cameraEntity.id),
     );

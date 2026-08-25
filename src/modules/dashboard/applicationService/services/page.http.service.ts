@@ -45,13 +45,15 @@ export class PagesHttpService {
   }
 
   async create(body: CreatePageRequestDto): Promise<string> {
-    await this.videoDevicesApiForDashboardService.checkNvrIsExistsAndActiveAndConnected(
-      body.nvrId,
-    );
+    const nvr =
+      await this.videoDevicesApiForDashboardService.checkNvrIsExistsAndActiveAndConnected(
+        body.nvrId,
+      );
     await this.checkAvoidPageDuplicationCreate(body.name, body.nvrId);
     const pageEntity: PageEntity = PageEntity.create(body);
     return await this.pageRunningConfigService.runConfigIfNotDuplicated(
       pageEntity,
+      nvr.getProps().tenantId,
       PageConfigs.CREATE_PAGE,
       pageEntity.getProps(),
     );
@@ -59,9 +61,10 @@ export class PagesHttpService {
 
   async update(id: string, body: UpdatePageRequestDto): Promise<string> {
     const pageEntity: PageEntity = await this.checkExistsPageWihtId(id);
-    await this.videoDevicesApiForDashboardService.checkNvrIsExistsAndActiveAndConnected(
-      pageEntity.getProps().nvrId,
-    );
+    const nvr =
+      await this.videoDevicesApiForDashboardService.checkNvrIsExistsAndActiveAndConnected(
+        pageEntity.getProps().nvrId,
+      );
     if (body.name)
       await this.checkAvoidPageDuplicationUpdate(
         id,
@@ -70,6 +73,7 @@ export class PagesHttpService {
       );
     return await this.pageRunningConfigService.runConfigIfNotDuplicated(
       pageEntity,
+      nvr.getProps().tenantId,
       PageConfigs.UPDATE_PAGE,
       { ...body, pageIndex: body.destIndex },
     );
@@ -77,11 +81,13 @@ export class PagesHttpService {
 
   async delete(id: string): Promise<string> {
     const pageEntity: PageEntity = await this.checkExistsPageWihtId(id);
-    await this.videoDevicesApiForDashboardService.checkNvrIsExistsAndActiveAndConnected(
-      pageEntity.getProps().nvrId,
-    );
+    const nvr =
+      await this.videoDevicesApiForDashboardService.checkNvrIsExistsAndActiveAndConnected(
+        pageEntity.getProps().nvrId,
+      );
     return await this.pageRunningConfigService.runConfigIfNotDuplicated(
       pageEntity,
+      nvr.getProps().tenantId,
       PageConfigs.DELETE_PAGE,
     );
   }
