@@ -4,7 +4,7 @@ import type { MqttEventDataDto } from 'src/extensions/mqtt/dtos/mqttEventData.dt
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import { GLOBAL_ERROR_EVENT } from 'src/utilities/exception.filter';
 import { PageEntity } from '../domain/page.entity';
-import { FindPageByIdQuery } from '../applicationService/queries/findPageById.queryHandler';
+import { FindPageByIdForTenantQuery } from '../applicationService/queries/findPageById.queryHandler';
 import { PageConfigs } from '../domain/page.type';
 import { PagesMqttService } from '../applicationService/services/page.mqtt.service';
 import { PageRunningConfigService } from '../applicationService/services/pageRunningConfig.service';
@@ -14,6 +14,7 @@ import { NvrCloudSubOnFogMqttTopics } from 'src/modules/videoDevices/domain/nvr/
 import { ActorPropsMsgIdDto } from 'src/modules/shared/dtos/actorPropsMsgId.dto';
 import { validateMqttPayload } from 'src/extensions/mqtt/validateMqttPayload';
 import { EntityTypes } from 'src/modules/videoDevices/shared/valueObjects/entityTypes';
+import { FindNvrByIdForTenantQuery } from 'src/modules/videoDevices/applicationService/queries/nvr/findNvrById.queryHandler';
 
 @Injectable()
 export class PageMqttController {
@@ -70,8 +71,18 @@ export class PageMqttController {
 
         const pageEntity: PageEntity | undefined =
           await this.serviceProvider.queryBus.execute(
-            new FindPageByIdQuery(data.id),
+            new FindPageByIdForTenantQuery(
+              topic.tenantId,
+              [topic.nvrId],
+              data.id,
+            ),
           );
+        const nvrEntity = await this.serviceProvider.queryBus.execute(
+          new FindNvrByIdForTenantQuery(topic.tenantId, topic.nvrId),
+        );
+        if (!nvrEntity) {
+          throw new Error('page configuration entity ownership mismatch');
+        }
         if (
           msg.configType !== PageConfigs.CREATE_PAGE &&
           (!pageEntity ||
@@ -101,10 +112,18 @@ export class PageMqttController {
         );
         if (!consumed)
           throw new Error('failed to consume processed page config');
-        await this.pageRunningConfigService.doneAndUnLockConfig(
-          pageEntity!,
-          msg.configType as PageConfigs,
-        );
+        if (msg.configType !== PageConfigs.DELETE_PAGE) {
+          const unlocked =
+            await this.pageRunningConfigService.doneAndUnLockConfig(
+              pageEntity!,
+              topic.tenantId,
+              msg.configType as PageConfigs,
+              msgId,
+            );
+          if (!unlocked) {
+            throw new Error('page configuration ownership changed');
+          }
+        }
       }
     } catch (err) {
       this.serviceProvider.eventEmitter.emit(GLOBAL_ERROR_EVENT, err);

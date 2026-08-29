@@ -10,8 +10,14 @@ import { CachingModule } from 'src/extensions/caching/cacheing.module';
 
 import { DeletePageCommandHandler } from './applicationService/commands/deletePage.command';
 import { UpdatePageCommandHandler } from './applicationService/commands/updatePage.command';
-import { FindAllPagesQueryHandler } from './applicationService/queries/findAllPages.queryHandler';
-import { FindPageByIdQueryHandler } from './applicationService/queries/findPageById.queryHandler';
+import {
+  FindAllPagesForTenantQueryHandler,
+  FindAllPagesQueryHandler,
+} from './applicationService/queries/findAllPages.queryHandler';
+import {
+  FindPageByIdForTenantQueryHandler,
+  FindPageByIdQueryHandler,
+} from './applicationService/queries/findPageById.queryHandler';
 import { FindPageByNameQueryHandler } from './applicationService/queries/findPageByName.queryHandler';
 import { CreatePageCommandHandler } from './applicationService/commands/createPage.command';
 import { PAGE_REPOSITORY } from './infra/diTokens/page.diToken';
@@ -22,7 +28,7 @@ import { PageModel, PageSchema } from './infra/schemas/page.schema';
 import { PageHttpController } from './controllers/page.http.controller';
 import { DashboardDataController } from './controllers/dashboardData.controller';
 import { DashboardApiForFogCommunicationManagerService } from './applicationService/apiForAnotherServices/dashboardApiForFogCommunicationManager.service';
-import { EmployeeModule } from '../employees/employees.module';
+import { SmsNotifierModule } from '../smsNotifier/smsNotifier.module';
 import { PageActorLogService } from './applicationService/services/pageActorLog.service';
 import { ActorLogModule } from '../actorLogs/actorLog.module';
 import { DashboardInitService } from './applicationService/services/init.service';
@@ -34,10 +40,14 @@ import { PageConfigQueueService } from './applicationService/services/queues/pag
 import { RestorePagesToCacheCommandHandler } from './applicationService/commands/restorePagesToCache.command';
 import { PageMqttController } from './controllers/page.mqtt.controller';
 import { DashboardApiForRuleChainsService } from './applicationService/apiForAnotherServices/dashboardApiForRuleChains.service';
-import { FindPageByNameAndNvrIdQueryHandler } from './applicationService/queries/findPageByNameAndNvrId.queryHandler';
+import {
+  FindPageByNameAndNvrIdForTenantQueryHandler,
+  FindPageByNameAndNvrIdQueryHandler,
+} from './applicationService/queries/findPageByNameAndNvrId.queryHandler';
 import { DashboardDataService } from './applicationService/services/dashboardData.service';
 import { VideoDevicesModule } from '../videoDevices/videoDevices.module';
 import { DashboardApiForVideoDevicesService } from './applicationService/apiForAnotherServices/dashboardApiForDevices.service';
+import { UnlockPageRunningConfigCommandHandler } from './applicationService/commands/unlockPageRunningConfig.command';
 
 const commandHandlers: Provider[] = [
   ...[
@@ -45,14 +55,18 @@ const commandHandlers: Provider[] = [
     UpdatePageCommandHandler,
     DeletePageCommandHandler,
     RestorePagesToCacheCommandHandler,
+    UnlockPageRunningConfigCommandHandler,
   ],
 ];
 const queryHandlers: Provider[] = [
   ...[
     FindAllPagesQueryHandler,
+    FindAllPagesForTenantQueryHandler,
     FindPageByIdQueryHandler,
+    FindPageByIdForTenantQueryHandler,
     FindPageByNameQueryHandler,
     FindPageByNameAndNvrIdQueryHandler,
+    FindPageByNameAndNvrIdForTenantQueryHandler,
   ],
 ];
 const apiServiceForAnotherModules: Provider[] = [
@@ -89,7 +103,7 @@ const mqttControllers: Provider[] = [PageMqttController];
     QueueModule,
     forwardRef(() => ActorLogModule),
     forwardRef(() => VideoDevicesModule),
-    forwardRef(() => EmployeeModule),
+    forwardRef(() => SmsNotifierModule),
     SystemLogModule,
   ],
   providers: [

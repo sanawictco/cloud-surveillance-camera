@@ -12,25 +12,26 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { EmployeeRoles } from 'src/extensions/sanawApi/dtos/employees/employeeRoles.enum';
-import { RolesGuardFactory } from 'src/modules/shared/roles.guard';
 import { SWAGGER_AUTH_TOKEN } from 'src/utilities/swaggerRegisteration';
 import { NvrsHttpService } from '../applicationService/services/http/nvr.http.service';
 import { AutoRegisterRequestDto } from '../contracts/nvr/http/request/autoRegister.request.dto';
-import { HttpAccessTokenGuard } from 'src/utilities/auth/httpAccessToken.guard';
 import { OnlyIdParamRequestDto } from 'src/modules/shared/dtos/onlyIdParam.request.dto';
 import { GetNvrDependenciesResposeDto } from '../contracts/nvr/http/response/getNvrDependencies.response.dto';
 import { CreateNvrRequestDto } from '../contracts/nvr/http/request/createNvr.request.dto';
 import { UpdateNvrRequestDto } from '../contracts/nvr/http/request/updateNvr.request.dto';
 import { NvrResponseDto } from '../contracts/nvr/http/response/nvr.response.dto';
 import { RequireAtLeastOneFieldPipe } from 'src/shared/requireAtLeastOneField.pipe';
+import { ActiveTenantGuard } from 'src/modules/tenantAccess/guards/activeTenant.guard';
+import {
+  RequireEmployeeRoles,
+  EmployeeRolesGuard,
+} from 'src/modules/tenantAccess/guards/employeeRoles.guard';
+import { EmployeeRoles } from 'src/extensions/sanawApi/dtos/employees/employeeRoles.enum';
 
 @ApiBearerAuth(SWAGGER_AUTH_TOKEN)
 @ApiTags('/video-devices/nvrs')
-@UseGuards(
-  HttpAccessTokenGuard,
-  RolesGuardFactory(EmployeeRoles.Camera_RuleChain_Dashboard),
-)
+@RequireEmployeeRoles(EmployeeRoles.Device_Dashboard)
+@UseGuards(ActiveTenantGuard, EmployeeRolesGuard)
 @Controller('/video-devices/nvrs')
 export class NvrHttpController {
   constructor(private readonly nvrsHttpService: NvrsHttpService) {}

@@ -11,11 +11,12 @@ import {
   CreatePageProps,
   PageConfigs,
 } from 'src/modules/dashboard/domain/page.type';
-import { FindPageByIdQuery } from '../../queries/findPageById.queryHandler';
+import { FindPageByIdForTenantQuery } from '../../queries/findPageById.queryHandler';
 import { PageEntity } from 'src/modules/dashboard/domain/page.entity';
 import { PageSystemLogService } from '../pageSystemLog.service';
 import { buildDeviceJobId } from 'src/dddLib/utils/deviceMessageId';
 import { generateRandomMsgId } from 'src/dddLib/utils/randomIdGenerator';
+import { FindNvrByIdForTenantQuery } from 'src/modules/videoDevices/applicationService/queries/nvr/findNvrById.queryHandler';
 
 const MAX_MSG_ID_GENERATION_ATTEMPTS = 5;
 
@@ -117,17 +118,32 @@ export class PageConfigQueueService implements OnModuleInit {
       `expired pageConfig msgId=${msg.msgId} configType=${msg.configType}`,
     );
     const { entityId } = msg.metadata;
-    let pageEntity: PageEntity = await this.serviceProvider.queryBus.execute(
-      new FindPageByIdQuery(entityId),
-    );
+    let pageEntity: PageEntity;
     if (msg.configType === PageConfigs.CREATE_PAGE) {
-      pageEntity = PageEntity.create(msg.data as CreatePageProps);
+      pageEntity = PageEntity.create({
+        ...(msg.data as CreatePageProps),
+        originId: entityId,
+      });
+    } else {
+      pageEntity = await this.serviceProvider.queryBus.execute(
+        new FindPageByIdForTenantQuery(msg.tenantId, [msg.nvrId], entityId),
+      );
     }
-    await this.pageRunningConfigService.doneAndUnLockConfig(
-      pageEntity,
-      msg.configType as PageConfigs,
+    if (!pageEntity || pageEntity.getProps().nvrId !== msg.nvrId) {
+      throw new Error('page queue tenant scope is invalid');
+    }
+    const nvrEntity = await this.serviceProvider.queryBus.execute(
+      new FindNvrByIdForTenantQuery(msg.tenantId, msg.nvrId),
     );
-    await this.pageSystemLogService.handle(pageEntity, {
+    if (!nvrEntity) throw new Error('page queue tenant scope is invalid');
+    const expired = await this.pageRunningConfigService.doneAndUnLockConfig(
+      pageEntity,
+      msg.tenantId,
+      msg.configType as PageConfigs,
+      msg.msgId,
+    );
+    if (!expired) return;
+    await this.pageSystemLogService.handle(msg.tenantId, pageEntity, {
       configType: msg.configType,
       msgId: msg.msgId,
     });

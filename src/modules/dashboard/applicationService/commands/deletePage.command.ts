@@ -12,15 +12,18 @@ import { PageEntity } from '../../domain/page.entity';
 import { PageActorLogService } from '../services/pageActorLog.service';
 
 export class DeletePageCommand extends Command {
+  readonly tenantId?: string;
+  readonly nvrId?: string;
+
   constructor(props: CommandProps<DeletePageCommand> & IdType) {
     super(props);
+    this.tenantId = props.tenantId;
+    this.nvrId = props.nvrId;
   }
 }
 
 @CommandHandler(DeletePageCommand)
-export class DeletePageCommandHandler
-  implements ICommandHandler<DeletePageCommand>
-{
+export class DeletePageCommandHandler implements ICommandHandler<DeletePageCommand> {
   constructor(
     @Inject(PAGE_REPOSITORY)
     private readonly pageRepo: PageRepository,
@@ -28,13 +31,18 @@ export class DeletePageCommandHandler
   ) {}
 
   async execute(command: DeletePageCommand): Promise<AggregateID> {
-    const pageEntity: PageEntity | undefined = await this.pageRepo.findById(
-      command.id,
-    );
+    const pageEntity: PageEntity | undefined = command.nvrId
+      ? await this.pageRepo.findOne({
+          $and: [{ id: command.id }, { nvrId: command.nvrId }],
+        })
+      : await this.pageRepo.findById(command.id);
     if (!pageEntity) throw new Error('no page exist with this id');
     const pageEntities = await this.pageRepo.findAll({
       filter: {
-        pageIndex: { $gt: pageEntity.getProps().pageIndex },
+        $and: [
+          command.nvrId ? { nvrId: command.nvrId } : {},
+          { pageIndex: { $gt: pageEntity.getProps().pageIndex } },
+        ],
       },
     });
     for (const pageEntity of pageEntities) {

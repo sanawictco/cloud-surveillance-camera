@@ -38,7 +38,7 @@ export class NvrSystemLogService {
   ) {
     const { configType, msgId } = metadata;
     if (fogSystemLog)
-      return await this.handleFogSystemLog(metadata, fogSystemLog);
+      return await this.handleFogSystemLog(entity, metadata, fogSystemLog);
     switch (configType) {
       case NvrConfigs.UPDATE:
         return await this.update(entity, msgId);
@@ -59,6 +59,7 @@ export class NvrSystemLogService {
     const nvrProps = entity.getProps();
     await this.systemLogService.createAndSend(
       {
+        tenantId: nvrProps.tenantId,
         type: SystemLogTypes.WARNING,
         messageProps: {
           key: LanguageKeys.nvr.systemLog.updateFailed,
@@ -76,6 +77,7 @@ export class NvrSystemLogService {
     const nvrProps = entity.getProps();
     await this.systemLogService.createAndSend(
       {
+        tenantId: nvrProps.tenantId,
         type: SystemLogTypes.WARNING,
         messageProps: {
           key: LanguageKeys.nvr.systemLog.activationFailed,
@@ -93,6 +95,7 @@ export class NvrSystemLogService {
     const nvrProps = entity.getProps();
     await this.systemLogService.createAndSend(
       {
+        tenantId: nvrProps.tenantId,
         type: SystemLogTypes.WARNING,
         messageProps: {
           key: LanguageKeys.nvr.systemLog.inactivationFailed,
@@ -111,6 +114,7 @@ export class NvrSystemLogService {
     if (!entity.isDisconnected())
       await this.systemLogService.createAndSend(
         {
+          tenantId: nvrProps.tenantId,
           type: SystemLogTypes.ERROR,
           messageProps: {
             key: LanguageKeys.nvr.systemLog.liveSignalFailed,
@@ -129,6 +133,7 @@ export class NvrSystemLogService {
     const nvrProps = entity.getProps();
     await this.systemLogService.createAndSend(
       {
+        tenantId: nvrProps.tenantId,
         type: SystemLogTypes.INFORMATION,
         messageProps: {
           key: LanguageKeys.nvr.systemLog.recoverySucceeded,
@@ -149,6 +154,7 @@ export class NvrSystemLogService {
   }
 
   private async handleFogSystemLog(
+    entity: NvrEntity,
     metadata: ConfigTypeMsgIdDto,
     fogSystemLog: {
       systemLogProps: SystemLogProps;
@@ -157,7 +163,7 @@ export class NvrSystemLogService {
   ) {
     const { systemLogProps, nvrHardwareConfigType } = fogSystemLog;
     await this.systemLogService.createAndSend(
-      systemLogProps,
+      { ...systemLogProps, tenantId: entity.getProps().tenantId },
       SystemLogWebSocketTypes.CONFIG,
       { cmdKey: nvrHardwareConfigType, ...metadata },
     );

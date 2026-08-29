@@ -13,6 +13,9 @@ export class TimeSeriesDbExtension {
   ): string {
     let { superTableName } = params;
     const { columnDataTypes, columnNames } = params;
+    if (columnNames.length !== columnDataTypes.length) {
+      throw new Error('column names and data types must have the same length');
+    }
     superTableName = this.toValidSuperOrSubTableName(superTableName);
 
     let tableDefinitionStr = '(';
@@ -25,7 +28,15 @@ export class TimeSeriesDbExtension {
     tableDefinitionStr = tableDefinitionStr.slice(0, -1);
     tableDefinitionStr += ')';
 
-    const createSuperTableSqlCommand = `CREATE STABLE IF NOT EXISTS ${superTableName} ${tableDefinitionStr} TAGS (groupId VARCHAR(${tagSize}));`;
+    const tags = params.tags ?? [
+      { name: 'groupId', dataType: `VARCHAR(${tagSize})` },
+    ];
+    const tagDefinition = tags
+      .map(
+        (tag) => `${this.toValidSuperOrSubTableName(tag.name)} ${tag.dataType}`,
+      )
+      .join(',');
+    const createSuperTableSqlCommand = `CREATE STABLE IF NOT EXISTS ${superTableName} ${tableDefinitionStr} TAGS (${tagDefinition});`;
     return createSuperTableSqlCommand;
   }
 
@@ -57,8 +68,12 @@ export class TimeSeriesDbExtension {
   static getValuesInsertFormat(data: (number | string)[]): string {
     let valuesInsertFormat: string = '';
     for (let i = 0; i < data.length; i++) {
-      if (typeof data[i] === 'string') valuesInsertFormat += ` '${data[i]}',`;
-      else valuesInsertFormat += ` ${data[i]},`;
+      if (typeof data[i] === 'string') {
+        const value = (data[i] as string)
+          .replaceAll('\\', '\\\\')
+          .replaceAll("'", "''");
+        valuesInsertFormat += ` '${value}',`;
+      } else valuesInsertFormat += ` ${data[i]},`;
     }
     valuesInsertFormat = valuesInsertFormat.slice(0, -1);
     return valuesInsertFormat;

@@ -11,18 +11,23 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { EmployeeRoles } from 'src/extensions/sanawApi/dtos/employees/employeeRoles.enum';
 import { SWAGGER_AUTH_TOKEN } from 'src/utilities/swaggerRegisteration';
 import { RequireAtLeastOneFieldPipe } from 'src/shared/requireAtLeastOneField.pipe';
-import { RolesGuardFactory } from 'src/modules/shared/roles.guard';
 import { CameraResponseDto } from '../contracts/camera/http/camera.response.dto';
 import { OnlyIdParamRequestDto } from 'src/modules/shared/dtos/onlyIdParam.request.dto';
 import { UpdateCameraRequestDto } from '../contracts/camera/http/updateCamera.request.dto';
 import { CameraIdsRequestDto } from '../contracts/camera/http/cameras.request.dto';
 import { CamerasHttpService } from '../applicationService/services/http/camera.http.service';
+import { ActiveTenantGuard } from 'src/modules/tenantAccess/guards/activeTenant.guard';
+import {
+  RequireEmployeeRoles,
+  EmployeeRolesGuard,
+} from 'src/modules/tenantAccess/guards/employeeRoles.guard';
+import { EmployeeRoles } from 'src/extensions/sanawApi/dtos/employees/employeeRoles.enum';
 @ApiBearerAuth(SWAGGER_AUTH_TOKEN)
 @ApiTags('/devices/end-devices')
-@UseGuards(RolesGuardFactory(EmployeeRoles.Device_RuleChain_Dashboard))
+@RequireEmployeeRoles(EmployeeRoles.Device_Dashboard)
+@UseGuards(ActiveTenantGuard, EmployeeRolesGuard)
 @Controller('/devices/end-devices')
 export class CamerasHttpController {
   constructor(private readonly cameraService: CamerasHttpService) {}

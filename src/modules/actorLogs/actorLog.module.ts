@@ -1,4 +1,4 @@
-import { forwardRef, Module, Provider } from '@nestjs/common';
+import { Module, Provider } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { ActorLogApiService } from './applicationService/services/actorLogApi.service';
 import { ACTOR_LOG_REPOSITORY } from './infra/actorLog.diToken';
@@ -12,7 +12,6 @@ import { CountAllActorLogsQueryHandler } from './applicationService/queries/coun
 import { TDengineModule } from 'src/extensions/tdengine/tdengine.module';
 import { ActorLogController } from './actorLog.controller';
 import { ActorLogsService } from './applicationService/services/actorLog.service';
-import { EmployeeModule } from '../employees/employees.module';
 
 const commandHandlers: Provider[] = [
   CreateActorLogCommandHandler,
@@ -29,7 +28,7 @@ const repositories: Provider[] = [
   { provide: ACTOR_LOG_REPOSITORY, useClass: ActorLogRepository },
 ];
 @Module({
-  imports: [CqrsModule, TDengineModule, forwardRef(() => EmployeeModule)],
+  imports: [CqrsModule, TDengineModule],
   providers: [
     ActorLogsService,
     ...queryHandlers,

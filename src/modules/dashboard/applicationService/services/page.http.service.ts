@@ -11,12 +11,13 @@ import { UpdatePageRequestDto } from '../../contracts/updatePage.request.dto';
 import { PageEntity } from '../../domain/page.entity';
 import { PageConfigs } from '../../domain/page.type';
 import { PageMapper } from '../../infra/mappers/page.mapper';
-import { FindAllPagesQuery } from '../queries/findAllPages.queryHandler';
-import { FindPageByIdQuery } from '../queries/findPageById.queryHandler';
+import { FindAllPagesForTenantQuery } from '../queries/findAllPages.queryHandler';
+import { FindPageByIdForTenantQuery } from '../queries/findPageById.queryHandler';
 import { PageRunningConfigService } from './pageRunningConfig.service';
 import { PageTypes } from '../../domain/valueObjects/pageType.vo';
-import { FindPageByNameAndNvrIdQuery } from '../queries/findPageByNameAndNvrId.queryHandler';
+import { FindPageByNameAndNvrIdForTenantQuery } from '../queries/findPageByNameAndNvrId.queryHandler';
 import { VideoDevicesApiForDashboardService } from 'src/modules/videoDevices/applicationService/services/apiForAnotherServices/videoDevicesApiForDashboard.service';
+import { UserInfoService } from 'src/extensions/userInfo/userInfo.service';
 
 @Injectable()
 export class PagesHttpService {
@@ -27,9 +28,11 @@ export class PagesHttpService {
     private readonly pageRunningConfigService: PageRunningConfigService,
   ) {}
   async find(): Promise<GetAllPagesResponseDto> {
+    const tenantId = UserInfoService.requireTenantId();
+    const nvrIds = await this.getTenantNvrIds(tenantId);
     const widgetPageEntities: PageEntity[] =
       await this.serviceProvider.queryBus.execute(
-        new FindAllPagesQuery({
+        new FindAllPagesForTenantQuery(tenantId, nvrIds, {
           filter: { type: PageTypes.WIDGET },
           orderBy: { column: 'pageIndex', status: OrderStates.ASCENDING },
         }),
@@ -40,16 +43,22 @@ export class PagesHttpService {
   }
 
   async findOne(id: string): Promise<PageResponseDto> {
-    const pageEntity: PageEntity = await this.checkExistsPageWihtId(id);
+    const tenantId = UserInfoService.requireTenantId();
+    const pageEntity: PageEntity = await this.checkExistsPageWihtId(
+      tenantId,
+      id,
+    );
     return this.mapper.toResponse(pageEntity);
   }
 
   async create(body: CreatePageRequestDto): Promise<string> {
+    const tenantId = UserInfoService.requireTenantId();
     const nvr =
       await this.videoDevicesApiForDashboardService.checkNvrIsExistsAndActiveAndConnected(
         body.nvrId,
+        tenantId,
       );
-    await this.checkAvoidPageDuplicationCreate(body.name, body.nvrId);
+    await this.checkAvoidPageDuplicationCreate(tenantId, body.name, body.nvrId);
     const pageEntity: PageEntity = PageEntity.create(body);
     return await this.pageRunningConfigService.runConfigIfNotDuplicated(
       pageEntity,
@@ -60,14 +69,20 @@ export class PagesHttpService {
   }
 
   async update(id: string, body: UpdatePageRequestDto): Promise<string> {
-    const pageEntity: PageEntity = await this.checkExistsPageWihtId(id);
+    const tenantId = UserInfoService.requireTenantId();
+    const pageEntity: PageEntity = await this.checkExistsPageWihtId(
+      tenantId,
+      id,
+    );
     const nvr =
       await this.videoDevicesApiForDashboardService.checkNvrIsExistsAndActiveAndConnected(
         pageEntity.getProps().nvrId,
+        tenantId,
       );
     if (body.name)
       await this.checkAvoidPageDuplicationUpdate(
         id,
+        tenantId,
         body.name,
         pageEntity.getProps().nvrId,
       );
@@ -80,10 +95,15 @@ export class PagesHttpService {
   }
 
   async delete(id: string): Promise<string> {
-    const pageEntity: PageEntity = await this.checkExistsPageWihtId(id);
+    const tenantId = UserInfoService.requireTenantId();
+    const pageEntity: PageEntity = await this.checkExistsPageWihtId(
+      tenantId,
+      id,
+    );
     const nvr =
       await this.videoDevicesApiForDashboardService.checkNvrIsExistsAndActiveAndConnected(
         pageEntity.getProps().nvrId,
+        tenantId,
       );
     return await this.pageRunningConfigService.runConfigIfNotDuplicated(
       pageEntity,
@@ -92,8 +112,9 @@ export class PagesHttpService {
     );
   }
 
-  private async checkExistsPageWihtId(id: string) {
-    const query = new FindPageByIdQuery(id);
+  private async checkExistsPageWihtId(tenantId: string, id: string) {
+    const nvrIds = await this.getTenantNvrIds(tenantId);
+    const query = new FindPageByIdForTenantQuery(tenantId, nvrIds, id);
     const pageEntity: PageEntity =
       await this.serviceProvider.queryBus.execute(query);
     if (!pageEntity)
@@ -106,8 +127,17 @@ export class PagesHttpService {
     return pageEntity;
   }
 
-  private async checkAvoidPageDuplicationCreate(name: string, nvrId: string) {
-    const query = new FindPageByNameAndNvrIdQuery(name, nvrId);
+  private async checkAvoidPageDuplicationCreate(
+    tenantId: string,
+    name: string,
+    nvrId: string,
+  ) {
+    const query = new FindPageByNameAndNvrIdForTenantQuery(
+      tenantId,
+      [nvrId],
+      name,
+      nvrId,
+    );
     const pageEntity: PageEntity =
       await this.serviceProvider.queryBus.execute(query);
     if (pageEntity)
@@ -122,10 +152,16 @@ export class PagesHttpService {
 
   private async checkAvoidPageDuplicationUpdate(
     id: string,
+    tenantId: string,
     name: string,
     nvrId: string,
   ) {
-    const query = new FindPageByNameAndNvrIdQuery(name, nvrId);
+    const query = new FindPageByNameAndNvrIdForTenantQuery(
+      tenantId,
+      [nvrId],
+      name,
+      nvrId,
+    );
     const pageEntity: PageEntity =
       await this.serviceProvider.queryBus.execute(query);
     if (pageEntity && pageEntity.id !== id)
@@ -136,5 +172,11 @@ export class PagesHttpService {
         ),
       );
     return true;
+  }
+
+  private getTenantNvrIds(tenantId: string): Promise<string[]> {
+    return this.videoDevicesApiForDashboardService.findNvrIdsForTenant(
+      tenantId,
+    );
   }
 }

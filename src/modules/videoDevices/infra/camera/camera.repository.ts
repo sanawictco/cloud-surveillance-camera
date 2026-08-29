@@ -45,11 +45,14 @@ export class CameraRepository
     cameraId: string,
     configType: string,
     msgId: string,
+    tenantId?: string,
   ): Promise<boolean> {
     const path = `runningConfigs.${configType}`;
     const record = await this.cameraModel
       .findOneAndUpdate(
-        { id: cameraId, [path]: msgId },
+        tenantId
+          ? { $and: [{ tenantId }, { id: cameraId }, { [path]: msgId }] }
+          : { id: cameraId, [path]: msgId },
         {
           $unset: { [path]: '' },
           $currentDate: { updatedAt: true },

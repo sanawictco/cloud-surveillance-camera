@@ -1,7 +1,6 @@
 import { UnauthorizedException } from '@nestjs/common';
 import axios from 'axios';
 import type { ExecutionContext } from '@nestjs/common';
-import { EmployeeRoles } from 'src/extensions/sanawApi/dtos/employees/employeeRoles.enum';
 import { HttpAccessTokenGuard } from '../httpAccessToken.guard';
 
 jest.mock('axios');
@@ -34,9 +33,9 @@ describe('HttpAccessTokenGuard', () => {
   it('rejects a missing bearer token before calling Keycloak', async () => {
     const guard = new HttpAccessTokenGuard();
 
-    await expect(
-      guard.canActivate(context({ headers: {} })),
-    ).rejects.toThrow(UnauthorizedException);
+    await expect(guard.canActivate(context({ headers: {} }))).rejects.toThrow(
+      UnauthorizedException,
+    );
     expect(axios.get).not.toHaveBeenCalled();
   });
 
@@ -60,7 +59,7 @@ describe('HttpAccessTokenGuard', () => {
       lang: 'fa',
       resource_access: {
         'surveillance-client': {
-          roles: [EmployeeRoles.Camera_RuleChain_Dashboard],
+          roles: ['DD'],
         },
       },
     });
@@ -73,8 +72,42 @@ describe('HttpAccessTokenGuard', () => {
     expect(request.user).toEqual(
       expect.objectContaining({
         id: 'employee-id',
-        roles: [EmployeeRoles.Camera_RuleChain_Dashboard],
       }),
     );
+  });
+
+  it('accepts a client audience without requiring global business roles', async () => {
+    jest.mocked(axios.get).mockResolvedValue({ status: 200 } as never);
+    const token = encodePayload({
+      sub: 'tenant-member-id',
+      aud: ['surveillance-client'],
+      preferred_username: 'tenant-member-phone',
+    });
+    const request: { headers: object; user?: object } = {
+      headers: { authorization: `Bearer ${token}` },
+    };
+    const guard = new HttpAccessTokenGuard();
+
+    await expect(guard.canActivate(context(request))).resolves.toBe(true);
+    expect(request.user).toEqual(
+      expect.objectContaining({
+        id: 'tenant-member-id',
+      }),
+    );
+  });
+
+  it('rejects a token that is not issued for this client', async () => {
+    jest.mocked(axios.get).mockResolvedValue({ status: 200 } as never);
+    const token = encodePayload({
+      sub: 'foreign-client-user',
+      aud: ['another-client'],
+    });
+    const guard = new HttpAccessTokenGuard();
+
+    await expect(
+      guard.canActivate(
+        context({ headers: { authorization: `Bearer ${token}` } }),
+      ),
+    ).rejects.toThrow(UnauthorizedException);
   });
 });

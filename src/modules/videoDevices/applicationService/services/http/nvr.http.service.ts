@@ -8,12 +8,11 @@ import { NvrRunningConfigService } from '../runningConfigs/nvrRunningConfig.serv
 import { NvrValidator } from '../validators/nvr.validator';
 import { DashboardApiForVideoDevicesService } from 'src/modules/dashboard/applicationService/apiForAnotherServices/dashboardApiForDevices.service';
 import { NvrResponseDto } from 'src/modules/videoDevices/contracts/nvr/http/response/nvr.response.dto';
-import { FindAllNvrsQuery } from '../../queries/nvr/findAllNvrs.queryHandler';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
 import { AggregateID } from 'src/dddLib/core';
 import { CreateNvrRequestDto } from 'src/modules/videoDevices/contracts/nvr/http/request/createNvr.request.dto';
 import { CreateNvrCommand } from '../../commands/nvr/createNvr.command';
-import { FindNvrByIdQuery } from '../../queries/nvr/findNvrById.queryHandler';
+import { FindNvrByIdForTenantQuery } from '../../queries/nvr/findNvrById.queryHandler';
 import { generateRandomMsgId } from 'src/dddLib/utils/randomIdGenerator';
 import { WebSocketTypes } from 'src/modules/shared/websocket.types';
 import { LanguageKeys } from 'src/extensions/translation/languageKeys.base';
@@ -24,17 +23,16 @@ import {
 import { UpdateNvrRequestDto } from 'src/modules/videoDevices/contracts/nvr/http/request/updateNvr.request.dto';
 import { DeleteNvrCommand } from '../../commands/nvr/deleteNvr.command';
 import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
-import { FindAllCamerasQuery } from '../../queries/camera/findAllCameras.queryHandler';
+import { FindAllCamerasForTenantQuery } from '../../queries/camera/findAllCameras.queryHandler';
 import { DashboardPageProjection } from 'src/dddLib/contracts/dashboardPage.projection';
 import { AutoRegisterRequestDto } from 'src/modules/videoDevices/contracts/nvr/http/request/autoRegister.request.dto';
 import { GetNvrDependenciesResposeDto } from 'src/modules/videoDevices/contracts/nvr/http/response/getNvrDependencies.response.dto';
 import { NvrRegisterInfoResponseDto } from 'src/extensions/sanawApi/dtos/devices/response/nvrRegisterInfo.response.dto';
 import { CreateNvrWsResponseDto } from 'src/modules/videoDevices/contracts/nvr/websocket/createNvr.wsResponse.dto';
 import { DeleteNvrWsResponseDto } from 'src/modules/videoDevices/contracts/nvr/websocket/deleteNvr.wsResponse.dto';
-import { FindAllTenantsQuery } from 'src/modules/tenants/applicationService/queries/findAllTenants.queryHandler';
-import { TenantEntity } from 'src/modules/tenants/domain/tenant.entity';
-import { BadRequestException } from '@nestjs/common';
 import { AutoRegisterBatchConfig } from 'src/modules/videoDevices/contracts/nvr/dtos/autoSearchDevices.dto';
+import { UserInfoService } from 'src/extensions/userInfo/userInfo.service';
+import { FindAllNvrsForTenantQuery } from '../../queries/nvr/findAllNvrs.queryHandler';
 
 @Injectable()
 export class NvrsHttpService {
@@ -49,34 +47,34 @@ export class NvrsHttpService {
     private readonly dashboardApiforVideoDevicesService: DashboardApiForVideoDevicesService,
   ) {}
   async find(): Promise<NvrResponseDto[]> {
-    const query = new FindAllNvrsQuery();
+    const tenantId = UserInfoService.requireTenantId();
+    const query = new FindAllNvrsForTenantQuery(tenantId);
     const nvrEntities: NvrEntity[] =
       await this.serviceProvider.queryBus.execute(query);
     return this.nvrMapper.toResponseAll(nvrEntities);
   }
 
   async findOne(id: AggregateID): Promise<NvrResponseDto> {
-    const nvrEntity = await this.nvrValidator.checkExistsNvrWithId(id);
+    const tenantId = UserInfoService.requireTenantId();
+    const nvrEntity = await this.nvrValidator.checkExistsNvrWithId(
+      id,
+      tenantId,
+    );
     return this.nvrMapper.toResponse(nvrEntity);
   }
 
   async create(body: CreateNvrRequestDto): Promise<string> {
+    const tenantId = UserInfoService.requireTenantId();
     await this.nvrValidator.checkExistsDuplicatedNvrBySerialNumber(
       body.serialNumber,
     );
     const { data }: NvrRegisterInfoResponseDto =
       await this.sanawApiVideoDeviceService.registerNvr(body.serialNumber);
-    await this.nvrValidator.checkAvoidNvrDuplicationCreate(body.name);
-    const tenants: TenantEntity[] = await this.serviceProvider.queryBus.execute(
-      new FindAllTenantsQuery(),
-    );
-    if (tenants.length !== 1) {
-      throw new BadRequestException('workspace tenant is not initialized');
-    }
+    await this.nvrValidator.checkAvoidNvrDuplicationCreate(body.name, tenantId);
     const id = await this.serviceProvider.commandBus.execute(
       new CreateNvrCommand({
         name: body.name,
-        tenantId: tenants[0]!.id,
+        tenantId,
         serialNumber: body.serialNumber,
         productModel: data.productModel,
         accessToken: data.accessToken,
@@ -85,7 +83,9 @@ export class NvrsHttpService {
       }),
     );
     const createdNvrEntity: NvrEntity =
-      await this.serviceProvider.queryBus.execute(new FindNvrByIdQuery(id));
+      await this.serviceProvider.queryBus.execute(
+        new FindNvrByIdForTenantQuery(tenantId, id),
+      );
     const msgId = generateRandomMsgId();
     setTimeout(() => {
       this.websocketService.sendMessage<CreateNvrWsResponseDto>(
@@ -106,12 +106,20 @@ export class NvrsHttpService {
   }
 
   async update(id: AggregateID, body: UpdateNvrRequestDto): Promise<string> {
-    const nvrEntity = await this.nvrValidator.checkExistsNvrWithId(id);
+    const tenantId = UserInfoService.requireTenantId();
+    const nvrEntity = await this.nvrValidator.checkExistsNvrWithId(
+      id,
+      tenantId,
+    );
     await this.nvrValidator.checkNvrShouldBeActiveAndHasConnectedStatus(
       nvrEntity,
     );
     if (body.name)
-      await this.nvrValidator.checkAvoidNvrDuplicationUpdate(body.name, id);
+      await this.nvrValidator.checkAvoidNvrDuplicationUpdate(
+        body.name,
+        id,
+        tenantId,
+      );
     return await this.NvrRunningConfigService.runConfigIfNotDuplicated(
       nvrEntity,
       NvrConfigs.UPDATE,
@@ -120,7 +128,11 @@ export class NvrsHttpService {
   }
 
   async delete(id: AggregateID): Promise<string> {
-    const nvrEntity = await this.nvrValidator.checkExistsNvrWithId(id);
+    const tenantId = UserInfoService.requireTenantId();
+    const nvrEntity = await this.nvrValidator.checkExistsNvrWithId(
+      id,
+      tenantId,
+    );
     await this.NvrRunningConfigService.runConfigIfNotDuplicated(
       nvrEntity,
       NvrConfigs.DELETE,
@@ -129,20 +141,24 @@ export class NvrsHttpService {
       await this.serviceProvider.commandBus.execute(
         new DeleteNvrCommand({
           id,
+          tenantId,
         }),
       );
     }, 2000);
     const softDeletedCameraIds: string[] = [];
     const dependentCameraEntities: CameraEntity[] =
       await this.serviceProvider.queryBus.execute(
-        new FindAllCamerasQuery({
+        new FindAllCamerasForTenantQuery(tenantId, {
           filter: { nvrId: id, isDeleted: { $ne: true } },
         }),
       );
     for (const dependentCameraEntity of dependentCameraEntities)
       softDeletedCameraIds.push(dependentCameraEntity.id);
     const dependentPages: DashboardPageProjection[] =
-      await this.dashboardApiforVideoDevicesService.getDependentPages(id);
+      await this.dashboardApiforVideoDevicesService.getDependentPages(
+        tenantId,
+        id,
+      );
     const pageIds: { widgets: string[]; liveDiagrams: string[] } = {
       widgets: [],
       liveDiagrams: [],
@@ -176,8 +192,11 @@ export class NvrsHttpService {
   }
 
   async active(id: AggregateID): Promise<string> {
-    const nvrEntity: NvrEntity =
-      await this.nvrValidator.checkExistsNvrWithId(id);
+    const tenantId = UserInfoService.requireTenantId();
+    const nvrEntity: NvrEntity = await this.nvrValidator.checkExistsNvrWithId(
+      id,
+      tenantId,
+    );
     await this.nvrValidator.checkCanNvrBeActive(nvrEntity);
     return await this.NvrRunningConfigService.runConfigIfNotDuplicated(
       nvrEntity,
@@ -187,8 +206,11 @@ export class NvrsHttpService {
   }
 
   async inactive(id: AggregateID): Promise<string> {
-    const nvrEntity: NvrEntity =
-      await this.nvrValidator.checkExistsNvrWithId(id);
+    const tenantId = UserInfoService.requireTenantId();
+    const nvrEntity: NvrEntity = await this.nvrValidator.checkExistsNvrWithId(
+      id,
+      tenantId,
+    );
     await this.nvrValidator.checkCanNvrBeInActive(nvrEntity);
     await this.nvrValidator.checkNvrShouldBeActiveAndHasConnectedStatus(
       nvrEntity,
@@ -201,8 +223,11 @@ export class NvrsHttpService {
   }
 
   async autoSearch(id: AggregateID): Promise<string> {
-    const nvrEntity: NvrEntity =
-      await this.nvrValidator.checkExistsNvrWithId(id);
+    const tenantId = UserInfoService.requireTenantId();
+    const nvrEntity: NvrEntity = await this.nvrValidator.checkExistsNvrWithId(
+      id,
+      tenantId,
+    );
     await this.nvrValidator.checkNvrShouldBeActiveAndHasConnectedStatus(
       nvrEntity,
     );
@@ -215,8 +240,10 @@ export class NvrsHttpService {
   }
 
   async autoRegister(body: AutoRegisterRequestDto): Promise<string> {
+    const tenantId = UserInfoService.requireTenantId();
     const nvrEntity: NvrEntity = await this.nvrValidator.checkExistsNvrWithId(
       body.nvrId,
+      tenantId,
     );
     await this.nvrValidator.checkNvrShouldBeActiveAndHasConnectedStatus(
       nvrEntity,
@@ -238,17 +265,21 @@ export class NvrsHttpService {
   async getDependencies(
     id: AggregateID,
   ): Promise<GetNvrDependenciesResposeDto> {
-    await this.nvrValidator.checkExistsNvrWithId(id);
+    const tenantId = UserInfoService.requireTenantId();
+    await this.nvrValidator.checkExistsNvrWithId(id, tenantId);
 
     const dependentCameras: CameraEntity[] =
       await this.serviceProvider.queryBus.execute(
-        new FindAllCamerasQuery({
+        new FindAllCamerasForTenantQuery(tenantId, {
           filter: { nvrId: id, isDeleted: { $ne: true } },
         }),
       );
 
     const dependentPages: DashboardPageProjection[] =
-      await this.dashboardApiforVideoDevicesService.getDependentPages(id);
+      await this.dashboardApiforVideoDevicesService.getDependentPages(
+        tenantId,
+        id,
+      );
     return {
       cameras: this.cameraMapper.toResponseAll(dependentCameras),
       pages: dependentPages,

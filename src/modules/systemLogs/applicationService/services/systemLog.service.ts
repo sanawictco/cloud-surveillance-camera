@@ -9,7 +9,7 @@ import { farsiSystemLogSections } from 'src/extensions/translation/languages/far
 import { kurdiSystemLogSections } from 'src/extensions/translation/languages/kurdiValues';
 import { DictionarySections } from 'src/extensions/translation/translator.base';
 import { WebsocketService } from 'src/extensions/websocket/websocket.service';
-import { EmployeeApiForSystemLogsService } from 'src/modules/employees/applicatoinService/apiForAnotherServices/employeeApiForSystemLogs.service';
+import { EmployeeApiForSystemLogsService } from 'src/modules/smsNotifier/applicatoinService/apiForAnotherServices/employeeApiForSystemLogs.service';
 import { NotificationLevel } from '../../contracts/fogNotification/notificationLevel.enum';
 import { CreateAndSendSystemLogWsResponseDto } from '../../contracts/systemLog/createAndSendSystemLog.wsResponse.dto';
 import {
@@ -21,6 +21,7 @@ import { CreateSystemLogCommand } from '../commands/systemLog/createSystemLog.co
 import { DeleteAllSystemLogCommand } from '../commands/systemLog/deleteAllSystemLog.command';
 import { FindAllPaginatedSystemLogsQuery } from '../queries/systemLog/findAllPaginatedSystemLogs.queryHandler';
 import { GetAllSystemLogsRequestDto } from '../../contracts/systemLog/getAllSystemLogs.request.dto';
+import { UserInfoService } from 'src/extensions/userInfo/userInfo.service';
 
 @Injectable()
 export class SystemLogService {
@@ -32,6 +33,7 @@ export class SystemLogService {
   ) {}
 
   async findAll(query: GetAllSystemLogsRequestDto) {
+    const tenantId = UserInfoService.requireTenantId();
     let types: SystemLogTypes[] = JSON.parse(query.types ?? '[]');
     const page = query.page || 1;
     const limit = query.limit || 10;
@@ -44,6 +46,7 @@ export class SystemLogService {
     }
     const systemLogs = await this.serviceProvider.queryBus.execute(
       new FindAllPaginatedSystemLogsQuery({
+        tenantId,
         types,
         page,
         limit,
@@ -116,20 +119,25 @@ export class SystemLogService {
       return params ? translateByPattern(key, params) : translateByName(key);
     };
     await this.handleSmsNotifiers(
+      systemLogProps.tenantId,
       translateKey(key, params),
       systemLogProps.type,
     );
   }
 
-  deleteSystemLogs(id: string) {
-    this.serviceProvider.commandBus.execute(
-      new DeleteAllSystemLogCommand({ id }),
+  async deleteSystemLogs(tenantId: string, id: string): Promise<void> {
+    await this.serviceProvider.commandBus.execute(
+      new DeleteAllSystemLogCommand({ tenantId, id }),
     );
   }
 
-  async handleSmsNotifiers(message: string, systemLogType: SystemLogTypes) {
+  async handleSmsNotifiers(
+    tenantId: string,
+    message: string,
+    systemLogType: SystemLogTypes,
+  ) {
     const smsNotifiers =
-      await this.employeeApiForSystemLogsService.getAllSmsNotifiers();
+      await this.employeeApiForSystemLogsService.getSmsNotifiers(tenantId);
     for (const smsNotifier of smsNotifiers) {
       if (smsNotifier.systemLogTypes.includes(systemLogType)) {
         const level: string = systemLogType;

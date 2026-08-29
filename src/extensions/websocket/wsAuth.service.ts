@@ -4,31 +4,49 @@ import AppConfig from 'configs/app.config';
 import { Socket } from 'socket.io';
 import { ServiceProvider } from '../serviceProvider/serviceProvider.service';
 import { WsClientCachedModel } from './websocketClientCachedModel';
+import { TenantAccessService } from 'src/modules/tenantAccess/applicationService/tenantAccess.service';
+import { isUUID } from 'class-validator';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const jwt = require('jsonwebtoken');
 
 @Injectable()
 export class WsAuthService {
-  constructor(private readonly serviceProvider: ServiceProvider) {}
+  constructor(
+    private readonly serviceProvider: ServiceProvider,
+    private readonly tenantAccessService: TenantAccessService,
+  ) {}
 
   async validateWsClient(
     client: Socket,
   ): Promise<WsClientCachedModel | undefined> {
     const authorization = client?.handshake?.headers?.authorization;
-    if (!authorization) return undefined;
+    const tenantId = client?.handshake?.auth?.tenantId;
+    if (
+      !authorization ||
+      typeof tenantId !== 'string' ||
+      !isUUID(tenantId, '4')
+    ) {
+      return undefined;
+    }
     const result = await this.checkAccessTokenAsOnline(authorization);
     if (result.statusCode !== 200) return undefined;
 
     try {
       const accessToken = jwt.decode(authorization.split(' ').at(-1));
-      const resourceAccess = accessToken?.resource_access;
-      const clientAccess = resourceAccess?.[AppConfig().keycloak.clientId];
-      if (!clientAccess) return undefined;
+      const clientAccess =
+        accessToken?.resource_access?.[AppConfig().keycloak.clientId];
+      if (!accessToken?.sub || !clientAccess) return undefined;
+      const tenantAccess = await this.tenantAccessService.resolveActiveAccess(
+        tenantId,
+        accessToken.sub,
+      );
+      if (!tenantAccess) return undefined;
       return {
         id: accessToken.sub,
+        tenantId,
         phoneNumber: accessToken.preferred_username,
         name: accessToken.name,
-        roles: clientAccess.roles ?? [],
+        roles: tenantAccess.roles,
         lang: accessToken.lang,
       };
     } catch (err) {

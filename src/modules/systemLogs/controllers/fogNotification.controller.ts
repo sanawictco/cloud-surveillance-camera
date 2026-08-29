@@ -9,8 +9,8 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { SanawApiNotificationService } from 'src/extensions/sanawApi/services/sanawApiNotification.service';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
-import { EmployeeApiForSystemLogsService } from 'src/modules/employees/applicatoinService/apiForAnotherServices/employeeApiForSystemLogs.service';
-import { EmployeeEntity } from 'src/modules/employees/domain/entities/employee.entity';
+import { EmployeeApiForSystemLogsService } from 'src/modules/smsNotifier/applicatoinService/apiForAnotherServices/employeeApiForSystemLogs.service';
+import { EmployeeModel } from 'src/modules/tenantAccess/infra/schemas/employee.schema';
 import { FogEmailRequestDto } from '../contracts/fogNotification/fogEmail.request.dto';
 import { FogSmsRequestDto } from '../contracts/fogNotification/fogSms.request.dto';
 import { FogTelegramRequestDto } from '../contracts/fogNotification/fogTelegram.request.dto';
@@ -36,8 +36,9 @@ export class FogNotificationController {
     if (!nvrEntity) throw new BadRequestException('1');
     else if (nvrEntity.getProps().accessToken !== body.accessToken)
       throw new BadRequestException('2');
-    const employeeEntity: EmployeeEntity | undefined =
+    const employeeEntity: EmployeeModel | undefined =
       await this.employeeApiForSystemLogsService.findEmployeeWithUserId(
+        nvrEntity.getProps().tenantId,
         body.userId,
       );
     if (!employeeEntity) throw new BadRequestException('3');
@@ -53,8 +54,9 @@ export class FogNotificationController {
     if (!nvrEntity) throw new BadRequestException('1');
     else if (nvrEntity.getProps().accessToken !== body.accessToken)
       throw new BadRequestException('2');
-    const employeeEntity: EmployeeEntity | undefined =
+    const employeeEntity: EmployeeModel | undefined =
       await this.employeeApiForSystemLogsService.findEmployeeWithUserId(
+        nvrEntity.getProps().tenantId,
         body.userId,
       );
     if (!employeeEntity) throw new BadRequestException('3');
@@ -70,8 +72,9 @@ export class FogNotificationController {
     if (!nvrEntity) throw new BadRequestException('1');
     else if (nvrEntity.getProps().accessToken !== body.accessToken)
       throw new BadRequestException('2');
-    const employeeEntity: EmployeeEntity | undefined =
+    const employeeEntity: EmployeeModel | undefined =
       await this.employeeApiForSystemLogsService.findEmployeeWithUserId(
+        nvrEntity.getProps().tenantId,
         body.userId,
       );
     if (!employeeEntity) throw new BadRequestException('3');
@@ -87,8 +90,9 @@ export class FogNotificationController {
     if (!nvrEntity) throw new BadRequestException('1');
     else if (nvrEntity.getProps().accessToken !== body.accessToken)
       throw new BadRequestException('2');
-    const employeeEntity: EmployeeEntity | undefined =
+    const employeeEntity: EmployeeModel | undefined =
       await this.employeeApiForSystemLogsService.findEmployeeWithUserId(
+        nvrEntity.getProps().tenantId,
         body.userId,
       );
     if (!employeeEntity) throw new BadRequestException('3');

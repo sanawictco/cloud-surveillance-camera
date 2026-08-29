@@ -88,7 +88,7 @@ export class ProtectionMiddleware implements NestMiddleware {
 
     const accessToken = this._decodeAccessToken(token);
 
-    if (!this._hasRequiredClientAccess(accessToken.resource_access)) {
+    if (!this._hasRequiredClientAccess(accessToken)) {
       return response.status(403).json('forbidden');
     }
 
@@ -111,7 +111,7 @@ export class ProtectionMiddleware implements NestMiddleware {
       checkRefreshToken.data.access_token,
     );
 
-    if (!this._hasRequiredClientAccess(decodedAccessToken.resource_access)) {
+    if (!this._hasRequiredClientAccess(decodedAccessToken)) {
       return response.status(403).json('forbidden');
     }
 
@@ -135,19 +135,23 @@ export class ProtectionMiddleware implements NestMiddleware {
     return jwt.decode(token);
   }
 
-  private _hasRequiredClientAccess(resourceAccess: any): boolean {
+  private _hasRequiredClientAccess(accessToken: any): boolean {
     const clientId = AppConfig().keycloak.clientId;
-    return !!resourceAccess?.[clientId];
+    const audience = Array.isArray(accessToken.aud)
+      ? accessToken.aud
+      : [accessToken.aud];
+    return (
+      accessToken.resource_access?.[clientId] !== undefined ||
+      audience.includes(clientId) ||
+      accessToken.azp === clientId
+    );
   }
 
   private _buildUserFromToken(accessToken: any) {
-    const clientId = AppConfig().keycloak.clientId;
-
     return {
       id: accessToken.sub,
       phoneNumber: accessToken.preferred_username,
       name: accessToken.name,
-      roles: accessToken.resource_access[clientId].roles,
       lang: accessToken.lang,
     };
   }

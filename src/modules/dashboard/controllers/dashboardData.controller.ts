@@ -7,14 +7,19 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { EmployeeRoles } from 'src/extensions/sanawApi/dtos/employees/employeeRoles.enum';
-import { RolesGuardFactory } from 'src/modules/shared/roles.guard';
 import { SWAGGER_AUTH_TOKEN } from 'src/utilities/swaggerRegisteration';
 import { DashboardDataService } from '../applicationService/services/dashboardData.service';
 import { SendDataRequestDto } from '../contracts/sendData.request.dto';
+import { ActiveTenantGuard } from 'src/modules/tenantAccess/guards/activeTenant.guard';
+import {
+  RequireEmployeeRoles,
+  EmployeeRolesGuard,
+} from 'src/modules/tenantAccess/guards/employeeRoles.guard';
+import { EmployeeRoles } from 'src/extensions/sanawApi/dtos/employees/employeeRoles.enum';
 @ApiBearerAuth(SWAGGER_AUTH_TOKEN)
 @ApiTags('/dashboard/data')
-@UseGuards(RolesGuardFactory(EmployeeRoles.Device_RuleChain_Dashboard))
+@RequireEmployeeRoles(EmployeeRoles.Device_Dashboard)
+@UseGuards(ActiveTenantGuard, EmployeeRolesGuard)
 @Controller('/dashboard/data')
 export class DashboardDataController {
   constructor(private readonly dashboardDataService: DashboardDataService) {}

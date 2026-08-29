@@ -8,12 +8,13 @@ import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.enti
 import { CameraSoftwareConfigs } from 'src/modules/videoDevices/domain/camera/camera.type';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
 import { CameraMapper } from 'src/modules/videoDevices/infra/camera/camera.mapper';
-import { FindAllCamerasQuery } from '../../queries/camera/findAllCameras.queryHandler';
-import { FindNvrByIdQuery } from '../../queries/nvr/findNvrById.queryHandler';
+import { FindAllCamerasForTenantQuery } from '../../queries/camera/findAllCameras.queryHandler';
+import { FindNvrByIdForTenantQuery } from '../../queries/nvr/findNvrById.queryHandler';
 import { CameraRunningConfigAndCommandService } from '../runningConfigs/cameraRunningConfigAndCommand.service';
 import { CameraValidator } from '../validators/camera.validator';
 import { NvrValidator } from '../validators/nvr.validator';
 import { HardDeleteCameraCommand } from '../../commands/camera/hardDeleteCamera.command';
+import { UserInfoService } from 'src/extensions/userInfo/userInfo.service';
 
 @Injectable()
 export class CamerasHttpService {
@@ -25,7 +26,8 @@ export class CamerasHttpService {
     private readonly cameraValidator: CameraValidator,
   ) {}
   async find(): Promise<CameraResponseDto[]> {
-    const query = new FindAllCamerasQuery({
+    const tenantId = UserInfoService.requireTenantId();
+    const query = new FindAllCamerasForTenantQuery(tenantId, {
       filter: { isDeleted: { $ne: true } },
     });
     const cameraEntity: CameraEntity[] =
@@ -34,21 +36,30 @@ export class CamerasHttpService {
   }
 
   async findOne(id: AggregateID): Promise<CameraResponseDto> {
-    const cameraEntity = await this.cameraValidator.checkExistsCameraWihtId(id);
+    const tenantId = UserInfoService.requireTenantId();
+    const cameraEntity = await this.cameraValidator.checkExistsCameraWihtId(
+      id,
+      tenantId,
+    );
     return this.mapper.toResponse(cameraEntity);
   }
 
   async update(id: AggregateID, body: UpdateCameraRequestDto): Promise<string> {
-    const cameraEntity = await this.cameraValidator.checkExistsCameraWihtId(id);
+    const tenantId = UserInfoService.requireTenantId();
+    const cameraEntity = await this.cameraValidator.checkExistsCameraWihtId(
+      id,
+      tenantId,
+    );
     this.cameraValidator.checkCameraShoudNotBeSoftDeleted(cameraEntity);
     if (body.name)
       await this.cameraValidator.checkAvoidCameraDuplicationUpdate(
         body.name,
         id,
+        tenantId,
       );
 
     const nvrEntity: NvrEntity = await this.serviceProvider.queryBus.execute(
-      new FindNvrByIdQuery(cameraEntity.getProps().nvrId),
+      new FindNvrByIdForTenantQuery(tenantId, cameraEntity.getProps().nvrId),
     );
     if (!nvrEntity)
       throw new BadRequestException(
@@ -66,14 +77,17 @@ export class CamerasHttpService {
   }
 
   async hardDeleteCameras(ids: AggregateID[]) {
+    const tenantId = UserInfoService.requireTenantId();
     for (const id of ids) {
-      const cameraEntity =
-        await this.cameraValidator.checkExistsCameraWihtId(id);
+      const cameraEntity = await this.cameraValidator.checkExistsCameraWihtId(
+        id,
+        tenantId,
+      );
       this.cameraValidator.checkCameraShoudBeSoftDeleted(cameraEntity);
     }
     for (const id of ids) {
       await this.serviceProvider.commandBus.execute(
-        new HardDeleteCameraCommand({ id }),
+        new HardDeleteCameraCommand({ id, tenantId }),
       );
     }
     return {

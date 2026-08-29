@@ -57,6 +57,8 @@ export class SoftDeleteCameraCommandHandler implements ICommandHandler<SoftDelet
   ) {
     const { id } = cameraEntity.getProps();
     await this.dashboardApiForVideoDevicesService.deleteCameraEffectFromWidgets(
+      cameraEntity.getProps().tenantId,
+      cameraEntity.getProps().nvrId,
       id,
     );
     await this.cameraRunningConfigAndCommandService.stopAndRemoveAllRunningConfigs(

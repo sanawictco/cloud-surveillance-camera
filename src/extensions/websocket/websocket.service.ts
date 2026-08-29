@@ -16,6 +16,7 @@ import {
 } from '../shutdown/shutdown.service';
 import { WsAuthService } from './wsAuth.service';
 import { WsClientCachedModel } from './websocketClientCachedModel';
+import { TenantAccessService } from 'src/modules/tenantAccess/applicationService/tenantAccess.service';
 
 enum WsChannels {
   VIDEO_DEVICES_SOCKET = 'VIDEO_DevicesSocket',
@@ -50,6 +51,7 @@ export class WebsocketService
     private readonly serviceProvider: ServiceProvider,
     private readonly wsAuthService: WsAuthService,
     private readonly shutdownOrchestrator: ShutdownOrchestratorService,
+    private readonly tenantAccessService: TenantAccessService,
   ) {}
 
   public readonly channels = WsChannels;
@@ -128,11 +130,25 @@ export class WebsocketService
           const rooms = [...this.server.sockets.adapter.rooms.keys()];
           const wsMessage: any = structuredClone(_wsMessage);
           const originalMessage = wsMessage.message ?? wsMessage.data?.message;
+          const tenantId = wsMessage.tenantId ?? wsMessage.data?.tenantId;
+          if (channel === WsChannels.SYSTEM_LOGS_SOCKET && !tenantId) {
+            throw new Error('system log WebSocket message requires tenantId');
+          }
           const cachedUsers = await this.cache.getMany(rooms);
 
           for (const room of rooms) {
             const cachedUserInfo = cachedUsers.get(room);
             if (!cachedUserInfo) continue;
+            if (tenantId && cachedUserInfo.tenantId !== tenantId) continue;
+            if (channel === WsChannels.SYSTEM_LOGS_SOCKET) {
+              const access = await this.tenantAccessService.resolveActiveAccess(
+                tenantId,
+                cachedUserInfo.id,
+              );
+              if (!access) {
+                continue;
+              }
+            }
 
             let message = originalMessage;
             if (message && typeof message !== 'string') {

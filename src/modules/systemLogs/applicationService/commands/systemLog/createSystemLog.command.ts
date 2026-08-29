@@ -3,7 +3,7 @@ import {
   CommandProps,
 } from 'src/dddLib/applicationService/command.base';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import { Inject } from '@nestjs/common';
+import { BadRequestException, Inject } from '@nestjs/common';
 import {
   CreateSystemLogProps,
   SYSTEM_LOG_SUPER_TABLE,
@@ -11,15 +11,19 @@ import {
   SystemLogRecordFormat,
   SystemLogSections,
   SystemLogTypes,
+  assertSystemLogTenantId,
+  assertSystemLogTypes,
 } from 'src/modules/systemLogs/domain/systemLog.type';
 import { SYSTEM_LOG_REPOSITORY } from 'src/modules/systemLogs/infra/diToken/systemLog.diToken';
 import { SystemLogRepository } from 'src/modules/systemLogs/infra/repositories/systemLog.timeseriesRepository';
+import { TenantAccessService } from 'src/modules/tenantAccess/applicationService/tenantAccess.service';
 
 export class CreateSystemLogCommand
   extends Command
   implements CreateSystemLogProps
 {
   createdAt?: number;
+  tenantId: string;
   entityId: string;
   type: SystemLogTypes;
   messageProps: SystemLogMessageProps;
@@ -27,6 +31,9 @@ export class CreateSystemLogCommand
 
   constructor(props: CommandProps<CreateSystemLogCommand>) {
     super(props);
+    assertSystemLogTenantId(props.tenantId);
+    assertSystemLogTypes([props.type]);
+    this.tenantId = props.tenantId;
     this.createdAt = props?.createdAt;
     this.type = props.type;
     this.messageProps = props.messageProps;
@@ -36,18 +43,25 @@ export class CreateSystemLogCommand
 }
 
 @CommandHandler(CreateSystemLogCommand)
-export class CreateSystemLogCommandHandler
-  implements ICommandHandler<CreateSystemLogCommand>
-{
+export class CreateSystemLogCommandHandler implements ICommandHandler<CreateSystemLogCommand> {
   constructor(
     @Inject(SYSTEM_LOG_REPOSITORY)
     protected readonly systemLogRepo: SystemLogRepository,
+    private readonly tenantAccessService: TenantAccessService,
   ) {}
 
   async execute(command: CreateSystemLogCommand): Promise<void> {
-    const { type, messageProps, section, entityId } = command;
+    const { tenantId, type, messageProps, section, entityId } = command;
+    if (!(await this.tenantAccessService.tenantExists(tenantId))) {
+      throw new BadRequestException('tenant does not exist');
+    }
     const createdAt = command?.createdAt;
-    const systemLog: SystemLogRecordFormat = [messageProps, section, entityId];
+    const systemLog: SystemLogRecordFormat = [
+      tenantId,
+      messageProps,
+      section,
+      entityId,
+    ];
     await this.systemLogRepo.insert({
       superTableName: SYSTEM_LOG_SUPER_TABLE,
       subTableName: type,

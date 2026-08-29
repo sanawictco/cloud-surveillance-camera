@@ -23,9 +23,9 @@ import {
 } from 'src/modules/actorLogs/domain/actorLog.type';
 import {
   SYSTEM_LOG_SUPER_TABLE,
+  SYSTEM_LOG_TENANT_ID_COLUMN_SIZE,
   systemLogColumnNames,
   systemLogColumnTypes,
-  systemlogSubTableNames,
 } from 'src/modules/systemLogs/domain/systemLog.type';
 const axios = require('axios');
 export const TDENGINE_CLIENT = TDENGINE_EXECUTOR;
@@ -61,24 +61,19 @@ export class TimeseriesRepository {
     );
 
     await this.tdengineClient.exec(
-      TimeSeriesDbExtension.createSuperTableQuery(
-        {
-          superTableName: SYSTEM_LOG_SUPER_TABLE,
-          columnNames: systemLogColumnNames,
-          columnDataTypes: systemLogColumnTypes,
-        },
-        15,
-      ),
+      TimeSeriesDbExtension.createSuperTableQuery({
+        superTableName: SYSTEM_LOG_SUPER_TABLE,
+        columnNames: systemLogColumnNames,
+        columnDataTypes: systemLogColumnTypes,
+        tags: [
+          {
+            name: 'tenantId',
+            dataType: `VARCHAR(${SYSTEM_LOG_TENANT_ID_COLUMN_SIZE})`,
+          },
+          { name: 'groupId', dataType: 'VARCHAR(15)' },
+        ],
+      }),
     );
-
-    for (const subTableName of systemlogSubTableNames) {
-      await this.tdengineClient.exec(
-        TimeSeriesDbExtension.createSubTableQuery({
-          superTableName: SYSTEM_LOG_SUPER_TABLE,
-          subTableName,
-        }),
-      );
-    }
   }
 
   async restHealthCheck(): Promise<boolean> {
@@ -112,14 +107,9 @@ export class TimeseriesRepository {
       )
     )
       throw new Error('params in find method is empty');
-    return new Promise((resolve) => {
-      setTimeout(async () => {
-        const query = TimeSeriesDbExtension.createFindAllQuery(params);
-        const data: any = await this.restQuery(query);
-        if (data) resolve(data);
-        else resolve([]);
-      }, 0);
-    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const query = TimeSeriesDbExtension.createFindAllQuery(params);
+    return await this.restQuery(query);
   }
 
   async findAllPaginated(
@@ -134,31 +124,20 @@ export class TimeseriesRepository {
     if (!params.orderBy) {
       params.orderBy = { column: 'createdAt', status: OrderStates.DESCENDING };
     }
-    return new Promise((resolve) => {
-      setTimeout(async () => {
-        const query = TimeSeriesDbExtension.createFindAllQuery(params);
-        const data: any = await this.restQuery(query);
-        if (data)
-          resolve({
-            totalDocs: await this.count({
-              superTableName: params.superTableName,
-              subTableName: params.subTableName,
-              timeRangeInUnix: params.timeRangeInUnix,
-              filter: params.filter,
-            }),
-            page: params.page,
-            limit: params.limit,
-            docs: data,
-          });
-        else
-          resolve({
-            totalDocs: 0,
-            page: params.page,
-            limit: params.limit,
-            docs: [],
-          });
-      }, 0);
-    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const query = TimeSeriesDbExtension.createFindAllQuery(params);
+    const data: any = await this.restQuery(query);
+    return {
+      totalDocs: await this.count({
+        superTableName: params.superTableName,
+        subTableName: params.subTableName,
+        timeRangeInUnix: params.timeRangeInUnix,
+        filter: params.filter,
+      }),
+      page: params.page,
+      limit: params.limit,
+      docs: data,
+    };
   }
 
   async deleteSubTable(subTableName: string) {
@@ -191,15 +170,13 @@ export class TimeseriesRepository {
         },
         data: query,
       });
-      if (response.data?.data) {
+      if (Array.isArray(response.data?.data)) {
         return response.data.data;
-      } else {
-        console.log(query);
-        console.log(response.data);
-        throw new Error('returned data from tdengine not valid');
       }
+      throw new Error('returned data from tdengine not valid');
     } catch (err) {
       console.log('restQuery failed => ', err);
+      throw err;
     }
   }
 }

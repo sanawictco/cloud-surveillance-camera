@@ -5,7 +5,7 @@ import { RepositoryBase } from 'src/dddLib/infra';
 import { CacheService } from 'src/extensions/caching/cache.service';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import { PageEntity } from '../../domain/page.entity';
-import { PageValueObjects } from '../../domain/page.type';
+import { PageConfigs, PageValueObjects } from '../../domain/page.type';
 import { PageMapper } from '../mappers/page.mapper';
 import { PageModel } from '../schemas/page.schema';
 import { PageResponseDto } from '../../contracts/page.response.dto';
@@ -39,5 +39,24 @@ export class PageRepository
       await this.pageModel.updateOne({ id: page.id }, page);
       await this.cache.set(`${PageModel.name}:${page.id}`, page);
     }
+  }
+
+  async unlockRunningConfig(
+    id: string,
+    nvrId: string,
+    configType: PageConfigs,
+    msgId: string,
+  ): Promise<boolean> {
+    const updated = await this.pageModel
+      .findOneAndUpdate(
+        { id, nvrId, [`runningConfigs.${configType}`]: msgId },
+        { $unset: { [`runningConfigs.${configType}`]: '' } },
+        { new: true },
+      )
+      .lean<PageModel>()
+      .exec();
+    if (!updated) return false;
+    await this.cache.set(`${PageModel.name}:${id}`, updated);
+    return true;
   }
 }

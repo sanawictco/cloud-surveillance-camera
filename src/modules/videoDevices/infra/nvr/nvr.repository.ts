@@ -73,16 +73,20 @@ export class NvrRepository extends ParentRepository<
     nvrId: string,
     configType: string,
     msgId: string,
+    tenantId?: string,
   ): Promise<boolean> {
     return this.updateRunningConfig(
-      { id: nvrId },
+      this.buildRunningConfigFilter(nvrId, tenantId),
       { $set: { [`runningConfigs.${configType}`]: msgId } },
     );
   }
 
-  async resetRunningConfigs(nvrId: string): Promise<boolean> {
+  async resetRunningConfigs(
+    nvrId: string,
+    tenantId?: string,
+  ): Promise<boolean> {
     return this.updateRunningConfig(
-      { id: nvrId },
+      this.buildRunningConfigFilter(nvrId, tenantId),
       { $set: { runningConfigs: RunningConfigs.init().unpack() } },
     );
   }
@@ -91,13 +95,21 @@ export class NvrRepository extends ParentRepository<
     nvrId: string,
     configType: ProvisioningConfig,
     msgId: string,
+    tenantId?: string,
   ): Promise<boolean> {
+    const availabilityFilter = {
+      [`runningConfigs.${NvrConfigs.SEARCH}`]: { $exists: false },
+      [`runningConfigs.${NvrConfigs.REGISTER}`]: { $exists: false },
+    };
     return this.updateRunningConfig(
-      {
-        id: nvrId,
-        [`runningConfigs.${NvrConfigs.SEARCH}`]: { $exists: false },
-        [`runningConfigs.${NvrConfigs.REGISTER}`]: { $exists: false },
-      },
+      tenantId
+        ? {
+            $and: [
+              this.buildRunningConfigFilter(nvrId, tenantId),
+              availabilityFilter,
+            ],
+          }
+        : { id: nvrId, ...availabilityFilter },
       { $set: { [`runningConfigs.${configType}`]: msgId } },
     );
   }
@@ -106,10 +118,18 @@ export class NvrRepository extends ParentRepository<
     nvrId: string,
     configType: string,
     msgId: string,
+    tenantId?: string,
   ): Promise<boolean> {
     const path = `runningConfigs.${configType}`;
     return this.updateRunningConfig(
-      { id: nvrId, [path]: msgId },
+      tenantId
+        ? {
+            $and: [
+              this.buildRunningConfigFilter(nvrId, tenantId),
+              { [path]: msgId },
+            ],
+          }
+        : { id: nvrId, [path]: msgId },
       { $unset: { [path]: '' } },
     );
   }
@@ -128,5 +148,13 @@ export class NvrRepository extends ParentRepository<
     if (!record) return false;
     await this.cache.delete(`${NvrModel.name}:${record.id}`);
     return true;
+  }
+
+  private buildRunningConfigFilter(
+    nvrId: string,
+    tenantId?: string,
+  ): Record<string, unknown> {
+    if (!tenantId) return { id: nvrId };
+    return { $and: [{ tenantId }, { id: nvrId }] };
   }
 }

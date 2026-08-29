@@ -3,8 +3,10 @@ jest.mock(
   () => ({ VideoDevicesApiforTrashService: class {} }),
 );
 jest.mock(
-  'src/modules/employees/applicatoinService/apiForAnotherServices/employeeApiForTrash.service',
-  () => ({ EmployeeApiForTrashService: class {} }),
+  'src/modules/tenantAccess/applicationService/employeeAccess.http.service',
+  () => ({
+    EmployeeAccessHttpService: class {},
+  }),
 );
 import { TrashService } from '../applicationService/services/trash.service';
 
@@ -34,13 +36,16 @@ describe('Trash contract: List soft-deleted items', () => {
     // @spec TRASH-SYNC-LEGACY-001-S01
     // @spec TRASH-FARM-001-S01
     it('WHEN trash endpoint is called THEN it aggregates soft-deleted items from all modules', async () => {
-      await expect(service.find()).resolves.toEqual({
+      await expect(service.find('tenant-a')).resolves.toEqual({
         cameras,
         employees,
       });
 
       expect(videoDevicesApi.getSoftDeletedCameras).toHaveBeenCalledTimes(1);
       expect(employeesApi.getSoftDeletedEmployees).toHaveBeenCalledTimes(1);
+      expect(videoDevicesApi.getSoftDeletedCameras).toHaveBeenCalledWith(
+        'tenant-a',
+      );
     });
 
     it('propagates a provider failure instead of returning partial results', async () => {
@@ -48,7 +53,9 @@ describe('Trash contract: List soft-deleted items', () => {
         new Error('video devices unavailable'),
       );
 
-      await expect(service.find()).rejects.toThrow('video devices unavailable');
+      await expect(service.find('tenant-a')).rejects.toThrow(
+        'video devices unavailable',
+      );
     });
   });
 });

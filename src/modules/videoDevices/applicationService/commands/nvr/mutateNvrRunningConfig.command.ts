@@ -21,6 +21,7 @@ export class MutateNvrRunningConfigCommand extends Command {
   constructor(
     id: string,
     public readonly mutation: NvrRunningConfigMutation,
+    public readonly tenantId?: string,
   ) {
     super({ id });
   }
@@ -40,24 +41,54 @@ export class MutateNvrRunningConfigCommandHandler implements ICommandHandler<
     const { mutation } = command;
     switch (mutation.operation) {
       case 'set':
+        if (!command.tenantId) {
+          return this.nvrRepository.setRunningConfig(
+            command.id,
+            mutation.configType,
+            mutation.msgId,
+          );
+        }
         return this.nvrRepository.setRunningConfig(
           command.id,
           mutation.configType,
           mutation.msgId,
+          command.tenantId,
         );
       case 'reset':
-        return this.nvrRepository.resetRunningConfigs(command.id);
+        if (!command.tenantId) {
+          return this.nvrRepository.resetRunningConfigs(command.id);
+        }
+        return this.nvrRepository.resetRunningConfigs(
+          command.id,
+          command.tenantId,
+        );
       case 'claimProvisioning':
+        if (!command.tenantId) {
+          return this.nvrRepository.claimProvisioningConfig(
+            command.id,
+            mutation.configType,
+            mutation.msgId,
+          );
+        }
         return this.nvrRepository.claimProvisioningConfig(
           command.id,
           mutation.configType,
           mutation.msgId,
+          command.tenantId,
         );
       case 'unsetIfMatches':
+        if (!command.tenantId) {
+          return this.nvrRepository.unsetRunningConfigIfMatches(
+            command.id,
+            mutation.configType,
+            mutation.msgId,
+          );
+        }
         return this.nvrRepository.unsetRunningConfigIfMatches(
           command.id,
           mutation.configType,
           mutation.msgId,
+          command.tenantId,
         );
     }
   }

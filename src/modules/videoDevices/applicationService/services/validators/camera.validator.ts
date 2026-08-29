@@ -2,8 +2,14 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import { LanguageKeys } from 'src/extensions/translation/languageKeys.base';
 import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
-import { FindCameraByIdQuery } from '../../queries/camera/findCameraById.queryHandler';
-import { FindCameraByNameQuery } from '../../queries/camera/findCameraByName.queryHandler';
+import {
+  FindCameraByIdForTenantQuery,
+  FindCameraByIdQuery,
+} from '../../queries/camera/findCameraById.queryHandler';
+import {
+  FindCameraByNameForTenantQuery,
+  FindCameraByNameQuery,
+} from '../../queries/camera/findCameraByName.queryHandler';
 
 @Injectable()
 export class CameraValidator {
@@ -27,9 +33,15 @@ export class CameraValidator {
       );
   }
 
-  async checkExistsCameraWihtId(id: string): Promise<CameraEntity> {
+  async checkExistsCameraWihtId(
+    id: string,
+    tenantId?: string,
+  ): Promise<CameraEntity> {
+    const query = tenantId
+      ? new FindCameraByIdForTenantQuery(tenantId, id)
+      : new FindCameraByIdQuery(id);
     const cameraEntity: CameraEntity =
-      await this.serviceProvider.queryBus.execute(new FindCameraByIdQuery(id));
+      await this.serviceProvider.queryBus.execute(query);
     if (!cameraEntity)
       throw new BadRequestException(
         this.serviceProvider.translatorService.translateByName(
@@ -63,11 +75,13 @@ export class CameraValidator {
   async checkAvoidCameraDuplicationUpdate(
     name: string,
     id: string,
+    tenantId?: string,
   ): Promise<boolean> {
+    const query = tenantId
+      ? new FindCameraByNameForTenantQuery(tenantId, name)
+      : new FindCameraByNameQuery(name);
     const cameraEntity: CameraEntity =
-      await this.serviceProvider.queryBus.execute(
-        new FindCameraByNameQuery(name),
-      );
+      await this.serviceProvider.queryBus.execute(query);
     if (cameraEntity && cameraEntity.id !== id)
       throw new BadRequestException(
         this.serviceProvider.translatorService.translateByName(

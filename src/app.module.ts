@@ -28,10 +28,11 @@ import { ProtectionMiddleware } from './utilities/auth/protection.middleware';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { SystemLogModule } from './modules/systemLogs/systemLog.module';
 import { FogCommunicationManagerModule } from './modules/fogCommunicationManager/fogCommunicationManager.module';
-import { EmployeeModule } from './modules/employees/employees.module';
+import { SmsNotifierModule } from './modules/smsNotifier/smsNotifier.module';
 import { ActorLogModule } from './modules/actorLogs/actorLog.module';
 import { SystemMonitorModule } from './modules/systemMonitor/systemMonitor.module';
 import { TrashModule } from './modules/trash/trash.module';
+import { TenantAccessModule } from './modules/tenantAccess/tenantAccess.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { TrashModule } from './modules/trash/trash.module';
     MqttModule, // 5. MQTT
     CachingModule, // 6. Cache
     TDengineModule, // 7. TDengine
+    TenantAccessModule,
 
     // Domain modules
     VideoDevicesModule,
@@ -68,7 +70,7 @@ import { TrashModule } from './modules/trash/trash.module';
     SystemLogModule,
     TrashModule,
     FogCommunicationManagerModule,
-    EmployeeModule,
+    SmsNotifierModule,
     ActorLogModule,
     SystemMonitorModule,
     // 8. Always last - domain modules read from it during shutdown

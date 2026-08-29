@@ -21,13 +21,18 @@ import {
 } from '../contracts/page.response.dto';
 import { UpdatePageRequestDto } from '../contracts/updatePage.request.dto';
 import { CreatePageRequestDto } from '../contracts/createPage.request.dto';
-import { EmployeeRoles } from 'src/extensions/sanawApi/dtos/employees/employeeRoles.enum';
 import { SWAGGER_AUTH_TOKEN } from 'src/utilities/swaggerRegisteration';
-import { RolesGuardFactory } from 'src/modules/shared/roles.guard';
 import { OnlyIdParamRequestDto } from 'src/modules/shared/dtos/onlyIdParam.request.dto';
+import { ActiveTenantGuard } from 'src/modules/tenantAccess/guards/activeTenant.guard';
+import {
+  RequireEmployeeRoles,
+  EmployeeRolesGuard,
+} from 'src/modules/tenantAccess/guards/employeeRoles.guard';
+import { EmployeeRoles } from 'src/extensions/sanawApi/dtos/employees/employeeRoles.enum';
 @ApiBearerAuth(SWAGGER_AUTH_TOKEN)
 @ApiTags('/dashboard/pages')
-@UseGuards(RolesGuardFactory(EmployeeRoles.Device_RuleChain_Dashboard))
+@RequireEmployeeRoles(EmployeeRoles.Device_Dashboard)
+@UseGuards(ActiveTenantGuard, EmployeeRolesGuard)
 @Controller('/dashboard/pages')
 export class PageHttpController {
   constructor(private readonly pagesService: PagesHttpService) {}

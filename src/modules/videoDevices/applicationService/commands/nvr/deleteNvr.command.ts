@@ -22,8 +22,11 @@ import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
 import { SoftDeleteCameraCommand } from '../camera/softDeleteCamera.command';
 
 export class DeleteNvrCommand extends Command {
+  readonly tenantId: string;
+
   constructor(props: CommandProps<DeleteNvrCommand> & IdType) {
     super(props);
+    this.tenantId = props.tenantId;
   }
 }
 @CommandHandler(DeleteNvrCommand)
@@ -46,6 +49,9 @@ export class DeleteNvrCommandHandler implements ICommandHandler<DeleteNvrCommand
       command.id,
     );
     if (!nvrEntity) throw Error('nvr does not exist');
+    if (nvrEntity.getProps().tenantId !== command.tenantId) {
+      throw Error('nvr does not exist');
+    }
     await this.processPreDependencies(nvrEntity);
     nvrEntity.delete();
     await this.nvrRepo.delete(nvrEntity);
@@ -61,7 +67,10 @@ export class DeleteNvrCommandHandler implements ICommandHandler<DeleteNvrCommand
       nvrEntity.getProps().serialNumber,
     );
     // delete nvr systemLogs
-    await this.systemLogService.deleteSystemLogs(nvrEntity.id);
+    await this.systemLogService.deleteSystemLogs(
+      nvrEntity.getProps().tenantId,
+      nvrEntity.id,
+    );
     // stop nvr liveSignal
     await this.nvrLiveSignalService.stop(nvrEntity);
     // softDelete dependent cameras
@@ -82,6 +91,7 @@ export class DeleteNvrCommandHandler implements ICommandHandler<DeleteNvrCommand
       );
     }
     await this.dashboardApiForVideoDevicesService.deleteDependentPages(
+      nvrEntity.getProps().tenantId,
       nvrEntity.id,
     );
     await this.mqttApiService.deleteNvrTopics(

@@ -17,7 +17,7 @@ import {
 } from 'src/modules/videoDevices/domain/camera/camera.type';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
 import { UpdateCameraCommand } from '../../commands/camera/updateCamera.command';
-import { FindCameraByIdQuery } from '../../queries/camera/findCameraById.queryHandler';
+import { FindCameraByIdForTenantQuery } from '../../queries/camera/findCameraById.queryHandler';
 import { VideoDeviceConfigQueueService } from '../queues/videoDeviceConfig/videoDeviceQueue.service';
 import { VideoDeviceDataQueueService } from '../queues/videoDeviceData/videoDeviceDataQueue.service';
 import { UnsetCameraRunningConfigCommand } from '../../commands/camera/unsetCameraRunningConfig.command';
@@ -94,12 +94,16 @@ export class CameraRunningConfigAndCommandService {
           cameraEntity.id,
           configType.replace('_receive', '_send'),
           msgId,
+          cameraEntity.getProps().tenantId,
         ),
       );
     }
     configType = configType.replace('_receive', '_send');
     cameraEntity = await this.serviceProvider.queryBus.execute(
-      new FindCameraByIdQuery(cameraEntity.id),
+      new FindCameraByIdForTenantQuery(
+        cameraEntity.getProps().tenantId,
+        cameraEntity.id,
+      ),
     );
     let { runningConfigs } = cameraEntity.getProps();
     if (configType === 'all') runningConfigs = RunningConfigs.init().unpack();
@@ -107,6 +111,7 @@ export class CameraRunningConfigAndCommandService {
     await this.serviceProvider.commandBus.execute(
       new UpdateCameraCommand({
         id: cameraEntity.id,
+        tenantId: cameraEntity.getProps().tenantId,
         runningConfigs,
       }),
     );
@@ -119,7 +124,10 @@ export class CameraRunningConfigAndCommandService {
   ): Promise<void> {
     if (!existingRunningConfigs) {
       cameraEntity = await this.serviceProvider.queryBus.execute(
-        new FindCameraByIdQuery(cameraEntity.id),
+        new FindCameraByIdForTenantQuery(
+          cameraEntity.getProps().tenantId,
+          cameraEntity.id,
+        ),
       );
     }
     const runningConfigs =
@@ -141,6 +149,7 @@ export class CameraRunningConfigAndCommandService {
     await this.serviceProvider.commandBus.execute(
       new UpdateCameraCommand({
         id: cameraEntity.id,
+        tenantId: cameraEntity.getProps().tenantId,
         runningConfigs: RunningConfigs.init().unpack(),
       }),
     );
@@ -151,7 +160,10 @@ export class CameraRunningConfigAndCommandService {
     configType: string,
   ): Promise<boolean> {
     cameraEntity = await this.serviceProvider.queryBus.execute(
-      new FindCameraByIdQuery(cameraEntity.id),
+      new FindCameraByIdForTenantQuery(
+        cameraEntity.getProps().tenantId,
+        cameraEntity.id,
+      ),
     );
     const { runningConfigs } = cameraEntity.getProps();
     if (runningConfigs[configType]) return true;
@@ -167,13 +179,17 @@ export class CameraRunningConfigAndCommandService {
       `lock camera config cameraId=${cameraEntity.id} configType=${configType} msgId=${msgId}`,
     );
     cameraEntity = await this.serviceProvider.queryBus.execute(
-      new FindCameraByIdQuery(cameraEntity.id),
+      new FindCameraByIdForTenantQuery(
+        cameraEntity.getProps().tenantId,
+        cameraEntity.id,
+      ),
     );
     const { runningConfigs } = cameraEntity.getProps();
     runningConfigs[configType] = msgId;
     await this.serviceProvider.commandBus.execute(
       new UpdateCameraCommand({
         id: cameraEntity.id,
+        tenantId: cameraEntity.getProps().tenantId,
         runningConfigs,
       }),
     );

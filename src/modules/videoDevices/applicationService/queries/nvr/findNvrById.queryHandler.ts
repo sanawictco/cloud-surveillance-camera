@@ -8,10 +8,17 @@ export class FindNvrByIdQuery {
     this.id = id;
   }
 }
+
+export class FindNvrByIdForTenantQuery {
+  constructor(
+    public readonly tenantId: string,
+    public readonly id: string,
+  ) {
+    if (!tenantId) throw new Error('tenantId is required');
+  }
+}
 @QueryHandler(FindNvrByIdQuery)
-export class FindNvrByIdQueryHandler
-  implements IQueryHandler<FindNvrByIdQuery>
-{
+export class FindNvrByIdQueryHandler implements IQueryHandler<FindNvrByIdQuery> {
   constructor(
     @Inject(NVR_REPOSITORY)
     protected readonly nvrRepo: NvrRepository,
@@ -20,5 +27,19 @@ export class FindNvrByIdQueryHandler
   async execute(query: FindNvrByIdQuery) {
     const record = await this.nvrRepo.findById(query.id);
     return record;
+  }
+}
+
+@QueryHandler(FindNvrByIdForTenantQuery)
+export class FindNvrByIdForTenantQueryHandler implements IQueryHandler<FindNvrByIdForTenantQuery> {
+  constructor(
+    @Inject(NVR_REPOSITORY)
+    private readonly nvrRepo: NvrRepository,
+  ) {}
+
+  execute(query: FindNvrByIdForTenantQuery) {
+    return this.nvrRepo.findOne({
+      $and: [{ tenantId: query.tenantId }, { id: query.id }],
+    });
   }
 }

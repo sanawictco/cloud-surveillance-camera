@@ -8,7 +8,7 @@ import { SanawApiModule } from 'src/extensions/sanawApi/sanawApi.module';
 import { WsModule } from 'src/extensions/websocket/ws.module';
 import { ActorLogModule } from '../actorLogs/actorLog.module';
 import { DashboardModule } from '../dashboard/dashboard.module';
-import { EmployeeModule } from '../employees/employees.module';
+import { SmsNotifierModule } from '../smsNotifier/smsNotifier.module';
 import { SystemLogModule } from '../systemLogs/systemLog.module';
 import { ActiveCameraCommandHandler } from './applicationService/commands/camera/activeCamera.command';
 import { CreateCameraCommandHandler } from './applicationService/commands/camera/createCamera.command';
@@ -22,15 +22,33 @@ import { DeleteNvrCommandHandler } from './applicationService/commands/nvr/delet
 import { InActiveNvrCommandHandler } from './applicationService/commands/nvr/inactiveNvr.command';
 import { RestoreNvrsToCacheCommandHandler } from './applicationService/commands/nvr/restoreNvrsToCache.command';
 import { UpdateNvrCommandHandler } from './applicationService/commands/nvr/updateNvr.command';
-import { FindAllCamerasQueryHandler } from './applicationService/queries/camera/findAllCameras.queryHandler';
+import {
+  FindAllCamerasForTenantQueryHandler,
+  FindAllCamerasQueryHandler,
+} from './applicationService/queries/camera/findAllCameras.queryHandler';
 import { FindAllDeletedCamerasByDeletedSerialNumbersQueryHandler } from './applicationService/queries/camera/findAllDeletedCamerasByDeletedSerialNumbers.queryHandler';
-import { FindCameraByIdQueryHandler } from './applicationService/queries/camera/findCameraById.queryHandler';
-import { FindCameraByNameQueryHandler } from './applicationService/queries/camera/findCameraByName.queryHandler';
+import {
+  FindCameraByIdForTenantQueryHandler,
+  FindCameraByIdQueryHandler,
+} from './applicationService/queries/camera/findCameraById.queryHandler';
+import {
+  FindCameraByNameForTenantQueryHandler,
+  FindCameraByNameQueryHandler,
+} from './applicationService/queries/camera/findCameraByName.queryHandler';
 import { FindCameraByNameAndNvrIdQueryHandler } from './applicationService/queries/camera/findCameraByNameAndNvrId.queryHandler';
 import { FindCameraBySerialNumberQueryHandler } from './applicationService/queries/camera/findCameraBySerialNumber.queryHandler';
-import { FindAllNvrsQueryHandler } from './applicationService/queries/nvr/findAllNvrs.queryHandler';
-import { FindNvrByIdQueryHandler } from './applicationService/queries/nvr/findNvrById.queryHandler';
-import { FindNvrByNameQueryHandler } from './applicationService/queries/nvr/findNvrByName.queryHandler';
+import {
+  FindAllNvrsForTenantQueryHandler,
+  FindAllNvrsQueryHandler,
+} from './applicationService/queries/nvr/findAllNvrs.queryHandler';
+import {
+  FindNvrByIdForTenantQueryHandler,
+  FindNvrByIdQueryHandler,
+} from './applicationService/queries/nvr/findNvrById.queryHandler';
+import {
+  FindNvrByNameForTenantQueryHandler,
+  FindNvrByNameQueryHandler,
+} from './applicationService/queries/nvr/findNvrByName.queryHandler';
 import { FindNvrBySerialNumberQueryHandler } from './applicationService/queries/nvr/findNvrBySerialNumber.queryHandler';
 import { CameraActorLogService } from './applicationService/services/actorLogs/cameraActorLog.service';
 import { NvrActorLogService } from './applicationService/services/actorLogs/nvrActorLog.service';
@@ -64,6 +82,8 @@ import { CameraMqttService } from './applicationService/services/mqtt/cameraMqtt
 import { VideoDevicesConfigsMqttController } from './controllers/videoDeviceConfigs.mqtt.controller';
 import { MutateNvrRunningConfigCommandHandler } from './applicationService/commands/nvr/mutateNvrRunningConfig.command';
 import { UnsetCameraRunningConfigCommandHandler } from './applicationService/commands/camera/unsetCameraRunningConfig.command';
+import { CamerasHttpController } from './controllers/camera.http.controller';
+import { CamerasHttpService } from './applicationService/services/http/camera.http.service';
 
 const commandHandlers: Provider[] = [
   ...[
@@ -88,14 +108,20 @@ const commandHandlers: Provider[] = [
 const queryHandlers: Provider[] = [
   ...[
     FindAllNvrsQueryHandler,
+    FindAllNvrsForTenantQueryHandler,
     FindNvrByIdQueryHandler,
+    FindNvrByIdForTenantQueryHandler,
     FindNvrByNameQueryHandler,
+    FindNvrByNameForTenantQueryHandler,
     FindNvrBySerialNumberQueryHandler,
   ],
   ...[
     FindAllCamerasQueryHandler,
+    FindAllCamerasForTenantQueryHandler,
     FindCameraByIdQueryHandler,
+    FindCameraByIdForTenantQueryHandler,
     FindCameraByNameQueryHandler,
+    FindCameraByNameForTenantQueryHandler,
     FindCameraByNameAndNvrIdQueryHandler,
     FindCameraBySerialNumberQueryHandler,
     FindAllDeletedCamerasByDeletedSerialNumbersQueryHandler,
@@ -119,6 +145,7 @@ const queueServices: Provider[] = [
 
 const services: Provider[] = [
   NvrsHttpService,
+  CamerasHttpService,
   NvrRunningConfigService,
   CameraRunningConfigAndCommandService,
   NvrLiveSignalService,
@@ -148,7 +175,7 @@ const mqttControllers: Provider[] = [VideoDevicesConfigsMqttController];
     WsModule,
     QueueModule,
     forwardRef(() => ActorLogModule),
-    forwardRef(() => EmployeeModule),
+    forwardRef(() => SmsNotifierModule),
     SystemLogModule,
     forwardRef(() => DashboardModule),
   ],
@@ -164,7 +191,11 @@ const mqttControllers: Provider[] = [VideoDevicesConfigsMqttController];
     ...apiServiceForAnotherModules,
     VideoDeviceInitService,
   ],
-  controllers: [NvrHttpController, FogCommunicationHttpController],
+  controllers: [
+    NvrHttpController,
+    CamerasHttpController,
+    FogCommunicationHttpController,
+  ],
   exports: [...apiServiceForAnotherModules],
 })
 export class VideoDevicesModule {}

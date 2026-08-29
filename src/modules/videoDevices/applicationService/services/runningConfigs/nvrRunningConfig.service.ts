@@ -10,7 +10,7 @@ import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.
 import { LanguageKeys } from 'src/extensions/translation/languageKeys.base';
 import { NvrEntity } from '../../../domain/nvr/nvr.entity';
 
-import { FindNvrByIdQuery } from '../../queries/nvr/findNvrById.queryHandler';
+import { FindNvrByIdForTenantQuery } from '../../queries/nvr/findNvrById.queryHandler';
 import { VideoDeviceConfigQueueService } from '../queues/videoDeviceConfig/videoDeviceQueue.service';
 import { VideoDeviceDataQueueService } from '../queues/videoDeviceData/videoDeviceDataQueue.service';
 import { NvrConfigs } from 'src/modules/videoDevices/domain/nvr/nvr.type';
@@ -57,11 +57,15 @@ export class NvrRunningConfigService {
     try {
       const queuedMsgId =
         await this.videoDeviceConfigQueueService.addRepeatableMsg(config);
-      await this.mutateRunningConfig(nvrEntity.id, {
-        operation: 'set',
-        configType: nvrConfig,
-        msgId: queuedMsgId,
-      });
+      await this.mutateRunningConfig(
+        nvrEntity.id,
+        nvrEntity.getProps().tenantId,
+        {
+          operation: 'set',
+          configType: nvrConfig,
+          msgId: queuedMsgId,
+        },
+      );
       return queuedMsgId;
     } catch (error) {
       await this.videoDeviceConfigQueueService.getAndDeleteRepeatableMsg(
@@ -80,14 +84,22 @@ export class NvrRunningConfigService {
   ): Promise<boolean> {
     try {
       if (configType === 'all') {
-        return this.mutateRunningConfig(nvrEntity.id, { operation: 'reset' });
+        return this.mutateRunningConfig(
+          nvrEntity.id,
+          nvrEntity.getProps().tenantId,
+          { operation: 'reset' },
+        );
       }
       if (!msgId) return false;
-      return this.mutateRunningConfig(nvrEntity.id, {
-        operation: 'unsetIfMatches',
-        configType,
-        msgId,
-      });
+      return this.mutateRunningConfig(
+        nvrEntity.id,
+        nvrEntity.getProps().tenantId,
+        {
+          operation: 'unsetIfMatches',
+          configType,
+          msgId,
+        },
+      );
     } catch (err) {
       this.serviceProvider.logger.error(
         `NvrRunningConfig: failed to unlock configType=${configType} for nvrId=${nvrEntity.id}`,
@@ -99,7 +111,10 @@ export class NvrRunningConfigService {
 
   async stopAndRemoveAllRunningConfigs(nvrEntity: NvrEntity): Promise<void> {
     nvrEntity = await this.serviceProvider.queryBus.execute(
-      new FindNvrByIdQuery(nvrEntity.id),
+      new FindNvrByIdForTenantQuery(
+        nvrEntity.getProps().tenantId,
+        nvrEntity.id,
+      ),
     );
     const { runningConfigs } = nvrEntity.getProps();
     for (const msgId of Object.values(runningConfigs)) {
@@ -116,7 +131,11 @@ export class NvrRunningConfigService {
         );
       }
     }
-    await this.mutateRunningConfig(nvrEntity.id, { operation: 'reset' });
+    await this.mutateRunningConfig(
+      nvrEntity.id,
+      nvrEntity.getProps().tenantId,
+      { operation: 'reset' },
+    );
   }
 
   private async isConfigRunning(
@@ -124,17 +143,24 @@ export class NvrRunningConfigService {
     configType: string,
   ): Promise<boolean> {
     nvrEntity = await this.serviceProvider.queryBus.execute(
-      new FindNvrByIdQuery(nvrEntity.id),
+      new FindNvrByIdForTenantQuery(
+        nvrEntity.getProps().tenantId,
+        nvrEntity.id,
+      ),
     );
     const { runningConfigs } = nvrEntity.getProps();
     const msgId = runningConfigs[configType];
     if (!msgId) return false;
     if (!isValidDeviceMsgId(msgId)) {
-      await this.mutateRunningConfig(nvrEntity.id, {
-        operation: 'unsetIfMatches',
-        configType,
-        msgId,
-      });
+      await this.mutateRunningConfig(
+        nvrEntity.id,
+        nvrEntity.getProps().tenantId,
+        {
+          operation: 'unsetIfMatches',
+          configType,
+          msgId,
+        },
+      );
       return false;
     }
     const tenantId = nvrEntity.getProps().tenantId;
@@ -153,11 +179,15 @@ export class NvrRunningConfigService {
     this.serviceProvider.logger.warn(
       `NvrRunningConfig: stale lock detected for configType=${configType} nvrId=${nvrEntity.id}, msgId=${msgId} not found in queue. Auto-clearing.`,
     );
-    await this.mutateRunningConfig(nvrEntity.id, {
-      operation: 'unsetIfMatches',
-      configType,
-      msgId,
-    });
+    await this.mutateRunningConfig(
+      nvrEntity.id,
+      nvrEntity.getProps().tenantId,
+      {
+        operation: 'unsetIfMatches',
+        configType,
+        msgId,
+      },
+    );
     return false;
   }
 
@@ -172,17 +202,31 @@ export class NvrRunningConfigService {
       await this.videoDeviceConfigQueueService.reserveMsgId(config);
     let claimed: boolean;
     try {
-      claimed = await this.mutateRunningConfig(nvrEntity.id, {
-        operation: 'claimProvisioning',
-        configType,
-        msgId: queuedMsgId,
-      });
-      if (!claimed && (await this.clearStaleProvisioningConfig(nvrEntity.id))) {
-        claimed = await this.mutateRunningConfig(nvrEntity.id, {
+      claimed = await this.mutateRunningConfig(
+        nvrEntity.id,
+        nvrEntity.getProps().tenantId,
+        {
           operation: 'claimProvisioning',
           configType,
           msgId: queuedMsgId,
-        });
+        },
+      );
+      if (
+        !claimed &&
+        (await this.clearStaleProvisioningConfig(
+          nvrEntity.getProps().tenantId,
+          nvrEntity.id,
+        ))
+      ) {
+        claimed = await this.mutateRunningConfig(
+          nvrEntity.id,
+          nvrEntity.getProps().tenantId,
+          {
+            operation: 'claimProvisioning',
+            configType,
+            msgId: queuedMsgId,
+          },
+        );
       }
     } catch (error) {
       this.videoDeviceConfigQueueService.releaseMsgIdReservation(
@@ -205,18 +249,27 @@ export class NvrRunningConfigService {
         config,
       );
     } catch (error) {
-      await this.mutateRunningConfig(nvrEntity.id, {
-        operation: 'unsetIfMatches',
-        configType,
-        msgId: queuedMsgId,
-      });
+      await this.mutateRunningConfig(
+        nvrEntity.id,
+        nvrEntity.getProps().tenantId,
+        {
+          operation: 'unsetIfMatches',
+          configType,
+          msgId: queuedMsgId,
+        },
+      );
       throw error;
     }
   }
 
-  private async clearStaleProvisioningConfig(nvrId: string): Promise<boolean> {
+  private async clearStaleProvisioningConfig(
+    tenantId: string,
+    nvrId: string,
+  ): Promise<boolean> {
     const nvrEntity: NvrEntity | undefined =
-      await this.serviceProvider.queryBus.execute(new FindNvrByIdQuery(nvrId));
+      await this.serviceProvider.queryBus.execute(
+        new FindNvrByIdForTenantQuery(tenantId, nvrId),
+      );
     if (!nvrEntity) return false;
     const runningConfigs = nvrEntity.getProps().runningConfigs;
     const active = PROVISIONING_CONFIGS.map((configType) => ({
@@ -234,7 +287,7 @@ export class NvrRunningConfigService {
     ) {
       return false;
     }
-    return this.mutateRunningConfig(nvrId, {
+    return this.mutateRunningConfig(nvrId, tenantId, {
       operation: 'unsetIfMatches',
       configType: active.configType,
       msgId: active.msgId,
@@ -243,10 +296,11 @@ export class NvrRunningConfigService {
 
   private mutateRunningConfig(
     nvrId: string,
+    tenantId: string,
     mutation: ConstructorParameters<typeof MutateNvrRunningConfigCommand>[1],
   ): Promise<boolean> {
     return this.commandBus.execute(
-      new MutateNvrRunningConfigCommand(nvrId, mutation),
+      new MutateNvrRunningConfigCommand(nvrId, mutation, tenantId),
     );
   }
 

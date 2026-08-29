@@ -19,15 +19,18 @@ export class CreateSuperTableParams {
   superTableName: string;
   columnNames: string[];
   columnDataTypes: string[];
+  tags?: Array<{ name: string; dataType: string }>;
 
   constructor(
     superTableName: string,
     columnNames: string[],
     columnDataTypes: string[],
+    tags?: Array<{ name: string; dataType: string }>,
   ) {
     this.superTableName = superTableName;
     this.columnNames = columnNames;
     this.columnDataTypes = columnDataTypes;
+    this.tags = tags;
   }
 }
 

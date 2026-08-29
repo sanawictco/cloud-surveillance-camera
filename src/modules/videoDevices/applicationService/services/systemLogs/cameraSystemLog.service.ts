@@ -28,6 +28,7 @@ export class CameraSystemLogService {
   async create(cameraEntity: CameraEntity, metadata: ConfigTypeMsgIdDto) {
     await this.systemLogService.createAndSend(
       {
+        tenantId: cameraEntity.getProps().tenantId,
         type: SystemLogTypes.WARNING,
         messageProps: {
           key: LanguageKeys.camera.systemLog.creationFailed,
@@ -44,6 +45,7 @@ export class CameraSystemLogService {
   async delete(cameraEntity: CameraEntity, metadata: ConfigTypeMsgIdDto) {
     await this.systemLogService.createAndSend(
       {
+        tenantId: cameraEntity.getProps().tenantId,
         type: SystemLogTypes.WARNING,
         messageProps: {
           key: LanguageKeys.camera.systemLog.deletionFailed,
@@ -60,6 +62,7 @@ export class CameraSystemLogService {
   async update(cameraEntity: CameraEntity, metadata: ConfigTypeMsgIdDto) {
     await this.systemLogService.createAndSend(
       {
+        tenantId: cameraEntity.getProps().tenantId,
         type: SystemLogTypes.WARNING,
         messageProps: {
           key: LanguageKeys.camera.systemLog.updateFailed,

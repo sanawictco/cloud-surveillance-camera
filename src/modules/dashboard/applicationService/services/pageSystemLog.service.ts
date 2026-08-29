@@ -18,22 +18,31 @@ export class PageSystemLogService {
     @Inject(forwardRef(() => SystemLogService))
     private readonly systemLogService: SystemLogService,
   ) {}
-  async handle(pageEntity: PageEntity, metadata: ConfigTypeMsgIdDto) {
+  async handle(
+    tenantId: string,
+    pageEntity: PageEntity,
+    metadata: ConfigTypeMsgIdDto,
+  ) {
     switch (metadata.configType) {
       case PageConfigs.CREATE_PAGE:
-        return await this.create(pageEntity, metadata);
+        return await this.create(tenantId, pageEntity, metadata);
       case PageConfigs.UPDATE_PAGE:
-        return await this.update(pageEntity, metadata);
+        return await this.update(tenantId, pageEntity, metadata);
       case PageConfigs.DELETE_PAGE:
-        return await this.delete(pageEntity, metadata);
+        return await this.delete(tenantId, pageEntity, metadata);
       default:
         break;
     }
   }
 
-  async create(pageEntity: PageEntity, metadata: ConfigTypeMsgIdDto) {
+  async create(
+    tenantId: string,
+    pageEntity: PageEntity,
+    metadata: ConfigTypeMsgIdDto,
+  ) {
     await this.systemLogService.createAndSend(
       {
+        tenantId,
         type: SystemLogTypes.WARNING,
         messageProps: {
           key: LanguageKeys.dashboard.systemLog.createFailed,
@@ -47,9 +56,14 @@ export class PageSystemLogService {
     );
   }
 
-  async update(pageEntity: PageEntity, metadata: ConfigTypeMsgIdDto) {
+  async update(
+    tenantId: string,
+    pageEntity: PageEntity,
+    metadata: ConfigTypeMsgIdDto,
+  ) {
     await this.systemLogService.createAndSend(
       {
+        tenantId,
         type: SystemLogTypes.WARNING,
         messageProps: {
           key: LanguageKeys.dashboard.systemLog.updateFailed,
@@ -63,9 +77,14 @@ export class PageSystemLogService {
     );
   }
 
-  async delete(pageEntity: PageEntity, metadata: ConfigTypeMsgIdDto) {
+  async delete(
+    tenantId: string,
+    pageEntity: PageEntity,
+    metadata: ConfigTypeMsgIdDto,
+  ) {
     await this.systemLogService.createAndSend(
       {
+        tenantId,
         type: SystemLogTypes.WARNING,
         messageProps: {
           key: LanguageKeys.dashboard.systemLog.deletionFailed,

@@ -6,9 +6,10 @@ import { LanguageKeys } from 'src/extensions/translation/languageKeys.base';
 import { PageEntity } from '../../domain/page.entity';
 import { PageConfigs, UpdatePageProps } from '../../domain/page.type';
 import { UpdatePageCommand } from '../commands/updatePage.command';
-import { FindPageByIdQuery } from '../queries/findPageById.queryHandler';
+import { FindPageByIdForTenantQuery } from '../queries/findPageById.queryHandler';
 import { PageConfigQueueService } from './queues/pageConfigQueue.service';
 import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.vo';
+import { UnlockPageRunningConfigCommand } from '../commands/unlockPageRunningConfig.command';
 
 @Injectable()
 export class PageRunningConfigService {
@@ -23,7 +24,7 @@ export class PageRunningConfigService {
     configType: PageConfigs,
     data?: UpdatePageProps,
   ): Promise<string> {
-    if (await this.isConfigRunning(pageEntity, configType)) {
+    if (await this.isConfigRunning(pageEntity, tenantId, configType)) {
       if (RequestContextService.getContext())
         throw new BadRequestException(
           this.serviceProvider.translatorService.translateByName(
@@ -36,25 +37,29 @@ export class PageRunningConfigService {
       const msgId = await this.pageConfigQueueService.addRepeatableMsg(
         pageEntity.getConfigForFog(tenantId, configType, data),
       );
-      await this.runAndLockConfig(pageEntity, configType, msgId);
+      await this.runAndLockConfig(pageEntity, tenantId, configType, msgId);
       return msgId;
     }
   }
 
-  async doneAndUnLockConfig(pageEntity: PageEntity, configType: PageConfigs) {
-    if (!pageEntity || configType === PageConfigs.DELETE_PAGE) return;
-    const id = pageEntity.getProps().id;
-    pageEntity = await this.serviceProvider.queryBus.execute(
-      new FindPageByIdQuery(id),
-    );
-    if (!pageEntity) return;
-    const { runningConfigs } = pageEntity.getProps();
-    delete runningConfigs[configType];
-    await this.serviceProvider.commandBus.execute(
-      new UpdatePageCommand({
+  async doneAndUnLockConfig(
+    pageEntity: PageEntity | undefined,
+    tenantId: string,
+    configType: PageConfigs,
+    msgId: string,
+  ): Promise<boolean> {
+    if (!tenantId) throw new Error('tenantId is required');
+    if (configType === PageConfigs.CREATE_PAGE) return true;
+    if (!pageEntity) return false;
+    const { id, nvrId } = pageEntity.getProps();
+    return this.serviceProvider.commandBus.execute(
+      new UnlockPageRunningConfigCommand(
+        tenantId,
         id,
-        runningConfigs,
-      }),
+        nvrId,
+        configType,
+        msgId,
+      ),
     );
   }
 
@@ -64,7 +69,11 @@ export class PageRunningConfigService {
   ) {
     const { id } = pageEntity.getProps();
     pageEntity = await this.serviceProvider.queryBus.execute(
-      new FindPageByIdQuery(id),
+      new FindPageByIdForTenantQuery(
+        tenantId,
+        [pageEntity.getProps().nvrId],
+        id,
+      ),
     );
     const { runningConfigs } = pageEntity.getProps();
     for (const msgId of Object.values(runningConfigs)) {
@@ -79,6 +88,8 @@ export class PageRunningConfigService {
     await this.serviceProvider.commandBus.execute(
       new UpdatePageCommand({
         id,
+        tenantId,
+        nvrId: pageEntity.getProps().nvrId,
         runningConfigs: RunningConfigs.init().unpack(),
       }),
     );
@@ -86,11 +97,16 @@ export class PageRunningConfigService {
 
   private async isConfigRunning(
     pageEntity: PageEntity,
+    tenantId: string,
     configType: PageConfigs,
   ) {
     const id = pageEntity.getProps().id;
     pageEntity = await this.serviceProvider.queryBus.execute(
-      new FindPageByIdQuery(id),
+      new FindPageByIdForTenantQuery(
+        tenantId,
+        [pageEntity.getProps().nvrId],
+        id,
+      ),
     );
     if (PageConfigs.CREATE_PAGE === configType) return false;
     const { runningConfigs } = pageEntity.getProps();
@@ -100,18 +116,25 @@ export class PageRunningConfigService {
 
   private async runAndLockConfig(
     pageEntity: PageEntity,
+    tenantId: string,
     configType: PageConfigs,
     msgId: string,
   ) {
     if (PageConfigs.CREATE_PAGE === configType) return;
     const id = pageEntity.getProps().id;
     pageEntity = await this.serviceProvider.queryBus.execute(
-      new FindPageByIdQuery(id),
+      new FindPageByIdForTenantQuery(
+        tenantId,
+        [pageEntity.getProps().nvrId],
+        id,
+      ),
     );
     const { runningConfigs } = pageEntity.getProps();
     await this.serviceProvider.commandBus.execute(
       new UpdatePageCommand({
         id,
+        tenantId,
+        nvrId: pageEntity.getProps().nvrId,
         runningConfigs: { ...runningConfigs, [configType]: msgId },
       }),
     );

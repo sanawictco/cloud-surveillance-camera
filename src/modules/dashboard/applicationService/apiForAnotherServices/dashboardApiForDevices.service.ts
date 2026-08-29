@@ -5,16 +5,22 @@ import { Widget } from '../../domain/valueObjects/pageContent.vo';
 import { DeletePageCommand } from '../commands/deletePage.command';
 import { RestorePagesToCacheCommand } from '../commands/restorePagesToCache.command';
 import { UpdatePageCommand } from '../commands/updatePage.command';
-import { FindAllPagesQuery } from '../queries/findAllPages.queryHandler';
+import { FindAllPagesForTenantQuery } from '../queries/findAllPages.queryHandler';
 import { DashboardPageProjection } from 'src/dddLib/contracts/dashboardPage.projection';
 
 @Injectable()
 export class DashboardApiForVideoDevicesService {
   constructor(private readonly serviceProvider: ServiceProvider) {}
 
-  async deleteCameraEffectFromWidgets(id: string) {
+  async deleteCameraEffectFromWidgets(
+    tenantId: string,
+    nvrId: string,
+    id: string,
+  ) {
     const pageEntities: PageEntity[] =
-      await this.serviceProvider.queryBus.execute(new FindAllPagesQuery());
+      await this.serviceProvider.queryBus.execute(
+        new FindAllPagesForTenantQuery(tenantId, [nvrId]),
+      );
 
     for (const pageEntity of pageEntities) {
       const pageProps = pageEntity.getProps();
@@ -29,6 +35,8 @@ export class DashboardApiForVideoDevicesService {
         await this.serviceProvider.commandBus.execute(
           new UpdatePageCommand({
             id: pageEntity.id,
+            tenantId,
+            nvrId,
             content: newContent,
           }),
         );
@@ -36,10 +44,10 @@ export class DashboardApiForVideoDevicesService {
     }
   }
 
-  async deleteDependentPages(nvrId: string) {
+  async deleteDependentPages(tenantId: string, nvrId: string) {
     const dependentPageEntities: PageEntity[] =
       await this.serviceProvider.queryBus.execute(
-        new FindAllPagesQuery({
+        new FindAllPagesForTenantQuery(tenantId, [nvrId], {
           filter: {
             nvrId,
           },
@@ -47,15 +55,22 @@ export class DashboardApiForVideoDevicesService {
       );
     for (const pageEntity of dependentPageEntities) {
       await this.serviceProvider.commandBus.execute(
-        new DeletePageCommand({ id: pageEntity.id }),
+        new DeletePageCommand({
+          id: pageEntity.id,
+          tenantId,
+          nvrId,
+        }),
       );
     }
   }
 
-  async getDependentPages(nvrId: string): Promise<DashboardPageProjection[]> {
+  async getDependentPages(
+    tenantId: string,
+    nvrId: string,
+  ): Promise<DashboardPageProjection[]> {
     const dependentPageEntities: PageEntity[] =
       await this.serviceProvider.queryBus.execute(
-        new FindAllPagesQuery({
+        new FindAllPagesForTenantQuery(tenantId, [nvrId], {
           filter: {
             nvrId,
           },

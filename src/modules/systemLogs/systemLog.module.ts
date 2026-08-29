@@ -9,7 +9,7 @@ import { SystemLogService } from './applicationService/services/systemLog.servic
 import { SystemLogController } from './controllers/systemLog.controller';
 import { FogNotificationController } from './controllers/fogNotification.controller';
 import { SystemLogApiService } from './applicationService/apiForAnotherServices/systemLogApi.service';
-import { EmployeeModule } from '../employees/employees.module';
+import { SmsNotifierModule } from '../smsNotifier/smsNotifier.module';
 import { CountAllSystemLogsQueryHandler } from './applicationService/queries/systemLog/countAllSystemLogs.queryHandler';
 import { DeleteAllSystemLogCommandHandler } from './applicationService/commands/systemLog/deleteAllSystemLog.command';
 import { FindAllPaginatedSystemLogsQueryHandler } from './applicationService/queries/systemLog/findAllPaginatedSystemLogs.queryHandler';
@@ -41,7 +41,7 @@ const httpServices: Provider[] = [SystemLogService];
     SanawApiModule,
     WsModule,
     TDengineModule,
-    forwardRef(() => EmployeeModule),
+    forwardRef(() => SmsNotifierModule),
   ],
   providers: [
     ...httpServices,

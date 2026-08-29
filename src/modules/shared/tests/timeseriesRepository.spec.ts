@@ -25,8 +25,11 @@ describe('TimeseriesRepository', () => {
       expect.stringContaining('CREATE STABLE IF NOT EXISTS actorLogSuperTable'),
     );
     expect(tdengineClient.exec).toHaveBeenCalledWith(
+      expect.stringContaining('CREATE STABLE IF NOT EXISTS systemLogDetailV2'),
+    );
+    expect(tdengineClient.exec).toHaveBeenCalledWith(
       expect.stringContaining(
-        'CREATE STABLE IF NOT EXISTS systemLogSuperTable',
+        'TAGS (tenantId VARCHAR(36),groupId VARCHAR(15))',
       ),
     );
   });

@@ -7,17 +7,25 @@ import { SystemLogRepository } from 'src/modules/systemLogs/infra/repositories/s
 import {
   SYSTEM_LOG_SUPER_TABLE,
   SystemLogTypes,
+  assertSystemLogTenantId,
+  assertSystemLogTypes,
+  systemLogSelectedColumns,
 } from 'src/modules/systemLogs/domain/systemLog.type';
 import { FindDataParams } from 'src/dddLib/infra/timeseriesRepository.base';
 
 export class FindAllPaginatedSystemLogsQuery extends PaginatedTimeseriesQueryBase {
+  tenantId: string;
   types: SystemLogTypes[];
   constructor(
     props: FindDataParams & { page: number; limit: number } & {
+      tenantId: string;
       types: SystemLogTypes[];
     },
   ) {
     super(props);
+    assertSystemLogTenantId(props.tenantId);
+    assertSystemLogTypes(props.types);
+    this.tenantId = props.tenantId;
     this.types = props.types;
   }
 }
@@ -32,12 +40,16 @@ export class FindAllPaginatedSystemLogsQueryHandler implements IQueryHandler<Fin
     query: FindAllPaginatedSystemLogsQuery,
   ): Promise<Paginated<any>> {
     query.superTableName = SYSTEM_LOG_SUPER_TABLE;
+    query.selectedColumns = systemLogSelectedColumns;
+    const typeFilters: string[] = [];
     if (query?.types.length) {
-      const _filterOptions: string[] = [];
       for (const type of query.types) {
-        _filterOptions.push('groupId=' + `'${type}'`);
+        typeFilters.push(`groupId='${type}'`);
       }
-      query.filter = _filterOptions.join(' OR ');
+    }
+    query.filter = `tenantId='${query.tenantId}'`;
+    if (typeFilters.length > 0) {
+      query.filter += ` AND (${typeFilters.join(' OR ')})`;
     }
 
     const records = await this.systemLogRepo.findAllPaginated(query);

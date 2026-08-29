@@ -3,7 +3,8 @@ import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.
 import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
 import { CameraHardwareSendCommands } from 'src/modules/videoDevices/domain/camera/camera.type';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
-import { FindNvrByIdQuery } from '../../queries/nvr/findNvrById.queryHandler';
+import { FindNvrByIdForTenantQuery } from '../../queries/nvr/findNvrById.queryHandler';
+import { FindAllNvrsForTenantQuery } from '../../queries/nvr/findAllNvrs.queryHandler';
 import { CameraValidator } from '../validators/camera.validator';
 import { NvrValidator } from '../validators/nvr.validator';
 import { CameraRunningConfigAndCommandService } from '../runningConfigs/cameraRunningConfigAndCommand.service';
@@ -20,14 +21,18 @@ export class VideoDevicesApiForDashboardService extends VideoDevicesApiBaseServi
     super(cameraValidator, serviceProvider);
   }
 
-  async sendMoveData(id: string, data: number[]): Promise<string> {
+  async sendMoveData(
+    tenantId: string,
+    id: string,
+    data: number[],
+  ): Promise<string> {
     const cameraEntity: CameraEntity =
-      await this.cameraValidator.checkExistsCameraWihtId(id);
+      await this.cameraValidator.checkExistsCameraWihtId(id, tenantId);
     await this.cameraValidator.checkCameraShouldBeActiveAndHasConnectedStatus(
       cameraEntity,
     );
     const nvrEntity: NvrEntity = await this.serviceProvider.queryBus.execute(
-      new FindNvrByIdQuery(cameraEntity.getProps().nvrId),
+      new FindNvrByIdForTenantQuery(tenantId, cameraEntity.getProps().nvrId),
     );
     cameraEntity.assertTenantMatches(nvrEntity);
     return await this.cameraRunningConfigAndCommandService.runHardwareCommandIfNotDuplicated(
@@ -38,14 +43,18 @@ export class VideoDevicesApiForDashboardService extends VideoDevicesApiBaseServi
     );
   }
 
-  async sendZoomData(id: string, data: number[]): Promise<string> {
+  async sendZoomData(
+    tenantId: string,
+    id: string,
+    data: number[],
+  ): Promise<string> {
     const cameraEntity: CameraEntity =
-      await this.cameraValidator.checkExistsCameraWihtId(id);
+      await this.cameraValidator.checkExistsCameraWihtId(id, tenantId);
     await this.cameraValidator.checkCameraShouldBeActiveAndHasConnectedStatus(
       cameraEntity,
     );
     const nvrEntity: NvrEntity = await this.serviceProvider.queryBus.execute(
-      new FindNvrByIdQuery(cameraEntity.getProps().nvrId),
+      new FindNvrByIdForTenantQuery(tenantId, cameraEntity.getProps().nvrId),
     );
     cameraEntity.assertTenantMatches(nvrEntity);
     return await this.cameraRunningConfigAndCommandService.runHardwareCommandIfNotDuplicated(
@@ -58,12 +67,22 @@ export class VideoDevicesApiForDashboardService extends VideoDevicesApiBaseServi
 
   async checkNvrIsExistsAndActiveAndConnected(
     nvrId: string,
+    tenantId?: string,
   ): Promise<NvrEntity> {
-    const nvrEntity: NvrEntity =
-      await this.nvrValidator.checkExistsNvrWithId(nvrId);
+    const nvrEntity: NvrEntity = await this.nvrValidator.checkExistsNvrWithId(
+      nvrId,
+      tenantId,
+    );
     await this.nvrValidator.checkNvrShouldBeActiveAndHasConnectedStatus(
       nvrEntity,
     );
     return nvrEntity;
+  }
+
+  async findNvrIdsForTenant(tenantId: string): Promise<string[]> {
+    const nvrs: NvrEntity[] = await this.serviceProvider.queryBus.execute(
+      new FindAllNvrsForTenantQuery(tenantId),
+    );
+    return nvrs.map((nvr) => nvr.id);
   }
 }

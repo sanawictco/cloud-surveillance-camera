@@ -13,8 +13,11 @@ import { CameraActorLogService } from '../../services/actorLogs/cameraActorLog.s
 import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
 
 export class HardDeleteCameraCommand extends Command {
+  readonly tenantId: string;
+
   constructor(props: CommandProps<HardDeleteCameraCommand> & IdType) {
     super(props);
+    this.tenantId = props.tenantId;
   }
 }
 
@@ -31,6 +34,9 @@ export class HardDeleteCameraCommandHandler implements ICommandHandler<HardDelet
     const cameraEntity: CameraEntity | undefined =
       await this.cameraRepo.findById(command.id);
     if (!cameraEntity) throw new Error('no camera exist with this id');
+    if (cameraEntity.getProps().tenantId !== command.tenantId) {
+      throw new Error('no camera exist with this id');
+    }
     cameraEntity.hardDelete();
     await this.cameraRepo.delete(cameraEntity);
     await this._processDependencies(cameraEntity);
@@ -38,7 +44,10 @@ export class HardDeleteCameraCommandHandler implements ICommandHandler<HardDelet
   }
 
   private async _processDependencies(cameraEntity: CameraEntity) {
-    this.systemLogApiService.deleteSystemLogs(cameraEntity.id);
+    await this.systemLogApiService.deleteSystemLogs(
+      cameraEntity.getProps().tenantId,
+      cameraEntity.id,
+    );
     await this.cameraActorLogService.hardDelete({
       cameraEntity,
     });

@@ -1,6 +1,6 @@
 import { CameraLanguageKeys } from 'src/modules/videoDevices/domain/camera/camera.type';
-import { EmployeeLanguageKeys } from 'src/modules/employees/domain/types/employee.type';
-import { SmsNotifierLanguageKeys } from 'src/modules/employees/domain/types/smsNotifier.type';
+import { EmployeeLanguageKeys } from 'src/modules/tenantAccess/domain/types/employee.type';
+import { SmsNotifierLanguageKeys } from 'src/modules/smsNotifier/domain/types/smsNotifier.type';
 import { TenantLanguageKeys } from 'src/modules/tenants/domain/tenant.type';
 import { PageLanguageKeys } from 'src/modules/dashboard/domain/page.type';
 import { NvrLanguageKeys } from 'src/modules/videoDevices/domain/nvr/nvr.type';

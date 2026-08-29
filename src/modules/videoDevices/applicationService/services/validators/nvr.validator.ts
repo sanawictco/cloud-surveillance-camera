@@ -6,9 +6,15 @@ import { AutoRegisterRequestDto } from 'src/modules/videoDevices/contracts/nvr/h
 import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
 import { FindAllCamerasQuery } from '../../queries/camera/findAllCameras.queryHandler';
-import { FindNvrByIdQuery } from '../../queries/nvr/findNvrById.queryHandler';
+import {
+  FindNvrByIdForTenantQuery,
+  FindNvrByIdQuery,
+} from '../../queries/nvr/findNvrById.queryHandler';
 import { FindNvrBySerialNumberQuery } from '../../queries/nvr/findNvrBySerialNumber.queryHandler';
-import { FindNvrByNameQuery } from '../../queries/nvr/findNvrByName.queryHandler';
+import {
+  FindNvrByNameForTenantQuery,
+  FindNvrByNameQuery,
+} from '../../queries/nvr/findNvrByName.queryHandler';
 import {
   AutoRegisterBatchConfig,
   NvrPrivateSearchCache,
@@ -125,10 +131,15 @@ export class NvrValidator {
       );
   }
 
-  async checkExistsNvrWithId(id: string): Promise<NvrEntity> {
-    const nvrEntity: NvrEntity = await this.serviceProvider.queryBus.execute(
-      new FindNvrByIdQuery(id),
-    );
+  async checkExistsNvrWithId(
+    id: string,
+    tenantId?: string,
+  ): Promise<NvrEntity> {
+    const query = tenantId
+      ? new FindNvrByIdForTenantQuery(tenantId, id)
+      : new FindNvrByIdQuery(id);
+    const nvrEntity: NvrEntity =
+      await this.serviceProvider.queryBus.execute(query);
     if (!nvrEntity) throw new BadRequestException('the nvr not exist');
     return nvrEntity;
   }
@@ -175,10 +186,15 @@ export class NvrValidator {
       );
   }
 
-  async checkAvoidNvrDuplicationCreate(name: string): Promise<boolean> {
-    const nvrEntity: NvrEntity = await this.serviceProvider.queryBus.execute(
-      new FindNvrByNameQuery(name),
-    );
+  async checkAvoidNvrDuplicationCreate(
+    name: string,
+    tenantId?: string,
+  ): Promise<boolean> {
+    const query = tenantId
+      ? new FindNvrByNameForTenantQuery(tenantId, name)
+      : new FindNvrByNameQuery(name);
+    const nvrEntity: NvrEntity =
+      await this.serviceProvider.queryBus.execute(query);
     if (nvrEntity)
       throw new BadRequestException(
         this.serviceProvider.translatorService.translateByName(
@@ -192,10 +208,13 @@ export class NvrValidator {
   async checkAvoidNvrDuplicationUpdate(
     name: string,
     id: string,
+    tenantId?: string,
   ): Promise<boolean> {
-    const nvrEntity: NvrEntity = await this.serviceProvider.queryBus.execute(
-      new FindNvrByNameQuery(name),
-    );
+    const query = tenantId
+      ? new FindNvrByNameForTenantQuery(tenantId, name)
+      : new FindNvrByNameQuery(name);
+    const nvrEntity: NvrEntity =
+      await this.serviceProvider.queryBus.execute(query);
     if (nvrEntity && nvrEntity.id !== id)
       throw new BadRequestException(
         this.serviceProvider.translatorService.translateByName(

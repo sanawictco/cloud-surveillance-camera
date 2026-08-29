@@ -36,8 +36,17 @@ describe('HardDeleteCameraCommandHandler', () => {
       actorLogs as never,
     );
 
-    await handler.execute(new HardDeleteCameraCommand({ id: camera.id }));
+    await handler.execute(
+      new HardDeleteCameraCommand({
+        id: camera.id,
+        tenantId: camera.getProps().tenantId,
+      }),
+    );
 
     expect(repository.delete).toHaveBeenCalledWith(camera);
+    expect(systemLogs.deleteSystemLogs).toHaveBeenCalledWith(
+      camera.getProps().tenantId,
+      camera.id,
+    );
   });
 });

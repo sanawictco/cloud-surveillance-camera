@@ -10,6 +10,7 @@ import { CreateTenantProps } from '../../domain/tenant.type';
 import { TenantStatuses } from '../../domain/valueObjects/tenantStatus.vo';
 import { TENANT_REPOSITORY } from '../../infra/tenant.diToken';
 import { TenantRepository } from '../../infra/tenant.repository';
+import { TenantAccessService } from 'src/modules/tenantAccess/applicationService/tenantAccess.service';
 
 export class CreateTenantCommand extends Command implements CreateTenantProps {
   readonly ownerId: string;
@@ -33,6 +34,7 @@ export class CreateTenantCommandHandler implements ICommandHandler<CreateTenantC
   constructor(
     @Inject(TENANT_REPOSITORY)
     protected readonly tenantRepo: TenantRepository,
+    private readonly tenantAccessService: TenantAccessService,
   ) {}
 
   async execute(command: CreateTenantCommand): Promise<AggregateID> {
@@ -44,6 +46,10 @@ export class CreateTenantCommandHandler implements ICommandHandler<CreateTenantC
       defaultTimezone: command.defaultTimezone,
     });
     await this.tenantRepo.insert(tenant);
+    await this.tenantAccessService.createOwnerEmployee(
+      tenant.id,
+      command.ownerId,
+    );
     return tenant.id;
   }
 }

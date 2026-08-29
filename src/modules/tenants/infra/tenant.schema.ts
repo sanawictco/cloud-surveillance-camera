@@ -16,7 +16,7 @@ export class TenantModel implements TenantProps {
   @Prop({ required: true, unique: true })
   slug: string;
 
-  @Prop({ required: true, enum: TenantStatuses })
+  @Prop({ required: true, type: String, enum: Object.values(TenantStatuses) })
   status: TenantStatuses;
 
   @Prop({ required: true })

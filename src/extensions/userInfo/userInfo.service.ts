@@ -5,11 +5,19 @@ import { RequestContextService } from 'src/dddLib/utils/appRequestContext';
 @Injectable()
 export class UserInfoService {
   static getProps(): UserInfoDto {
-    const ctx: any = RequestContextService.getContext();
-    return ctx?.user;
+    const ctx = RequestContextService.getContext();
+    return ctx?.user as UserInfoDto;
   }
   getProps(): UserInfoDto {
-    const ctx: any = RequestContextService.getContext();
-    return ctx?.user;
+    const ctx = RequestContextService.getContext();
+    return ctx?.user as UserInfoDto;
+  }
+
+  static requireTenantId(): string {
+    return RequestContextService.requireTenantId();
+  }
+
+  requireTenantId(): string {
+    return RequestContextService.requireTenantId();
   }
 }

@@ -53,6 +53,12 @@ export class UpdateCameraCommandHandler implements ICommandHandler<UpdateCameraC
       runningConfigs: command.runningConfigs,
     };
     if (!cameraEntity) throw new Error('entity not exists');
+    if (
+      command.tenantId &&
+      cameraEntity.getProps().tenantId !== command.tenantId
+    ) {
+      throw new Error('entity not exists');
+    }
     const recoveredFromTrash =
       cameraEntity.getProps().isDeleted && command.isDeleted === false;
     cameraEntity.update(updatedObj);

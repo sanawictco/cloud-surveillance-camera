@@ -20,6 +20,8 @@ export class UpdatePageCommand
   implements Partial<UpdatePageProps>
 {
   readonly name?: string;
+  readonly tenantId?: string;
+  readonly nvrId?: string;
   readonly pageIndex?: number;
   readonly content?: Widget[];
   readonly runningConfigs?: Record<string, string>;
@@ -27,8 +29,11 @@ export class UpdatePageCommand
   constructor(props: CommandProps<UpdatePageCommand> & IdType) {
     super(props);
     this.name = props.name;
+    this.tenantId = props.tenantId;
+    this.nvrId = props.nvrId;
     this.pageIndex = props.pageIndex;
     this.content = props.content;
+    this.runningConfigs = props.runningConfigs;
   }
 }
 
@@ -43,6 +48,7 @@ export class UpdatePageCommandHandler implements ICommandHandler<UpdatePageComma
   async execute(command: UpdatePageCommand): Promise<AggregateID> {
     if (command.pageIndex !== undefined) {
       const pageEntities: PageEntity[] = await this.pageRepo.findAll({
+        filter: command.nvrId ? { nvrId: command.nvrId } : undefined,
         orderBy: { column: 'pageIndex', status: OrderStates.ASCENDING },
       });
       const pageEntity: PageEntity | undefined = pageEntities.find(
@@ -60,15 +66,18 @@ export class UpdatePageCommandHandler implements ICommandHandler<UpdatePageComma
         }
       }
     }
-    const pageEntity: PageEntity | undefined = await this.pageRepo.findById(
-      command.id,
-    );
+    const pageEntity: PageEntity | undefined = command.nvrId
+      ? await this.pageRepo.findOne({
+          $and: [{ id: command.id }, { nvrId: command.nvrId }],
+        })
+      : await this.pageRepo.findById(command.id);
     if (!pageEntity) throw new BadRequestException('not exists');
 
     const updateObj = {
       name: command.name,
       // pageIndex: command.pageIndex,
       content: command.content,
+      runningConfigs: command.runningConfigs,
     };
     const currentOrOldName = pageEntity.getProps().name;
     const actorId = command.actorProps?.actorId;

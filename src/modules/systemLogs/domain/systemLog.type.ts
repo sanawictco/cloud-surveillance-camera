@@ -1,4 +1,7 @@
+import { isUUID } from 'class-validator';
+
 export interface SystemLogProps {
+  tenantId: string;
   createdAt: number;
   type: SystemLogTypes;
   messageProps: SystemLogMessageProps;
@@ -14,12 +17,14 @@ export class SystemLogMessageProps {
 }
 
 export interface CreateSystemLogProps {
+  tenantId: string;
   type: SystemLogTypes;
   messageProps: SystemLogMessageProps;
   section: SystemLogSections;
   entityId: string;
 }
 export interface SendSystemLogOnWebSocketProps {
+  tenantId: string;
   type: SystemLogTypes;
   section: SystemLogSections;
   message?: string | { msgKey: string; msgParams?: string[] };
@@ -46,18 +51,19 @@ export class SystemLogNotifyStatus {
 }
 
 export type SystemLogRecordFormat = [
+  string,
   SystemLogMessageProps,
   SystemLogSections,
   string,
 ];
 
-export const SYSTEM_LOG_SUPER_TABLE = 'systemLogSuperTable';
-export const systemlogSubTableNames = ['warning', 'error', 'information'];
+export const SYSTEM_LOG_SUPER_TABLE = 'systemLogDetailV2';
 
 export const SYSTEM_LOG_MESSAGE_KEYS_COLUMN_SIZE = 200;
 export const SYSTEM_LOG_MESSAGE_PARAMS_COLUMN_SIZE = 500;
 export const SYSTEM_LOG_SECTION_COLUMN_SIZE = 50;
 export const SYSTEM_LOG_ENTITY_ID_COLUMN_SIZE = 50;
+export const SYSTEM_LOG_TENANT_ID_COLUMN_SIZE = 36;
 
 export const systemLogColumnNames: string[] = [
   'createdAt',
@@ -74,6 +80,30 @@ export const systemLogColumnTypes: string[] = [
   `VARCHAR(${SYSTEM_LOG_SECTION_COLUMN_SIZE})`,
   `VARCHAR(${SYSTEM_LOG_ENTITY_ID_COLUMN_SIZE})`,
 ];
+
+export const systemLogSelectedColumns = [...systemLogColumnNames, 'groupId'];
+
+export function assertSystemLogTenantId(tenantId: string): void {
+  if (!isUUID(tenantId, '4')) throw new Error('tenantId must be a UUID v4');
+}
+
+export function assertSystemLogTypes(types: SystemLogTypes[]): void {
+  if (
+    !Array.isArray(types) ||
+    types.some((type) => !Object.values(SystemLogTypes).includes(type))
+  ) {
+    throw new Error('system log type is invalid');
+  }
+}
+
+export function systemLogSubTableName(
+  tenantId: string,
+  type: SystemLogTypes,
+): string {
+  assertSystemLogTenantId(tenantId);
+  assertSystemLogTypes([type]);
+  return `system_log_t_${tenantId.replaceAll('-', '').toLowerCase()}_${type}`;
+}
 
 export type SystemLogLanguageKeys = {
   systemLog: {};

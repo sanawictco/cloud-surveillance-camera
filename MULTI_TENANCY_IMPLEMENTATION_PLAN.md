@@ -12,7 +12,7 @@
 | Membership authority | MongoDB in this service |
 | User membership | One SSO user may belong to multiple tenants |
 | Active tenant | Explicitly selected and validated for each HTTP request or WebSocket connection |
-| Authorization | Tenant plan and tenant-specific roles enforced at controllers |
+| Authorization | Tenant-scoped `EmployeeRoles` enforced at controllers; all tenants have the same features |
 | Database authorization | No per-user database accounts or ordinary per-user CRUD limits |
 | MongoDB | Shared collections with mandatory tenant filters |
 | Redis and BullMQ | Shared infrastructure with tenant-aware keys and messages |
@@ -22,9 +22,11 @@
 | Deployment | One application instance initially |
 | Report retention | 90 days detailed data and 2 years summarized data |
 | Device `msgId` | Canonical decimal string containing a random unsigned 32-bit value, scoped by tenant and NVR |
-| Last updated | 2026-08-25 |
+| Last updated | 2026-08-29 |
 | Phase 0 status | Complete and runtime-qualified on 2026-08-25 |
-| Next implementation phase | Phase 1: Membership, Plan, Role, And Context |
+| Phase 1 status | Complete and unit-qualified on 2026-08-26; revised 2026-08-29 (see Phase 1 revision note) |
+| Next implementation phase | Phase 2: MongoDB And Cache Isolation |
+| System-log visibility | Any active tenant member (no special role); `Report` role reserved for a future camera-event reporting feature |
 
 ## Purpose
 
@@ -36,8 +38,7 @@ The plan covers tenant preservation across:
 
 - Keycloak authentication
 - Tenant membership and active tenant selection
-- Tenant subscription plans
-- Tenant-specific controller roles
+- Tenant-scoped employee roles
 - CQRS commands and queries
 - MongoDB
 - Redis cache and distributed locks
@@ -60,7 +61,7 @@ Isolation must instead be enforced through these independent controls:
 
 1. A verified active tenant for every synchronous tenant operation.
 2. Explicit tenant identity in every asynchronous message.
-3. Tenant-specific plan and role checks at controllers.
+3. Tenant-scoped employee-role checks at controllers.
 4. Mandatory tenant ownership in every tenant-owned persistence operation.
 5. Broker-side MQTT ACLs plus application ownership validation.
 6. Tenant-scoped WebSocket rooms.
@@ -69,7 +70,7 @@ Isolation must instead be enforced through these independent controls:
 
 The central rule is:
 
-> Plans and roles determine what an actor may do. The tenant ID in commands, queries, storage filters, topics, and messages determines whose data the operation may affect.
+> Employee roles determine what an actor may do. The tenant ID in commands, queries, storage filters, topics, and messages determines whose data the operation may affect.
 
 Controller authorization does not replace tenant filters. Tenant filters do not replace controller authorization. Both are required.
 
@@ -163,7 +164,7 @@ These invariants must be represented in code and tests.
 16. Tenant suspension applies consistently to HTTP, device ingress, jobs, and WebSocket delivery.
 17. Tenant deletion cannot modify another tenant.
 
-## Identity, Membership, Plan, And Role Model
+## Identity, Employee, And Role Model
 
 ### Identity
 
@@ -178,19 +179,18 @@ platform.support
 
 Normal tenant business roles must not be global Keycloak client roles.
 
-### Membership
+### Employee
 
-MongoDB in this service is authoritative for tenant membership and tenant-specific roles.
+MongoDB in this service is authoritative for tenant employees and tenant-scoped roles. `EmployeeModel` is the membership record; there is no separate membership collection.
 
 Preferred model:
 
 ```typescript
-interface TenantMembership {
+interface Employee {
   id: string;
   tenantId: string;
   userId: string; // Keycloak sub
-  roles: TenantRole[];
-  status: MembershipStatus;
+  roles: EmployeeRoles[];
   isDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -203,40 +203,16 @@ Required unique index:
 { tenantId: 1, userId: 1 }
 ```
 
-A user may have memberships such as:
+A user may have employee records such as:
 
 ```text
-User X in Tenant A: OWNER
-User X in Tenant B: VIEWER
+User X in Tenant A: Device_Dashboard
+User X in Tenant B: Only_View
 ```
 
-Removing the Tenant A membership must not delete or disable the global Keycloak identity or the Tenant B membership.
+Removing the Tenant A employee must not delete or disable the global Keycloak identity or the Tenant B employee. Tenant ownership is derived from `TenantModel.ownerId`; it is not represented by a synthetic employee role.
 
-### Tenant Plan
-
-Plan entitlement belongs to the tenant, not the user.
-
-Minimum conceptual model:
-
-```typescript
-interface TenantSubscription {
-  tenantId: string;
-  plan: PlanType;
-  features: PlanFeature[];
-  limits: TenantPlanLimits;
-}
-```
-
-Examples of plan features:
-
-```text
-videoDevices
-dashboard
-notifications
-reports
-reportExport
-fogImport
-```
+All tenants have the same application features. Do not add tenant plans, feature arrays, subscriptions, or feature guards unless product requirements change.
 
 ### Controller Authorization
 
@@ -246,8 +222,7 @@ The normal HTTP guard order should be:
 Authentication
 Active tenant membership
 Tenant status
-Tenant plan feature
-Tenant-specific role
+Tenant-scoped employee role
 Application service
 Tenant-scoped command/query
 Tenant-scoped persistence
@@ -256,13 +231,12 @@ Tenant-scoped persistence
 Conceptual controller usage:
 
 ```typescript
-@RequirePlanFeature(PlanFeatures.REPORTS)
-@RequireTenantRoles(TenantRoles.REPORT_VIEWER)
+@RequireEmployeeRoles(EmployeeRoles.Report)
 @Get('/reports')
 findReports() {}
 ```
 
-Do not implement per-user MongoDB accounts or ordinary per-user CRUD quotas. Controller plan and role guards are sufficient for deciding which operation a user may request.
+Do not implement per-user MongoDB accounts or ordinary per-user CRUD quotas. Controller employee-role guards are sufficient for deciding which operation a user may request.
 
 The repository still must restrict the operation to the active tenant.
 
@@ -282,10 +256,8 @@ The value is a selector only. The API must validate:
 - Keycloak `sub`
 - Tenant existence
 - Tenant status
-- Membership existence for `(tenantId, userId)`
-- Membership status
-- Tenant-specific roles
-- Tenant plan where required
+- Active employee existence for `(tenantId, userId)`
+- Tenant-scoped employee roles
 
 The verified tenant must then be stored in the synchronous request context.
 
@@ -305,29 +277,15 @@ interface MyTenantResponse {
   name: string;
   slug: string;
   status: TenantStatuses;
-  membershipId: string;
-  roles: TenantRole[];
-  plan: PlanType;
+  employeeId: string;
+  roles: EmployeeRoles[];
+  isOwner: boolean;
 }
 ```
 
-### Membership Cache
+### Employee Access Reads
 
-MongoDB remains authoritative. Redis may cache successful membership lookups for a short period.
-
-Suggested key:
-
-```text
-cache:v1:membership:{userId}:{tenantId}
-```
-
-Suggested TTL:
-
-```text
-60 to 300 seconds
-```
-
-Membership, role, plan, or tenant-status changes must invalidate relevant keys immediately.
+MongoDB is authoritative. Active tenant employee access is read directly for each tenant HTTP request so role removal, employee deletion, and tenant suspension take effect immediately without cache invalidation races.
 
 ## Tenant Propagation Through CQRS
 
@@ -344,9 +302,9 @@ For HTTP operations:
 ```text
 HTTP request
   -> authenticate user
-  -> validate X-Tenant-Id membership
+  -> validate X-Tenant-Id employee access
   -> set context.tenantId
-  -> check plan and controller role
+  -> check employee role
   -> create command/query with context.tenantId
   -> handler passes tenantId to repository
 ```
@@ -871,8 +829,8 @@ During the Socket.IO handshake:
 
 1. Validate Keycloak token.
 2. Read requested tenant from `handshake.auth.tenantId`.
-3. Validate tenant status and user membership.
-4. Load tenant-specific roles.
+3. Validate tenant status and the tenant employee record.
+4. Load tenant-scoped `EmployeeRoles`.
 5. Store validated data on `socket.data`.
 6. Join the tenant room.
 
@@ -882,8 +840,9 @@ Suggested socket data:
 interface TenantSocketData {
   tenantId: string;
   userId: string;
-  membershipId: string;
-  roles: TenantRole[];
+  employeeId: string;
+  roles: EmployeeRoles[];
+  isOwner: boolean;
   lang: LanguageCode;
 }
 ```
@@ -1206,7 +1165,7 @@ Return only the configuration payload needed by fog. Do not return actor metadat
 
 ### Notification Endpoints
 
-Fog notification endpoints must validate that the target user has an active membership in the authenticated NVR's tenant.
+Fog notification endpoints must validate that the target user has an active employee record in the authenticated NVR's tenant.
 
 ## Fog Tenant Import
 
@@ -1228,8 +1187,8 @@ An authenticated NVR may import only:
 
 It may not import:
 
-- Tenant memberships
-- Tenant subscription or settings
+- Tenant employees
+- Tenant settings
 - Sibling NVRs
 - Sibling cameras
 - Another tenant
@@ -1371,7 +1330,7 @@ Include where applicable:
 tenantId
 principalType
 principalId
-membershipId
+employeeId
 requestId
 correlationId
 msgId
@@ -1443,7 +1402,7 @@ Implement an idempotent state machine:
 5. Revoke MQTT users and ACLs.
 6. Stop tenant schedulers.
 7. Cancel or finish tenant jobs according to operation safety.
-8. Delete or anonymize memberships.
+8. Delete or anonymize tenant employee records.
 9. Delete SMS notifier settings.
 10. Delete pages.
 11. Delete cameras.
@@ -1529,35 +1488,80 @@ Phase 0 is complete. The next implementation session should start Phase 1 only.
 Do not enable a second production tenant until the later required isolation
 gates in this document also pass.
 
-## Phase 1: Membership, Plan, Role, And Context
+## Phase 1: Employee, Role, And Context
 
 ### Tasks
 
-- [ ] Add tenant ID and membership status to employee membership data or introduce `TenantMembershipModel`.
-- [ ] Add unique `(tenantId, userId)` index.
-- [ ] Add `GET /me/tenants`.
-- [ ] Require and validate `X-Tenant-Id` for tenant HTTP APIs.
-- [ ] Cache membership lookups briefly in Redis.
-- [ ] Add tenant plan representation and plan guard.
-- [ ] Replace global business role checks with tenant-membership role checks at controllers.
-- [ ] Extend request context with verified tenant and membership fields.
-- [ ] Add tenant ID to all tenant-owned CQRS command/query contracts touched by HTTP.
-- [ ] Remove `tenants[0]` from NVR creation.
-- [ ] Refactor employee removal so it removes one membership, not global identity.
+- [x] Add tenant ID to `EmployeeModel` and use employees as the only tenant-membership records.
+- [x] Add unique `(tenantId, userId)` index.
+- [x] Add `GET /me/tenants`.
+- [x] Require and validate `X-Tenant-Id` for tenant HTTP APIs.
+- [x] Validate employee access directly from MongoDB for each tenant HTTP request.
+- [x] Reuse tenant-scoped `EmployeeRoles` at controllers.
+- [x] Extend request context with verified tenant and employee fields.
+- [x] Add tenant ID to all tenant-owned CQRS command/query contracts touched by HTTP.
+- [x] Remove `tenants[0]` from NVR creation.
+- [x] Refactor employee removal so it removes one tenant employee, not global identity.
 
 ### Completion Gate
 
 - The same user can operate in two tenants with different roles.
-- Plan and role guards use the active tenant membership.
+- Employee-role guards use the active tenant employee.
 - Every normal synchronous command/query has explicit tenant ID.
-- Missing or invalid tenant membership fails closed.
+- Missing or deleted tenant employee access fails closed.
+
+### Phase 1 Qualification Evidence
+
+The following gates passed on 2026-08-26:
+
+```text
+npm run test -- --runInBand
+npm run build
+git diff --check
+```
+
+The unit suite contains two-tenant employee roles, active-tenant guard,
+tenant-list, employee-removal, compound-index, and explicit tenant
+query-filter coverage. Direct tenant fields for page records remain Phase 2
+work; SMS notifier records are now directly tenant-owned and repository-scoped.
+Asynchronous CQRS strictness,
+full tenant-scoped WebSocket rooms and MQTT changes remain in their later
+phases. System-log writes, reads, counts, cleanup, SMS notifier selection, and
+WebSocket delivery now carry an explicit verified tenant as described in the
+partial Phase 4 and Phase 6 implementation notes below.
+
+### Phase 1 Revision Note (2026-08-29)
+
+Re-qualified after three deliberate changes. Gates re-run green:
+`npm run build` clean; `npm run test` **63 suites / 208 tests** (was 213).
+
+1. **System-log visibility is no longer role-gated.** Viewing system logs now
+   requires only a valid, active tenant membership — no special employee role —
+   on both the HTTP read (`GET /system-logs`) and the WebSocket push
+   (`SYSTEM_LOGS_SOCKET`). Tenant isolation and per-recipient active-membership
+   revalidation are unchanged; only the `Report`/owner role check was removed so
+   the two delivery paths agree. The `EmployeeRoles.Report` value is retained,
+   unused today, and reserved for a future camera-event reporting feature.
+2. **Startup employee migration removed.** `EmployeeInitService`,
+   `MigrateEmployeePersistenceCommand`, and `employeeMigration.repository.ts`
+   were removed. This service targets fresh development databases with no
+   legacy tenant-membership data to migrate. A one-time migration of any real
+   legacy data (memberships, legacy roles, `plan`/`features`, legacy SMS
+   notifiers) is deferred to the Phase 2 backfill task and the Data Migration
+   Strategy; it must be re-introduced and rehearsed before production rollout.
+3. **Module boundaries clarified.** The employee/tenant-membership aggregate
+   (schema, repository, domain types, contracts, controller) now lives in the
+   `tenantAccess` module that owns and operates it. The former `employees`
+   module was renamed `smsNotifier` and now owns only the SMS notifier feature.
+   No module registers another module's schema.
 
 ## Phase 2: MongoDB And Cache Isolation
 
 ### Tasks
 
-- [ ] Add tenant ID to page and SMS notifier models, domain types, commands, queries, and mappers.
-- [ ] Backfill legacy data into the existing tenant.
+- [ ] Add tenant ID to page models, domain types, commands, queries, and mappers.
+- [x] Add tenant ID to SMS notifier models, domain types, commands, queries, and mappers.
+- [ ] Backfill legacy data into the existing tenant. (The Phase 1 startup migration was removed on 2026-08-29 for fresh dev databases; re-introduce and rehearse a one-time legacy migration here before production — see the Phase 1 Revision Note.)
 - [ ] Add tenant-aware repository contracts.
 - [ ] Scope find, count, aggregate, update, delete, and running-config mutations.
 - [ ] Use `$and` for trusted tenant plus caller filter.
@@ -1599,11 +1603,12 @@ gates in this document also pass.
 
 ### Tasks
 
-- [ ] Validate requested tenant during WebSocket handshake.
-- [ ] Store tenant membership in socket data.
+- [x] Validate requested tenant during WebSocket handshake.
+- [x] Store verified tenant access in socket cache data.
 - [ ] Join verified tenant rooms.
 - [ ] Replace global broadcast iteration with `sendTenantMessage()`.
 - [ ] Update every WebSocket caller to provide tenant.
+- [x] Filter tenant-targeted system-log events against the verified socket tenant.
 - [ ] Restrict production WebSocket origins.
 - [ ] Disconnect sockets after tenant or membership suspension where practical.
 
@@ -1638,20 +1643,61 @@ gates in this document also pass.
 ### Tasks
 
 - [ ] Verify deployed TDengine row identity and same-timestamp behavior.
-- [ ] Select and test the timestamp collision solution.
+- [x] Select and unit-test a per-child monotonic millisecond allocator for the current single-instance deployment.
 - [ ] Create detail and summary databases with configured retention.
-- [ ] Create tenant-tagged v2 system-log supertable.
+- [x] Create tenant-tagged v2 system-log supertable.
 - [ ] Create tenant-tagged v2 actor-log supertable.
+- [x] Create deterministic tenant-plus-severity system-log child tables as the collision-risk-reducing transitional topology.
 - [ ] Create one child table per tenant under each log supertable.
 - [ ] Create one child table per tenant under each summary supertable.
 - [ ] Replace raw filters with typed query contracts.
 - [ ] Validate or bind every value and identifier.
 - [ ] Remove hardcoded timezone offset and use UTC.
-- [ ] Add explicit tenant to actor/system log commands and queries.
+- [x] Add required tenant to system-log commands, queries, counts, and cleanup.
+- [ ] Add explicit tenant to actor-log commands and queries.
 - [ ] Add idempotent rollup jobs.
-- [ ] Stop swallowing TDengine errors.
+- [x] Stop swallowing TDengine query errors.
 - [ ] Dual-write and reconcile before switching reads.
 - [ ] Backfill legacy records to the known legacy tenant.
+
+### Partial System-Log V2 Implementation
+
+Implemented on 2026-08-27:
+
+- `tenantId` is required and UUID-validated by every system-log create, read,
+  count, and cleanup contract.
+- Creation checks that the tenant exists before writing.
+- New records are written only to `systemLogDetailV2`, tagged by `tenantId` and
+  severity. Child table names are derived only from the validated tenant UUID
+  and enum severity.
+- Reads, pagination totals, and cleanup include the tenant tag predicate.
+- Cleanup operates only on deterministic child tables for the requested tenant.
+- Writes allocate strictly increasing timestamps per tenant/severity child in
+  the current process, preventing same-millisecond overwrite while the service
+  runs as one application instance.
+- Asynchronous NVR, camera, page, and fog-recovery producers pass persisted or
+  queue-owned tenant identity explicitly rather than relying on HTTP context.
+- SMS notifier records use required `tenantId`, unique `(tenantId, userId)`, and
+  tenant-scoped reads, updates, and deletion. Legacy rows are backfilled only
+  when one employee tenant can be proven; shared-user ambiguity fails startup.
+- System-log WebSocket delivery revalidates active tenant access for every
+  recipient, so revocation takes effect without waiting for socket
+  reconnection. Delivery requires only an active tenant membership; the earlier
+  `Report`/owner role gate was removed on 2026-08-29 so the WebSocket push and
+  the `GET /system-logs` HTTP read share the same visibility rule (see the
+  Phase 1 Revision Note).
+
+The temporary child topology is one table per tenant and severity. This keeps
+the previous severity partition and avoids combining concurrent severities in
+one timestamp-keyed child. The process-local monotonic allocator covers the
+documented single-instance deployment. Before multiple application replicas,
+replace it with a distributed monotonic allocator, nanosecond timestamps, or a
+verified TDengine composite-key solution.
+
+Legacy unscoped rows remain untouched in `systemLogSuperTable`. Normal tenant
+APIs do not read that table, because assigning or exposing those rows without a
+proven tenant would violate isolation. Backfill and reconciliation remain open
+Phase 6 work.
 
 ### Completion Gate
 
@@ -1670,7 +1716,7 @@ gates in this document also pass.
 - [ ] Add compressed and expanded size limits.
 - [ ] Validate paths, checksums, signatures, schema, and record count.
 - [ ] Stamp server-derived tenant and NVR.
-- [ ] Reject memberships, sibling NVRs, and platform records.
+- [ ] Reject employee records, sibling NVRs, and platform records.
 - [ ] Apply idempotent Mongo upserts through tenant repositories.
 - [ ] Apply time-series records through tenant TDengine repositories.
 - [ ] Add import status, retry, audit, and cleanup.
@@ -1761,7 +1807,7 @@ Follow the Sanaw testing standard.
 
 | Level | Location | Main use |
 |---|---|---|
-| Unit | `src/modules/<module>/tests/**` and mirrored extension test trees | Context, guards, role/plan checks, topic parser, SQL builder, ID generation |
+| Unit | `src/modules/<module>/tests/**` and mirrored extension test trees | Context, employee-role guards, topic parser, SQL builder, ID generation |
 | Integration | `test/integration/**` | Real MongoDB, Redis/BullMQ, TDengine, and EMQX through Testcontainers |
 | E2E | `test/**/*.e2e-spec.ts` | Critical HTTP tenant switching and fog-to-cloud flow |
 | Contract | Pact message tests where contracts cross services | MQTT and external contracts when introduced |
@@ -1773,9 +1819,9 @@ Every isolation suite should create:
 ```text
 Tenant A
 Tenant B
-Shared User: member of A and B with different roles
-User A: member only of A
-User B: member only of B
+Shared User: employee of A and B with different roles
+User A: employee only of A
+User B: employee only of B
 NVR A and NVR B
 Camera A and Camera B
 Page A and Page B
@@ -1786,11 +1832,10 @@ SMS notifier A and SMS notifier B
 
 - [ ] Missing active tenant is rejected.
 - [ ] Unknown tenant is rejected.
-- [ ] Missing membership is rejected.
-- [ ] Suspended membership is rejected.
+- [ ] Missing employee is rejected.
+- [ ] Deleted employee is rejected.
 - [ ] Suspended tenant is rejected.
-- [ ] Plan without feature is rejected.
-- [ ] Missing tenant role is rejected.
+- [ ] Missing employee role is rejected.
 - [ ] Shared user has different roles in two tenants.
 - [ ] Role in Tenant A grants nothing in Tenant B.
 - [ ] Foreign object and nonexistent object have equivalent responses.
@@ -1898,11 +1943,11 @@ SMS notifier A and SMS notifier B
 ### Sequence
 
 1. Deploy Phase 0 containment.
-2. Deploy membership schema additively.
-3. Backfill the existing tenant memberships.
+2. Add `tenantId` to the employee schema additively.
+3. Backfill the existing tenant employees.
 4. Add active tenant validation behind a temporary feature flag.
 5. Update clients to send `X-Tenant-Id`.
-6. Enable controller plan and tenant-role checks.
+6. Enable controller employee-role checks.
 7. Add tenant fields and backfill Mongo data.
 8. Enable tenant-scoped repositories and cache keys.
 9. Run two-tenant staging isolation tests.
@@ -1950,8 +1995,8 @@ Multi-tenancy is complete only when all of the following are true.
 
 - [ ] A user can belong to multiple tenants.
 - [ ] Active tenant is explicit and verified per HTTP request and WebSocket connection.
-- [ ] Tenant plan and roles are enforced at controllers.
-- [ ] Roles are membership-specific.
+- [ ] Tenant-scoped employee roles are enforced at controllers.
+- [ ] Roles are employee-record-specific.
 - [ ] Missing tenant fails closed.
 
 ### CQRS And MongoDB
@@ -2032,7 +2077,7 @@ Implementation priority:
 ```text
 Critical fog containment
 32-bit scoped message IDs
-Membership, plan, role, and active tenant context
+Employee role and active tenant context
 MongoDB and cache tenant scope
 Async CQRS and queue propagation
 WebSocket tenant rooms
