@@ -9,6 +9,7 @@ export class PageModel implements PageProps {
     props: PageProps & { id: string; createdAt: Date; updatedAt: Date },
   ) {
     this.id = props.id;
+    this.tenantId = props.tenantId;
     this.name = props.name;
     this.nvrId = props.nvrId;
     this.type = props.type;
@@ -21,6 +22,9 @@ export class PageModel implements PageProps {
 
   @Prop({ unique: true, required: true })
   id: string;
+
+  @Prop({ required: true, index: true })
+  tenantId: string;
 
   @Prop({ required: true })
   name: string;
@@ -52,3 +56,17 @@ export class PageModel implements PageProps {
   runningConfigs: Record<string, string>;
 }
 export const PageSchema = SchemaFactory.createForClass(PageModel);
+PageSchema.index({ tenantId: 1, id: 1 });
+PageSchema.index({ tenantId: 1, nvrId: 1, type: 1, pageIndex: 1 });
+PageSchema.index({ tenantId: 1, nvrId: 1, name: 1 });
+
+/**
+ * Single source of truth for the tenant-scoped page cache key. Every writer
+ * and every evictor (including the fog restore path in another module) must
+ * use this helper so the key format can never drift between them and leave
+ * stale pages served from cache.
+ */
+export function pageCacheKey(tenantId: string, id: string): string {
+  if (!tenantId) throw new Error('tenantId is required');
+  return `tenant:${tenantId}:${PageModel.name}:${id}`;
+}

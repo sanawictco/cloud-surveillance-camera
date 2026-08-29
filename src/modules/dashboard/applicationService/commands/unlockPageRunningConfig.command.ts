@@ -25,6 +25,7 @@ export class UnlockPageRunningConfigCommandHandler implements ICommandHandler<Un
 
   execute(command: UnlockPageRunningConfigCommand): Promise<boolean> {
     return this.pageRepository.unlockRunningConfig(
+      command.tenantId,
       command.id,
       command.nvrId,
       command.configType,

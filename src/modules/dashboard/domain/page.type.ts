@@ -6,6 +6,7 @@ import { PageIndex } from './valueObjects/pageIndex.vo';
 import { Page, PageTypes } from './valueObjects/pageType.vo';
 
 export interface PageValueObjects {
+  tenantId: BusinessId;
   name: Name;
   nvrId: BusinessId;
   type: Page;
@@ -15,6 +16,7 @@ export interface PageValueObjects {
 }
 
 export interface PageProps {
+  tenantId: string;
   name: string;
   nvrId: string;
   type: PageTypes;
@@ -25,6 +27,7 @@ export interface PageProps {
 
 export interface CreatePageProps {
   originId?: string;
+  tenantId: string;
   name: string;
   type: PageTypes;
   nvrId: string;

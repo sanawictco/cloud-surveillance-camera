@@ -14,15 +14,18 @@ import { PageTypes } from '../../domain/valueObjects/pageType.vo';
 
 export class CreatePageCommand extends Command implements CreatePageProps {
   readonly originId?: string;
+  readonly tenantId: string;
   readonly name: string;
   readonly nvrId: string;
   readonly type: PageTypes;
   constructor(props: CommandProps<CreatePageCommand>) {
     super(props);
     this.originId = props.originId;
+    this.tenantId = props.tenantId;
     this.name = props.name;
     this.nvrId = props.nvrId;
     this.type = props.type;
+    if (!this.tenantId) throw new Error('tenantId is required');
   }
 }
 
@@ -37,11 +40,12 @@ export class CreatePageCommandHandler
   ) {}
 
   async execute(command: CreatePageCommand): Promise<AggregateID> {
-    const maxPageIndexQuery = await this.pageRepo.aggregate({
+    const maxPageIndexQuery = await this.pageRepo.aggregate(command.tenantId, {
       pageIndex: { $max: '$pageIndex' },
     });
     const pageEntity: PageEntity = PageEntity.create({
       originId: command.originId,
+      tenantId: command.tenantId,
       name: command.name,
       nvrId: command.nvrId,
       pageIndex: maxPageIndexQuery[0] ? maxPageIndexQuery[0].pageIndex + 1 : 0,

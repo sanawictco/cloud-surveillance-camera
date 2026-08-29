@@ -59,7 +59,7 @@ export class PagesHttpService {
         tenantId,
       );
     await this.checkAvoidPageDuplicationCreate(tenantId, body.name, body.nvrId);
-    const pageEntity: PageEntity = PageEntity.create(body);
+    const pageEntity: PageEntity = PageEntity.create({ ...body, tenantId });
     return await this.pageRunningConfigService.runConfigIfNotDuplicated(
       pageEntity,
       nvr.getProps().tenantId,

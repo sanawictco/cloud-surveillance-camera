@@ -11,14 +11,10 @@ import { CachingModule } from 'src/extensions/caching/cacheing.module';
 import { DeletePageCommandHandler } from './applicationService/commands/deletePage.command';
 import { UpdatePageCommandHandler } from './applicationService/commands/updatePage.command';
 import {
+  FindAllPagesAsSystemQueryHandler,
   FindAllPagesForTenantQueryHandler,
-  FindAllPagesQueryHandler,
 } from './applicationService/queries/findAllPages.queryHandler';
-import {
-  FindPageByIdForTenantQueryHandler,
-  FindPageByIdQueryHandler,
-} from './applicationService/queries/findPageById.queryHandler';
-import { FindPageByNameQueryHandler } from './applicationService/queries/findPageByName.queryHandler';
+import { FindPageByIdForTenantQueryHandler } from './applicationService/queries/findPageById.queryHandler';
 import { CreatePageCommandHandler } from './applicationService/commands/createPage.command';
 import { PAGE_REPOSITORY } from './infra/diTokens/page.diToken';
 import { PageRepository } from './infra/repositories/page.repository';
@@ -40,10 +36,7 @@ import { PageConfigQueueService } from './applicationService/services/queues/pag
 import { RestorePagesToCacheCommandHandler } from './applicationService/commands/restorePagesToCache.command';
 import { PageMqttController } from './controllers/page.mqtt.controller';
 import { DashboardApiForRuleChainsService } from './applicationService/apiForAnotherServices/dashboardApiForRuleChains.service';
-import {
-  FindPageByNameAndNvrIdForTenantQueryHandler,
-  FindPageByNameAndNvrIdQueryHandler,
-} from './applicationService/queries/findPageByNameAndNvrId.queryHandler';
+import { FindPageByNameAndNvrIdForTenantQueryHandler } from './applicationService/queries/findPageByNameAndNvrId.queryHandler';
 import { DashboardDataService } from './applicationService/services/dashboardData.service';
 import { VideoDevicesModule } from '../videoDevices/videoDevices.module';
 import { DashboardApiForVideoDevicesService } from './applicationService/apiForAnotherServices/dashboardApiForDevices.service';
@@ -60,12 +53,9 @@ const commandHandlers: Provider[] = [
 ];
 const queryHandlers: Provider[] = [
   ...[
-    FindAllPagesQueryHandler,
+    FindAllPagesAsSystemQueryHandler,
     FindAllPagesForTenantQueryHandler,
-    FindPageByIdQueryHandler,
     FindPageByIdForTenantQueryHandler,
-    FindPageByNameQueryHandler,
-    FindPageByNameAndNvrIdQueryHandler,
     FindPageByNameAndNvrIdForTenantQueryHandler,
   ],
 ];

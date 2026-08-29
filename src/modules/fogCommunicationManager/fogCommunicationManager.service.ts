@@ -11,7 +11,7 @@ import { mkdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { CacheService } from 'src/extensions/caching/cache.service';
-import { PageModel } from '../dashboard/infra/schemas/page.schema';
+import { pageCacheKey } from '../dashboard/infra/schemas/page.schema';
 import {
   FogNvrProjection,
   VideoDevicesApiForFogCommunicationManagerService,
@@ -108,12 +108,16 @@ export class FogCommunicationManagerService implements OnApplicationBootstrap {
             nvr.id,
             true,
           );
-          await this.evictRestoredRecords(result);
+          await this.evictRestoredRecords(nvr.tenantId, result);
           await this.videoDevicesApiForFogCommunicationManagerService.completeFogCloudRecovery(
             nvr.serialNumber,
           );
         } catch (error) {
-          await this.evictPartialRestoreRecords(resultFile, nvr.id);
+          await this.evictPartialRestoreRecords(
+            resultFile,
+            nvr.tenantId,
+            nvr.id,
+          );
           await this.videoDevicesApiForFogCommunicationManagerService.resetFogCloudRecovery(
             nvr.id,
           );
@@ -197,17 +201,21 @@ export class FogCommunicationManagerService implements OnApplicationBootstrap {
 
   private async evictPartialRestoreRecords(
     resultFile: string,
+    tenantId: string,
     nvrId: string,
   ): Promise<void> {
     try {
       const result = await this.readRestoreResult(resultFile, nvrId, false);
-      await this.evictRestoredRecords(result);
+      await this.evictRestoredRecords(tenantId, result);
     } catch {
       // No manifest means validation failed before any write was attempted.
     }
   }
 
-  private async evictRestoredRecords(result: FogRestoreResult): Promise<void> {
+  private async evictRestoredRecords(
+    tenantId: string,
+    result: FogRestoreResult,
+  ): Promise<void> {
     await Promise.all([
       ...result.nvrIds.map((id) =>
         this.cacheService.delete(`${NvrModel.name}:${id}`),
@@ -215,8 +223,11 @@ export class FogCommunicationManagerService implements OnApplicationBootstrap {
       ...result.cameraIds.map((id) =>
         this.cacheService.delete(`${CameraModel.name}:${id}`),
       ),
+      // Pages are tenant-scoped in the cache; the key must be built with the
+      // same helper the repository writes with or eviction silently no-ops
+      // and stale pre-restore pages keep being served.
       ...result.pageIds.map((id) =>
-        this.cacheService.delete(`${PageModel.name}:${id}`),
+        this.cacheService.delete(pageCacheKey(tenantId, id)),
       ),
     ]);
   }

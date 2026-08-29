@@ -5,7 +5,11 @@ import { PageRepository } from '../../infra/repositories/page.repository';
 import { QueryBase, QueryBaseParams } from 'src/dddLib/applicationService';
 import { PageProps } from '../../domain/page.type';
 
-export class FindAllPagesQuery extends QueryBase<PageProps> {}
+/**
+ * Explicit cross-tenant page scan for platform/rule-engine flows only. Named
+ * `AsSystem` so a missing tenant can never be silently treated as all tenants.
+ */
+export class FindAllPagesAsSystemQuery extends QueryBase<PageProps> {}
 
 export class FindAllPagesForTenantQuery extends QueryBase<PageProps> {
   constructor(
@@ -17,16 +21,17 @@ export class FindAllPagesForTenantQuery extends QueryBase<PageProps> {
     if (!tenantId) throw new Error('tenantId is required');
   }
 }
-@QueryHandler(FindAllPagesQuery)
-export class FindAllPagesQueryHandler implements IQueryHandler<FindAllPagesQuery> {
+@QueryHandler(FindAllPagesAsSystemQuery)
+export class FindAllPagesAsSystemQueryHandler
+  implements IQueryHandler<FindAllPagesAsSystemQuery>
+{
   constructor(
     @Inject(PAGE_REPOSITORY)
     protected readonly pageRepo: PageRepository,
   ) {}
 
-  async execute(query: FindAllPagesQuery) {
-    const records = await this.pageRepo.findAll(query);
-    return records;
+  async execute(query: FindAllPagesAsSystemQuery) {
+    return this.pageRepo.findAllAsSystem(query);
   }
 }
 
@@ -39,7 +44,7 @@ export class FindAllPagesForTenantQueryHandler implements IQueryHandler<FindAllP
 
   execute(query: FindAllPagesForTenantQuery) {
     if (query.nvrIds.length === 0) return Promise.resolve([]);
-    return this.pageRepo.findAll({
+    return this.pageRepo.findAll(query.tenantId, {
       filter: {
         $and: [{ nvrId: { $in: query.nvrIds } }, query.filter ?? {}],
       },

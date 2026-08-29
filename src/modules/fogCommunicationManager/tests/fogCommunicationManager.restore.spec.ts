@@ -1,6 +1,7 @@
 import { ConflictException } from '@nestjs/common';
 import { writeFile } from 'node:fs/promises';
 import { FogCommunicationManagerService } from '../fogCommunicationManager.service';
+import { pageCacheKey } from '../../dashboard/infra/schemas/page.schema';
 
 describe('FogCommunicationManagerService restore', () => {
   const tenantId = '11111111-1111-4111-8111-111111111111';
@@ -95,6 +96,12 @@ describe('FogCommunicationManagerService restore', () => {
       serialNumber,
     );
     expect(context.cache.delete).toHaveBeenCalledTimes(3);
+    // Pages are cached under a tenant-scoped key. Asserting the exact key (not
+    // just the eviction count) is what catches the repository and the evictor
+    // drifting apart and silently serving stale pre-restore pages.
+    expect(context.cache.delete).toHaveBeenCalledWith(
+      pageCacheKey(tenantId, '44444444-4444-4444-8444-444444444444'),
+    );
     expect(context.cache.releaseLock).toHaveBeenCalledWith(
       `fog-restore:${tenantId}:${nvrId}`,
       'lock-token',

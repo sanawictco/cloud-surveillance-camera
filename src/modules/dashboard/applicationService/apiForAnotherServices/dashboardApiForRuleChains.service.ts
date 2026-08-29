@@ -3,7 +3,7 @@ import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.
 import { PageEntity } from '../../domain/page.entity';
 import { Widget } from '../../domain/valueObjects/pageContent.vo';
 import { UpdatePageCommand } from '../commands/updatePage.command';
-import { FindAllPagesQuery } from '../queries/findAllPages.queryHandler';
+import { FindAllPagesAsSystemQuery } from '../queries/findAllPages.queryHandler';
 
 @Injectable()
 export class DashboardApiForRuleChainsService {
@@ -11,7 +11,9 @@ export class DashboardApiForRuleChainsService {
 
   async deleteDeviceEffectFromWidgetsAndLiveDiagrams(id: string) {
     const pageEntities: PageEntity[] =
-      await this.serviceProvider.queryBus.execute(new FindAllPagesQuery());
+      await this.serviceProvider.queryBus.execute(
+        new FindAllPagesAsSystemQuery(),
+      );
 
     for (const pageEntity of pageEntities) {
       const pageProps = pageEntity.getProps();
@@ -26,6 +28,8 @@ export class DashboardApiForRuleChainsService {
         await this.serviceProvider.commandBus.execute(
           new UpdatePageCommand({
             id: pageEntity.id,
+            tenantId: pageProps.tenantId,
+            nvrId: pageProps.nvrId,
             content: newContent,
           }),
         );

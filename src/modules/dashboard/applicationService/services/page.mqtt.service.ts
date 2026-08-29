@@ -11,7 +11,7 @@ import { PageMapper } from '../../infra/mappers/page.mapper';
 import { CreatePageCommand } from '../commands/createPage.command';
 import { DeletePageCommand } from '../commands/deletePage.command';
 import { UpdatePageCommand } from '../commands/updatePage.command';
-import { FindPageByIdQuery } from '../queries/findPageById.queryHandler';
+import { FindPageByIdForTenantQuery } from '../queries/findPageById.queryHandler';
 import { ActorPropsMsgIdDto } from 'src/modules/shared/dtos/actorPropsMsgId.dto';
 import { CreatePageProps, UpdatePageProps } from '../../domain/page.type';
 
@@ -24,15 +24,25 @@ export class PagesMqttService {
   ) {}
 
   async create(
+    tenantId: string,
+    nvrId: string,
     data: CreatePageProps & { id: string },
     metadata: ActorPropsMsgIdDto,
   ) {
     const { actorProps, msgId } = metadata;
     const id = await this.serviceProvider.commandBus.execute(
-      new CreatePageCommand({ ...data, originId: data.id, actorProps }),
+      new CreatePageCommand({
+        ...data,
+        tenantId,
+        nvrId,
+        originId: data.id,
+        actorProps,
+      }),
     );
     const newPageEntity: PageEntity =
-      await this.serviceProvider.queryBus.execute(new FindPageByIdQuery(id));
+      await this.serviceProvider.queryBus.execute(
+        new FindPageByIdForTenantQuery(tenantId, [nvrId], id),
+      );
     this.websocketService.sendMessage<CreatePageWsResponseDto>(
       this.websocketService.channels.PAGES_SOCKET,
       {
@@ -50,17 +60,19 @@ export class PagesMqttService {
   }
 
   async update(
+    tenantId: string,
+    nvrId: string,
     data: UpdatePageProps & { id: string },
     metadata: ActorPropsMsgIdDto,
   ) {
     const { actorProps, msgId } = metadata;
     await this.serviceProvider.commandBus.execute(
-      new UpdatePageCommand({ ...data, actorProps }),
+      new UpdatePageCommand({ ...data, tenantId, nvrId, actorProps }),
     );
 
     const updatedPageEntity: PageEntity =
       await this.serviceProvider.queryBus.execute(
-        new FindPageByIdQuery(data.id),
+        new FindPageByIdForTenantQuery(tenantId, [nvrId], data.id),
       );
 
     this.websocketService.sendMessage<UpdatePageWsResponseDto>(
@@ -80,6 +92,8 @@ export class PagesMqttService {
   }
 
   async delete(
+    tenantId: string,
+    nvrId: string,
     pageEntity: PageEntity,
     data: { id: string },
     metadata: ActorPropsMsgIdDto,
@@ -87,7 +101,7 @@ export class PagesMqttService {
     const { actorProps, msgId } = metadata;
     if (!pageEntity) return;
     await this.serviceProvider.commandBus.execute(
-      new DeletePageCommand({ id: data.id, actorProps }),
+      new DeletePageCommand({ id: data.id, tenantId, nvrId, actorProps }),
     );
 
     this.websocketService.sendMessage<DeletePageWsResponseDto>(

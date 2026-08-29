@@ -12,13 +12,14 @@ import { PageEntity } from '../../domain/page.entity';
 import { PageActorLogService } from '../services/pageActorLog.service';
 
 export class DeletePageCommand extends Command {
-  readonly tenantId?: string;
+  readonly tenantId: string;
   readonly nvrId?: string;
 
   constructor(props: CommandProps<DeletePageCommand> & IdType) {
     super(props);
     this.tenantId = props.tenantId;
     this.nvrId = props.nvrId;
+    if (!this.tenantId) throw new Error('tenantId is required');
   }
 }
 
@@ -32,12 +33,12 @@ export class DeletePageCommandHandler implements ICommandHandler<DeletePageComma
 
   async execute(command: DeletePageCommand): Promise<AggregateID> {
     const pageEntity: PageEntity | undefined = command.nvrId
-      ? await this.pageRepo.findOne({
+      ? await this.pageRepo.findOne(command.tenantId, {
           $and: [{ id: command.id }, { nvrId: command.nvrId }],
         })
-      : await this.pageRepo.findById(command.id);
+      : await this.pageRepo.findById(command.tenantId, command.id);
     if (!pageEntity) throw new Error('no page exist with this id');
-    const pageEntities = await this.pageRepo.findAll({
+    const pageEntities = await this.pageRepo.findAll(command.tenantId, {
       filter: {
         $and: [
           command.nvrId ? { nvrId: command.nvrId } : {},

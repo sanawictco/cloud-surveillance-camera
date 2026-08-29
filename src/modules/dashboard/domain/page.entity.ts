@@ -37,6 +37,7 @@ export class PageEntity extends AggregateRoot<PageValueObjects, PageProps> {
     if (createPageProps.pageIndex) pageIndex = createPageProps.pageIndex;
     else pageIndex = 0;
     const props: PageValueObjects = {
+      tenantId: new BusinessId(createPageProps.tenantId),
       name: new Name(createPageProps.name),
       nvrId: new BusinessId(createPageProps.nvrId),
       type: new Page(createPageProps.type),

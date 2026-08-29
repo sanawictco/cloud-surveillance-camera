@@ -27,8 +27,9 @@ export class PageMapper implements Mapper<
     const copy = entity.getProps();
     const record: PageModel = {
       id: copy.id,
+      tenantId: copy.tenantId,
       name: copy.name,
-      nvrId: copy.id,
+      nvrId: copy.nvrId,
       type: copy.type,
       pageIndex: copy.pageIndex,
       content: copy.content,
@@ -45,6 +46,7 @@ export class PageMapper implements Mapper<
       createdAt: new Date(record.createdAt),
       updatedAt: new Date(record.updatedAt),
       props: {
+        tenantId: new BusinessId(record.tenantId),
         name: new Name(record.name),
         nvrId: new BusinessId(record.nvrId),
         type: new Page(record.type),

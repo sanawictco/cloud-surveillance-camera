@@ -21,7 +21,7 @@ export class RestorePagesToCacheCommandHandler
   ) {}
 
   async execute(command: RestorePagesToCacheCommand): Promise<AggregateID> {
-    await this.pageRepo.restoreAndInitRecordsToCache();
+    await this.pageRepo.restoreAllPagesToCacheAsSystem();
     return command.id;
   }
 }

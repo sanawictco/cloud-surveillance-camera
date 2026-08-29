@@ -122,6 +122,8 @@ export class PageConfigQueueService implements OnModuleInit {
     if (msg.configType === PageConfigs.CREATE_PAGE) {
       pageEntity = PageEntity.create({
         ...(msg.data as CreatePageProps),
+        tenantId: msg.tenantId,
+        nvrId: msg.nvrId,
         originId: entityId,
       });
     } else {

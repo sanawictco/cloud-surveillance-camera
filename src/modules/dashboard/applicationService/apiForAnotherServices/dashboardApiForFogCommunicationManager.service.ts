@@ -3,9 +3,9 @@ import { PageConfigQueueService } from '../services/queues/pageConfigQueue.servi
 import { PageConfigs } from '../../domain/page.type';
 import { EntityTypes } from 'src/modules/videoDevices/shared/valueObjects/entityTypes';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
-import { FindPageByIdQuery } from '../queries/findPageById.queryHandler';
+import { FindPageByIdForTenantQuery } from '../queries/findPageById.queryHandler';
 import { PageEntity } from '../../domain/page.entity';
-import { FindAllPagesQuery } from '../queries/findAllPages.queryHandler';
+import { FindAllPagesForTenantQuery } from '../queries/findAllPages.queryHandler';
 import { PageRunningConfigService } from '../services/pageRunningConfig.service';
 
 @Injectable()
@@ -21,7 +21,9 @@ export class DashboardApiForFogCommunicationManagerService {
     nvrId: string,
   ): Promise<void> {
     const pages: PageEntity[] = await this.serviceProvider.queryBus.execute(
-      new FindAllPagesQuery({ filter: { nvrId } }),
+      new FindAllPagesForTenantQuery(tenantId, [nvrId], {
+        filter: { nvrId },
+      }),
     );
     for (const page of pages) {
       await this.pageRunningConfigService.stopAndRemoveAllRunningConfigs(
@@ -65,7 +67,11 @@ export class DashboardApiForFogCommunicationManagerService {
     if (queued.configType !== PageConfigs.CREATE_PAGE) {
       const page: PageEntity | undefined =
         await this.serviceProvider.queryBus.execute(
-          new FindPageByIdQuery(queued.metadata.entityId),
+          new FindPageByIdForTenantQuery(
+            tenantId,
+            [nvrId],
+            queued.metadata.entityId,
+          ),
         );
       if (!page || page.getProps().nvrId !== nvrId) {
         throw new Error('configuration is unavailable');

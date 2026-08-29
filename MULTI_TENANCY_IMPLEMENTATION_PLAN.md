@@ -1559,17 +1559,61 @@ Re-qualified after three deliberate changes. Gates re-run green:
 
 ### Tasks
 
-- [ ] Add tenant ID to page models, domain types, commands, queries, and mappers.
+- [x] Add tenant ID to page models, domain types, commands, queries, and mappers.
 - [x] Add tenant ID to SMS notifier models, domain types, commands, queries, and mappers.
 - [ ] Backfill legacy data into the existing tenant. (The Phase 1 startup migration was removed on 2026-08-29 for fresh dev databases; re-introduce and rehearse a one-time legacy migration here before production — see the Phase 1 Revision Note.)
-- [ ] Add tenant-aware repository contracts.
-- [ ] Scope find, count, aggregate, update, delete, and running-config mutations.
-- [ ] Use `$and` for trusted tenant plus caller filter.
-- [ ] Introduce explicit global/system repository methods for boot scans.
-- [ ] Add compound indexes.
-- [ ] Prefix tenant-owned cache keys with tenant.
-- [ ] Ensure cache hits cannot return another tenant.
+- [x] Add tenant-aware repository contracts. (Page done; NVR/Camera/Tenant still on the shared `ParentRepository` and remain open — see the partial note.)
+- [x] Scope find, count, aggregate, update, delete, and running-config mutations. (Page done.)
+- [x] Use `$and` for trusted tenant plus caller filter. (Shared `buildTenantFilter` helper; Page repository uses it.)
+- [x] Introduce explicit global/system repository methods for boot scans. (Page `findAllAsSystem`, `restoreAllPagesToCacheAsSystem`, `FindAllPagesAsSystemQuery`.)
+- [x] Add compound indexes. (Page: `{tenantId,id}`, `{tenantId,nvrId,type,pageIndex}`, `{tenantId,nvrId,name}`.)
+- [x] Prefix tenant-owned cache keys with tenant. (Page cache keys are `tenant:{tenantId}:PageModel:{id}`; NVR/Camera still unprefixed and remain open.)
+- [x] Ensure cache hits cannot return another tenant. (Page cache reads verify the cached record tenant and fall through to a tenant-filtered DB read.)
 - [ ] Stop caching plaintext device secrets.
+
+### Partial Page Isolation Implementation
+
+Implemented on 2026-08-29 (Page aggregate slice only):
+
+- `tenantId` is a required, UUID-validated field on `PageModel`, `PageProps`,
+  `PageValueObjects`, `PageEntity`, the page mapper, `PageCreatedDomainEvent`,
+  and `CreatePageProps`. (Also fixed a latent mapper bug that persisted
+  `nvrId: copy.id`.)
+- `PageRepository` no longer extends the unscoped `ParentRepository`. It is a
+  standalone tenant-scoped repository: `findById`, `findOne`, `findAll`,
+  `aggregate`, `update`, `delete`, and `unlockRunningConfig` all require a
+  tenant and merge it with the caller filter via the shared `buildTenantFilter`
+  `$and` helper. `update`/`delete` throw when they match zero tenant rows
+  instead of silently succeeding.
+- Page cache keys are tenant-prefixed (`tenant:{tenantId}:PageModel:{id}`); a
+  cached record whose tenant does not match is ignored and the read falls
+  through to a tenant-filtered DB query.
+- Cross-tenant page work is done only through explicitly named system methods:
+  `findAllAsSystem`, `restoreAllPagesToCacheAsSystem`, and the
+  `FindAllPagesAsSystemQuery` handler used by the rule-chain widget cleanup
+  (which stamps each page's persisted tenant into the resulting command).
+- Every page command requires a tenant: `CreatePageCommand`,
+  `UpdatePageCommand`, and `DeletePageCommand` fail closed when tenant is
+  absent. The async MQTT write path (`PagesMqttService.create/update/delete`)
+  now derives tenant and NVR from the validated topic and threads them into the
+  commands and tenant-scoped read-back queries.
+- The unscoped `FindPageByIdQuery`, `FindPageByNameQuery`, and
+  `FindPageByNameAndNvrIdQuery` handlers (isolation-bypass reads with no
+  callers) were removed; only the tenant-scoped variants remain.
+- Compound indexes added: `{tenantId,id}`, `{tenantId,nvrId,type,pageIndex}`,
+  `{tenantId,nvrId,name}`.
+- The page cache key has one owner, `pageCacheKey()` in `page.schema.ts`. The
+  fog-restore evictor in `fogCommunicationManager.service.ts` uses the same
+  helper, so the writer and the evictor cannot drift and silently leave stale
+  pre-restore pages in cache.
+- `insert` keeps the deterministic `_id` derived from the aggregate UUID that
+  the shared `ParentRepository` sets, because fog cloud-recovery upserts depend
+  on a stable `_id`.
+
+Still open in Phase 2 for a later slice: converting NVR, Camera, and Tenant
+repositories and their cache keys to the same tenant-scoped/`buildTenantFilter`
+pattern, no-longer caching plaintext device secrets, and the one-time legacy
+backfill migration.
 
 ### Completion Gate
 
@@ -1577,6 +1621,17 @@ Re-qualified after three deliberate changes. Gates re-run green:
 - Pagination totals and aggregates are tenant-specific.
 - Warm and cold cache paths have identical isolation.
 - Global behavior is explicit rather than caused by missing tenant.
+
+Gate status: **not met.** The Page slice is only *unit*-qualified (2026-08-29 —
+`npm run build` clean; `npm run test` 68 suites / 235 tests, all mock-based).
+
+Mock assertions prove the repository *builds* tenant-scoped filters; they do
+not prove MongoDB enforces isolation, that the new compound indexes are valid,
+or that a cross-tenant read by known UUID returns not found end to end. Per the
+Testing Strategy, closing this gate requires the two-tenant fixture and
+Testcontainers integration suites under `test/integration/**`, which do not
+exist yet. NVR/Camera cache scope, device-secret caching, and the legacy
+backfill also remain.
 
 ## Phase 3: Async CQRS, Queues, And Schedulers
 

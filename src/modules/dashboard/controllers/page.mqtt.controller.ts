@@ -94,13 +94,29 @@ export class PageMqttController {
 
         switch (msg.configType) {
           case PageConfigs.CREATE_PAGE:
-            await this.pagesMqttService.create(data, metadata);
+            await this.pagesMqttService.create(
+              topic.tenantId,
+              topic.nvrId,
+              data,
+              metadata,
+            );
             break;
           case PageConfigs.UPDATE_PAGE:
-            await this.pagesMqttService.update(data, metadata);
+            await this.pagesMqttService.update(
+              topic.tenantId,
+              topic.nvrId,
+              data,
+              metadata,
+            );
             break;
           case PageConfigs.DELETE_PAGE:
-            await this.pagesMqttService.delete(pageEntity!, data, metadata);
+            await this.pagesMqttService.delete(
+              topic.tenantId,
+              topic.nvrId,
+              pageEntity!,
+              data,
+              metadata,
+            );
             break;
           default:
             break;
