@@ -43,7 +43,8 @@ export class PagesMqttService {
       await this.serviceProvider.queryBus.execute(
         new FindPageByIdForTenantQuery(tenantId, [nvrId], id),
       );
-    this.websocketService.sendMessage<CreatePageWsResponseDto>(
+    this.websocketService.sendTenantMessage<CreatePageWsResponseDto>(
+      tenantId,
       this.websocketService.channels.PAGES_SOCKET,
       {
         type: PageWebsocketTypes.CONFIG,
@@ -75,7 +76,8 @@ export class PagesMqttService {
         new FindPageByIdForTenantQuery(tenantId, [nvrId], data.id),
       );
 
-    this.websocketService.sendMessage<UpdatePageWsResponseDto>(
+    this.websocketService.sendTenantMessage<UpdatePageWsResponseDto>(
+      tenantId,
       this.websocketService.channels.PAGES_SOCKET,
       {
         type: PageWebsocketTypes.CONFIG,
@@ -104,7 +106,8 @@ export class PagesMqttService {
       new DeletePageCommand({ id: data.id, tenantId, nvrId, actorProps }),
     );
 
-    this.websocketService.sendMessage<DeletePageWsResponseDto>(
+    this.websocketService.sendTenantMessage<DeletePageWsResponseDto>(
+      tenantId,
       this.websocketService.channels.PAGES_SOCKET,
       {
         type: PageWebsocketTypes.CONFIG,

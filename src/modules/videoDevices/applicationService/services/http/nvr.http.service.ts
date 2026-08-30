@@ -88,7 +88,8 @@ export class NvrsHttpService {
       );
     const msgId = generateRandomMsgId();
     setTimeout(() => {
-      this.websocketService.sendMessage<CreateNvrWsResponseDto>(
+      this.websocketService.sendTenantMessage<CreateNvrWsResponseDto>(
+        tenantId,
         this.websocketService.channels.VIDEO_DEVICES_SOCKET,
         {
           type: WebSocketTypes.CONFIG,
@@ -170,7 +171,8 @@ export class NvrsHttpService {
     }
     const msgId = generateRandomMsgId();
     setTimeout(() => {
-      this.websocketService.sendMessage<DeleteNvrWsResponseDto>(
+      this.websocketService.sendTenantMessage<DeleteNvrWsResponseDto>(
+        tenantId,
         this.websocketService.channels.VIDEO_DEVICES_SOCKET,
         {
           type: WebSocketTypes.CONFIG,

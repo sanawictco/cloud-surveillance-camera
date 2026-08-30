@@ -106,7 +106,8 @@ export class SystemLogService {
       message: { msgKey: key, msgParams: params as string[] },
     };
 
-    this.websocketService.sendMessage<CreateAndSendSystemLogWsResponseDto>(
+    this.websocketService.sendTenantMessage<CreateAndSendSystemLogWsResponseDto>(
+      systemLogProps.tenantId,
       this.websocketService.channels.SYSTEM_LOGS_SOCKET,
       {
         type: systemLogWebSocketType,

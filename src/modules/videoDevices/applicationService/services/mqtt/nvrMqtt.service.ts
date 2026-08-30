@@ -81,7 +81,8 @@ export class NvrMqttService {
       await this.serviceProvider.queryBus.execute(
         new FindNvrByIdForTenantQuery(tenantId, data.id),
       );
-    this.websocketService.sendMessage<UpdateNvrWsResponseDto>(
+    this.websocketService.sendTenantMessage<UpdateNvrWsResponseDto>(
+      tenantId,
       this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.CONFIG,
@@ -115,7 +116,8 @@ export class NvrMqttService {
         new FindNvrByIdForTenantQuery(tenantId, data.id),
       );
 
-    this.websocketService.sendMessage<ActiveNvrWsResponseDto>(
+    this.websocketService.sendTenantMessage<ActiveNvrWsResponseDto>(
+      tenantId,
       this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.CONFIG,
@@ -164,7 +166,8 @@ export class NvrMqttService {
       await this.serviceProvider.queryBus.execute(
         new FindNvrByIdForTenantQuery(tenantId, data.id),
       );
-    this.websocketService.sendMessage<InActiveNvrWsResponseDto>(
+    this.websocketService.sendTenantMessage<InActiveNvrWsResponseDto>(
+      tenantId,
       this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.CONFIG,
@@ -293,7 +296,8 @@ export class NvrMqttService {
             metadata: { configType: NvrWebSocketConfigTypes.SEARCH, msgId },
           };
 
-    this.websocketService.sendMessage<SearchNvrWsResponseDto>(
+    this.websocketService.sendTenantMessage<SearchNvrWsResponseDto>(
+      nvr.getProps().tenantId,
       this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       websocketMessage,
     );
@@ -439,7 +443,8 @@ export class NvrMqttService {
       this.cache.delete(nvr.getCacheKeys().autoSearchNvrData!),
       this.cache.delete(nvr.getCacheKeys().namingCamerasData!),
     ]);
-    this.websocketService.sendMessage<RegisterNvrWsResponseDto>(
+    this.websocketService.sendTenantMessage<RegisterNvrWsResponseDto>(
+      tenantId,
       this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.CONFIG,
@@ -491,7 +496,8 @@ export class NvrMqttService {
       activatedCameraEntities.push(activatedCameraEntity);
     }
     if (activatedCameraEntities.length)
-      this.websocketService.sendMessage<ActiveMultiCamerastWsResponseDto>(
+      this.websocketService.sendTenantMessage<ActiveMultiCamerastWsResponseDto>(
+        tenantId,
         this.websocketService.channels.VIDEO_DEVICES_SOCKET,
         {
           type: WebSocketTypes.CONFIG,
@@ -542,7 +548,8 @@ export class NvrMqttService {
       inactivatedCameraEntities.push(inactivatedCameraEntity);
     }
     if (inactivatedCameraEntities.length)
-      this.websocketService.sendMessage<InActiveMultiCamerastWsResponseDto>(
+      this.websocketService.sendTenantMessage<InActiveMultiCamerastWsResponseDto>(
+        tenantId,
         this.websocketService.channels.VIDEO_DEVICES_SOCKET,
         {
           type: WebSocketTypes.CONFIG,
@@ -590,7 +597,8 @@ export class NvrMqttService {
 
       for (let ruleChain of allDependentRuleChains) ruleChain.isActive = false;
     }
-    this.websocketService.sendMessage<SoftDeleteMultiCamerastWsResponseDto>(
+    this.websocketService.sendTenantMessage<SoftDeleteMultiCamerastWsResponseDto>(
+      tenantId,
       this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.CONFIG,

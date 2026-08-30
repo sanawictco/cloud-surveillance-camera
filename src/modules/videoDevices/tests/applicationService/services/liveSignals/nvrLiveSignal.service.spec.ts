@@ -22,7 +22,7 @@ describe('NvrLiveSignalService scheduling', () => {
     };
     const service = new NvrLiveSignalService(
       runningConfigs as never,
-      { sendMessage: jest.fn() } as never,
+      { sendTenantMessage: jest.fn() } as never,
       {
         scheduler,
         queryBus,

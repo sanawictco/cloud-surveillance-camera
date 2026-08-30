@@ -7,6 +7,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import AppConfig from 'configs/app.config';
+import { isUUID } from 'class-validator';
 import { Server, Socket } from 'socket.io';
 import { CacheService } from '../caching/cache.service';
 import { ServiceProvider } from '../serviceProvider/serviceProvider.service';
@@ -16,6 +17,7 @@ import {
 } from '../shutdown/shutdown.service';
 import { WsAuthService } from './wsAuth.service';
 import { WsClientCachedModel } from './websocketClientCachedModel';
+import { tenantRoomName } from './tenantRooms';
 import { TenantAccessService } from 'src/modules/tenantAccess/applicationService/tenantAccess.service';
 
 enum WsChannels {
@@ -32,9 +34,28 @@ export interface WebsocketMsgBaseDto {
   metadata?: object;
 }
 
+// @WebSocketGateway options are static, so the origin is resolved once at
+// module load. The guarded read keeps unit suites that import this module
+// without a full environment from crashing; production still fails fast on a
+// missing CORS_ORIGINS through the strict read in main.ts, which shares this
+// allowlist.
+function wsCorsOrigin(): string[] | boolean {
+  try {
+    const config = AppConfig();
+    if (config.environment === 'production') {
+      // Required in production; the strict read in main.ts fails startup
+      // earlier if it is absent.
+      return config.cors.allowedOrigins!;
+    }
+  } catch {
+    // fall through to the non-production default
+  }
+  return true;
+}
+
 @WebSocketGateway({
   cors: {
-    origin: '*',
+    origin: wsCorsOrigin(),
   },
 })
 export class WebsocketService
@@ -104,6 +125,7 @@ export class WebsocketService
     const userInfo = await this.wsAuthService.validateWsClient(client);
     if (!userInfo) return client.disconnect();
     client.join(client.id);
+    client.join(tenantRoomName(userInfo.tenantId));
     await this.cache.set(client.id, userInfo);
     this.serviceProvider.logger.log(
       `socketId= ${client.id} connected`,
@@ -119,33 +141,48 @@ export class WebsocketService
     );
   }
 
-  sendMessage<T extends WebsocketMsgBaseDto>(
+  sendTenantMessage<T extends WebsocketMsgBaseDto>(
+    tenantId: string,
     channel: WsChannels,
     _wsMessage: T,
   ): void {
+    // Fail closed without throwing: callers may invoke this from detached
+    // timers, where a synchronous throw would surface as an unhandled
+    // rejection. A business event is never delivered without a verified tenant
+    // target.
+    if (!isUUID(tenantId, '4')) {
+      this.serviceProvider.logger.error(
+        `websocket send rejected: tenantId missing or invalid for channel ${channel}`,
+        WebsocketService.name,
+      );
+      return;
+    }
+    const room = tenantRoomName(tenantId);
     setTimeout(
       async () => {
         if (this._isShutDown) return;
         try {
-          const rooms = [...this.server.sockets.adapter.rooms.keys()];
+          const socketIds = [
+            ...(this.server.sockets.adapter.rooms.get(room) ?? []),
+          ];
+          if (socketIds.length === 0) return;
           const wsMessage: any = structuredClone(_wsMessage);
           const originalMessage = wsMessage.message ?? wsMessage.data?.message;
-          const tenantId = wsMessage.tenantId ?? wsMessage.data?.tenantId;
-          if (channel === WsChannels.SYSTEM_LOGS_SOCKET && !tenantId) {
-            throw new Error('system log WebSocket message requires tenantId');
-          }
-          const cachedUsers = await this.cache.getMany(rooms);
+          const cachedUsers = await this.cache.getMany(socketIds);
 
-          for (const room of rooms) {
-            const cachedUserInfo = cachedUsers.get(room);
+          for (const socketId of socketIds) {
+            const cachedUserInfo = cachedUsers.get(socketId);
             if (!cachedUserInfo) continue;
-            if (tenantId && cachedUserInfo.tenantId !== tenantId) continue;
+            if (cachedUserInfo.tenantId !== tenantId) continue;
             if (channel === WsChannels.SYSTEM_LOGS_SOCKET) {
               const access = await this.tenantAccessService.resolveActiveAccess(
                 tenantId,
                 cachedUserInfo.id,
               );
               if (!access) {
+                // Membership was revoked or the tenant was suspended after the
+                // socket connected: drop it instead of leaving a live channel.
+                this.server.sockets.sockets.get(socketId)?.disconnect(true);
                 continue;
               }
             }
@@ -167,11 +204,11 @@ export class WebsocketService
 
             if (wsMessage.message) wsMessage.message = message;
             if (wsMessage.data?.message) wsMessage.data.message = message;
-            this.server.to(room).emit(channel, wsMessage);
+            this.server.to(socketId).emit(channel, wsMessage);
           }
         } catch (err) {
           this.serviceProvider.logger.error(
-            `websocket sendMessage failed for channel ${channel}`,
+            `websocket sendTenantMessage failed for tenant ${tenantId} channel ${channel}`,
             err,
             WebsocketService.name,
           );
@@ -179,5 +216,30 @@ export class WebsocketService
       },
       AppConfig().environment === 'development' ? 500 : 0,
     );
+  }
+
+  /**
+   * Platform/lifecycle operation: force-disconnect every socket of one tenant,
+   * used when the tenant or its members must lose access immediately. It is
+   * separately named and must not be reached by normal business senders.
+   */
+  disconnectTenantSockets(tenantId: string): number {
+    if (!isUUID(tenantId, '4')) return 0;
+    const room = this.server?.sockets?.adapter?.rooms?.get(
+      tenantRoomName(tenantId),
+    );
+    if (!room) return 0;
+    let disconnected = 0;
+    for (const socketId of room) {
+      const socket = this.server.sockets.sockets.get(socketId);
+      if (!socket) continue;
+      socket.disconnect(true);
+      disconnected++;
+    }
+    this.serviceProvider.logger.log(
+      `tenantId= ${tenantId} force-disconnected ${disconnected} socket(s)`,
+      WebsocketService.name,
+    );
+    return disconnected;
   }
 }

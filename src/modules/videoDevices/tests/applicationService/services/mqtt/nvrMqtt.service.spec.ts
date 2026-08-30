@@ -16,7 +16,7 @@ describe('NvrMqttService async tenant scope', () => {
       { commandBus, queryBus } as never,
       { toResponse: jest.fn() } as never,
       { toResponseAll: jest.fn().mockReturnValue([]) } as never,
-      { sendMessage: jest.fn(), channels: { VIDEO_DEVICES_SOCKET: 'ws' } } as never,
+      { sendTenantMessage: jest.fn(), channels: { VIDEO_DEVICES_SOCKET: 'ws' } } as never,
       {} as never,
       {} as never,
       {} as never,

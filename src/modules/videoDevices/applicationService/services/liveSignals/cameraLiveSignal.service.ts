@@ -38,7 +38,8 @@ export class CameraLiveSignalService {
         liveSignalStatus: LiveSignalStatuses.CONNECTED,
       }),
     );
-    this.websocketService.sendMessage<ToConnectedCameraLiveSignalWsResponseDto>(
+    this.websocketService.sendTenantMessage<ToConnectedCameraLiveSignalWsResponseDto>(
+      tenantId,
       this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.DATA,
@@ -61,7 +62,8 @@ export class CameraLiveSignalService {
         liveSignalStatus: LiveSignalStatuses.CONNECTING,
       }),
     );
-    this.websocketService.sendMessage<ToConnectingCameraLiveSignalWsResponseDto>(
+    this.websocketService.sendTenantMessage<ToConnectingCameraLiveSignalWsResponseDto>(
+      cameraEntity.getProps().tenantId,
       this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.DATA,
@@ -88,7 +90,8 @@ export class CameraLiveSignalService {
     await this.CameraRunningConfigAndCommandService.doneAndUnLockConfig(
       cameraEntity,
     );
-    this.websocketService.sendMessage<ToDisconnectedCameraLiveSignalWsResponseDto>(
+    this.websocketService.sendTenantMessage<ToDisconnectedCameraLiveSignalWsResponseDto>(
+      cameraEntity.getProps().tenantId,
       this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.DATA,

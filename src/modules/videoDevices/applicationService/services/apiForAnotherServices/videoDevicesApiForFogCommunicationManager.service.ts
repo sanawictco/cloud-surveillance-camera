@@ -184,7 +184,8 @@ export class VideoDevicesApiForFogCommunicationManagerService {
       }),
     );
     // send cloud is recovering signal to fog
-    this.websocketService.sendMessage<CloudIsRecoveringWsResponseDto>(
+    this.websocketService.sendTenantMessage<CloudIsRecoveringWsResponseDto>(
+      nvrEntity.getProps().tenantId,
       this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.DATA,
@@ -208,7 +209,8 @@ export class VideoDevicesApiForFogCommunicationManagerService {
       }),
     );
     // send cloud is recovered signal to fog
-    this.websocketService.sendMessage<CloudIsRecoveringWsResponseDto>(
+    this.websocketService.sendTenantMessage<CloudIsRecoveringWsResponseDto>(
+      nvrEntity.getProps().tenantId,
       this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.DATA,

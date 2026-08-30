@@ -40,7 +40,8 @@ export class CameraMqttService {
       await this.serviceProvider.queryBus.execute(
         new FindCameraByIdForTenantQuery(tenantId, data.id),
       );
-    this.websocketService.sendMessage<UpdateCameraWsResponseDto>(
+    this.websocketService.sendTenantMessage<UpdateCameraWsResponseDto>(
+      tenantId,
       this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.CONFIG,

@@ -31,7 +31,7 @@ describe('VideoDevicesApiForFogCommunicationManagerService recovery', () => {
     };
     const websocket = {
       channels: { VIDEO_DEVICES_SOCKET: 'video-devices' },
-      sendMessage: jest.fn(),
+      sendTenantMessage: jest.fn(),
     };
     const service = new VideoDevicesApiForFogCommunicationManagerService(
       {} as never,

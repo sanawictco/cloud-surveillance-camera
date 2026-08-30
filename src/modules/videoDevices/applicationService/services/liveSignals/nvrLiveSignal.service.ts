@@ -81,7 +81,8 @@ export class NvrLiveSignalService {
         await this.cameraLiveSignalService.toConnecting(dependentCameraEntity);
       }
     }
-    this.websocketService.sendMessage<ToConnectedNvrLiveSignalWsResponseDto>(
+    this.websocketService.sendTenantMessage<ToConnectedNvrLiveSignalWsResponseDto>(
+      tenantId,
       this.websocketService.channels.VIDEO_DEVICES_SOCKET,
       {
         type: WebSocketTypes.DATA,
@@ -131,7 +132,8 @@ export class NvrLiveSignalService {
           dependentCameraEntity,
         );
       }
-      this.websocketService.sendMessage<ToDisconnectedNvrLiveSignalWsResponseDto>(
+      this.websocketService.sendTenantMessage<ToDisconnectedNvrLiveSignalWsResponseDto>(
+        tenantId,
         this.websocketService.channels.VIDEO_DEVICES_SOCKET,
         {
           type: WebSocketTypes.DATA,

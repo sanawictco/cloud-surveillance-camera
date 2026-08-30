@@ -27,7 +27,8 @@
 | Phase 1 status | Complete and unit-qualified on 2026-08-26; revised 2026-08-29 (see Phase 1 revision note) |
 | Phase 2 status | Page slice unit-qualified 2026-08-29; NVR/Camera/Tenant scope, device-secret caching, and legacy backfill still open |
 | Phase 3 status | Implemented and unit-qualified on 2026-08-30 |
-| Next implementation phase | Phase 4: WebSocket Isolation (plus the open Phase 2 slices and the `test/integration/**` two-tenant suites) |
+| Phase 4 status | Implemented and unit-qualified on 2026-08-30 |
+| Next implementation phase | Phase 5: MQTT Topic And Device Isolation (plus the open Phase 2 slices and the `test/integration/**` two-tenant suites) |
 | System-log visibility | Any active tenant member (no special role); `Report` role reserved for a future camera-event reporting feature |
 
 ## Purpose
@@ -1751,18 +1752,77 @@ with the two-tenant fixture, which still do not exist.
 
 - [x] Validate requested tenant during WebSocket handshake.
 - [x] Store verified tenant access in socket cache data.
-- [ ] Join verified tenant rooms.
-- [ ] Replace global broadcast iteration with `sendTenantMessage()`.
-- [ ] Update every WebSocket caller to provide tenant.
+- [x] Join verified tenant rooms.
+- [x] Replace global broadcast iteration with `sendTenantMessage()`.
+- [x] Update every WebSocket caller to provide tenant.
 - [x] Filter tenant-targeted system-log events against the verified socket tenant.
-- [ ] Restrict production WebSocket origins.
-- [ ] Disconnect sockets after tenant or membership suspension where practical.
+- [x] Restrict production WebSocket origins.
+- [x] Disconnect sockets after tenant or membership suspension where practical.
+
+### Phase 4 Implementation Notes
+
+Implemented on 2026-08-30.
+
+**Tenant rooms.** `src/extensions/websocket/tenantRooms.ts` owns the room name
+`tenant:{tenantId}`. A connection that passes `WsAuthService` validation
+(token, tenant status, active employee) joins that room during
+`handleConnection`, and its verified identity is cached per socket as before.
+An unverified connection is disconnected before joining anything.
+
+**Send API.** The old `WebsocketService.sendMessage`, which iterated every
+room in the adapter and matched tenants afterwards, is gone. The only business
+send is `sendTenantMessage(tenantId, channel, message)`:
+
+- It fails closed on a missing or non-UUID tenant by logging and returning
+  without delivering; it never throws, because several callers fire from
+  detached timers where a synchronous throw would surface as an unhandled
+  rejection.
+- Delivery iterates only the sockets inside `tenant:{tenantId}`, so a tenant A
+  event can never be emitted to a socket that did not join tenant A's room.
+- A cached socket record whose tenant does not equal the target tenant is
+  skipped (defense in depth), and system-log delivery keeps revalidating active
+  tenant access per recipient, so revocation takes effect without waiting for
+  reconnection. A socket that fails that revalidation is now force-disconnected
+  instead of left open.
+- Per-recipient translation in the recipient's language is preserved.
+- The ops-only `server:shutdown` emit remains the sole non-tenant broadcast; it
+  is a platform message, not a business event.
+
+All senders were migrated: the system-log, page, and video-device MQTT, HTTP,
+live-signal, and cloud-recovery services pass the verified context tenant
+(HTTP paths) or the persisted NVR/camera/page tenant (async paths) explicitly.
+The old method no longer exists, so a caller cannot bypass the tenant target.
+
+**Suspension.** `disconnectTenantSockets(tenantId)` is the separately named
+platform operation that force-disconnects a whole tenant; the Phase 9
+lifecycle work wires tenant status changes and membership removal to it.
+Within this phase, suspended or revoked sockets are caught at every handshake
+and at the next system-log send.
+
+**CORS.** The gateway origin now mirrors the HTTP policy in `main.ts`: the
+configured `CORS_ORIGINS` allowlist in production, open origin elsewhere.
+Gateway options are static, so the origin is resolved once at module load
+behind a guarded read; production still fails fast on a missing `CORS_ORIGINS`
+through `main.ts`'s strict read of the same allowlist.
 
 ### Completion Gate
 
 - Tenant A messages never reach Tenant B sockets.
 - The same SSO user can open independent tenant connections.
 - Business events cannot be sent without an explicit tenant target.
+
+Gate status: **unit-qualified only** (2026-08-30 — `npm run build` clean;
+`npm run test` 72 suites / 300 tests). The suites cover tenant-room-scoped
+delivery (tenant B socket untouched), rejected sends without a valid tenant
+target, revoked-membership skip plus force-disconnect, cached-tenant mismatch
+skip, per-recipient translation, tenant-room join and unverified-connection
+disconnect at the gateway, and scoped `disconnectTenantSockets`. As in Phases
+2 and 3 these are mock-based: they prove the service targets only the verified
+tenant room, not that a real socket.io deployment enforces isolation end to
+end. Closing the gate needs the `test/integration/**` two-tenant WebSocket
+suites (tenant A event reaches A but not B, shared user connects separately to
+A and B, suspended tenant connection rejected or disconnected, unapproved
+production origin rejected), which still do not exist.
 
 ## Phase 5: MQTT Topic And Device Isolation
 
@@ -2163,9 +2223,9 @@ Multi-tenancy is complete only when all of the following are true.
 
 ### WebSocket
 
-- [ ] Clients join verified tenant rooms.
-- [ ] Business sends require an explicit tenant.
-- [ ] Global client iteration is removed.
+- [x] Clients join verified tenant rooms.
+- [x] Business sends require an explicit tenant.
+- [x] Global client iteration is removed.
 - [ ] Cross-tenant delivery tests pass.
 
 ### TDengine
