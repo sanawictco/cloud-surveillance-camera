@@ -36,7 +36,10 @@ import {
   FindCameraByNameQueryHandler,
 } from './applicationService/queries/camera/findCameraByName.queryHandler';
 import { FindCameraByNameAndNvrIdQueryHandler } from './applicationService/queries/camera/findCameraByNameAndNvrId.queryHandler';
-import { FindCameraBySerialNumberQueryHandler } from './applicationService/queries/camera/findCameraBySerialNumber.queryHandler';
+import {
+  FindCameraBySerialNumberForTenantQueryHandler,
+  FindCameraBySerialNumberQueryHandler,
+} from './applicationService/queries/camera/findCameraBySerialNumber.queryHandler';
 import {
   FindAllNvrsForTenantQueryHandler,
   FindAllNvrsQueryHandler,
@@ -124,6 +127,7 @@ const queryHandlers: Provider[] = [
     FindCameraByNameForTenantQueryHandler,
     FindCameraByNameAndNvrIdQueryHandler,
     FindCameraBySerialNumberQueryHandler,
+    FindCameraBySerialNumberForTenantQueryHandler,
     FindAllDeletedCamerasByDeletedSerialNumbersQueryHandler,
   ],
 ];

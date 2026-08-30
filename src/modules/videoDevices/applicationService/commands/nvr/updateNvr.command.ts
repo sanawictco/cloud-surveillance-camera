@@ -19,6 +19,12 @@ import {
 import { LiveSignalStatuses } from 'src/modules/videoDevices/shared/valueObjects/liveSignalStatus.vo';
 
 export class UpdateNvrCommand extends Command implements UpdateNvrProps {
+  /**
+   * Verified owning tenant. Optional only while the remaining synchronous
+   * call sites are migrated; when present the handler restricts the update to
+   * that tenant, so an async caller passing it cannot touch a foreign NVR.
+   */
+  readonly tenantId?: string;
   name?: string;
   password?: string;
   lang?: LanguageCode;
@@ -28,6 +34,7 @@ export class UpdateNvrCommand extends Command implements UpdateNvrProps {
 
   constructor(props: CommandProps<UpdateNvrCommand> & IdType) {
     super(props);
+    this.tenantId = props.tenantId;
     this.name = props.name;
     this.password = props.password;
     this.lang = props.lang;
@@ -51,6 +58,10 @@ export class UpdateNvrCommandHandler implements ICommandHandler<UpdateNvrCommand
       command.id,
     );
     if (!nvrEntity) throw Error('not exist nvr with id');
+    // A foreign-tenant NVR must be indistinguishable from a missing one.
+    if (command.tenantId && nvrEntity.getProps().tenantId !== command.tenantId) {
+      throw Error('not exist nvr with id');
+    }
     const previousProps = nvrEntity.getProps(); // snapshot before mutation
     nvrEntity.update(this._toUpdateProps(command));
     await this.nvrRepo.update(nvrEntity);

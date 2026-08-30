@@ -43,10 +43,10 @@ import { UpdateCameraCommand } from '../../commands/camera/updateCamera.command'
 import { ActiveNvrCommand } from '../../commands/nvr/activeNvr.command';
 import { InActiveNvrCommand } from '../../commands/nvr/inactiveNvr.command';
 import { UpdateNvrCommand } from '../../commands/nvr/updateNvr.command';
-import { FindAllCamerasQuery } from '../../queries/camera/findAllCameras.queryHandler';
-import { FindCameraByIdQuery } from '../../queries/camera/findCameraById.queryHandler';
-import { FindCameraBySerialNumberQuery } from '../../queries/camera/findCameraBySerialNumber.queryHandler';
-import { FindNvrByIdQuery } from '../../queries/nvr/findNvrById.queryHandler';
+import { FindAllCamerasForTenantQuery } from '../../queries/camera/findAllCameras.queryHandler';
+import { FindCameraByIdForTenantQuery } from '../../queries/camera/findCameraById.queryHandler';
+import { FindCameraBySerialNumberForTenantQuery } from '../../queries/camera/findCameraBySerialNumber.queryHandler';
+import { FindNvrByIdForTenantQuery } from '../../queries/nvr/findNvrById.queryHandler';
 import { NvrLiveSignalService } from '../liveSignals/nvrLiveSignal.service';
 import { VideoDeviceConfigQueueMsgDto } from '../queues/videoDeviceConfig/videoDeviceConfigQueueMsg.dto';
 
@@ -64,6 +64,7 @@ export class NvrMqttService {
     private readonly cache: CacheService<NvrPrivateSearchCache>,
   ) {}
   async update(
+    tenantId: string,
     data: NvrProps & BaseEntityProps,
     metadata: ActorPropsMsgIdDto,
   ): Promise<void> {
@@ -72,12 +73,13 @@ export class NvrMqttService {
       new UpdateNvrCommand({
         ...(data as object),
         id: data.id,
+        tenantId,
         actorProps,
       }),
     );
     const updatedNvrEntity: NvrEntity =
       await this.serviceProvider.queryBus.execute(
-        new FindNvrByIdQuery(data.id),
+        new FindNvrByIdForTenantQuery(tenantId, data.id),
       );
     this.websocketService.sendMessage<UpdateNvrWsResponseDto>(
       this.websocketService.channels.VIDEO_DEVICES_SOCKET,
@@ -94,20 +96,23 @@ export class NvrMqttService {
   }
 
   async active(
+    tenantId: string,
     nvrEntity: NvrEntity,
     data: { id: AggregateID },
     metadata: ActorPropsMsgIdDto,
   ): Promise<void> {
     if (nvrEntity.getProps().isActive) return;
+    this.assertTargetsNvr(nvrEntity, data.id);
     await this.serviceProvider.commandBus.execute(
       new ActiveNvrCommand({
         id: data.id,
+        tenantId,
         actorProps: metadata.actorProps,
       }),
     );
     const activatedNvrEntity: NvrEntity =
       await this.serviceProvider.queryBus.execute(
-        new FindNvrByIdQuery(data.id),
+        new FindNvrByIdForTenantQuery(tenantId, data.id),
       );
 
     this.websocketService.sendMessage<ActiveNvrWsResponseDto>(
@@ -125,16 +130,18 @@ export class NvrMqttService {
   }
 
   async inactive(
+    tenantId: string,
     nvrEntity: NvrEntity,
     data: { id: AggregateID },
     metadata: ActorPropsMsgIdDto,
   ) {
     const { actorProps, msgId } = metadata;
     if (!nvrEntity.getProps().isActive) return;
+    this.assertTargetsNvr(nvrEntity, data.id);
 
     const dependentCameraEntities: CameraEntity[] =
       await this.serviceProvider.queryBus.execute(
-        new FindAllCamerasQuery({
+        new FindAllCamerasForTenantQuery(tenantId, {
           filter: {
             nvrId: nvrEntity.id,
             isActive: true,
@@ -149,12 +156,13 @@ export class NvrMqttService {
     await this.serviceProvider.commandBus.execute(
       new InActiveNvrCommand({
         id: data.id,
+        tenantId,
         actorProps,
       }),
     );
     const inactivatedNvrEntity: NvrEntity =
       await this.serviceProvider.queryBus.execute(
-        new FindNvrByIdQuery(data.id),
+        new FindNvrByIdForTenantQuery(tenantId, data.id),
       );
     this.websocketService.sendMessage<InActiveNvrWsResponseDto>(
       this.websocketService.channels.VIDEO_DEVICES_SOCKET,
@@ -194,7 +202,7 @@ export class NvrMqttService {
     );
     const currentCameras: CameraEntity[] =
       await this.serviceProvider.queryBus.execute(
-        new FindAllCamerasQuery({
+        new FindAllCamerasForTenantQuery(nvr.getProps().tenantId, {
           filter: { nvrId: nvr.id, isDeleted: { $ne: true } },
         }),
       );
@@ -317,16 +325,21 @@ export class NvrMqttService {
       (camera) => !failedAdditions.has(camera.serialNumber),
     );
 
+    const tenantId = nvr.getProps().tenantId;
     const addedCameras: SanitizedNvrCameraDto[] = [];
     for (const camera of successfulAdditions) {
       const existingById: CameraEntity | undefined = camera.id
         ? await this.serviceProvider.queryBus.execute(
-            new FindCameraByIdQuery(camera.id),
+            new FindCameraByIdForTenantQuery(tenantId, camera.id),
           )
         : undefined;
       const existingOnNvr: CameraEntity | undefined =
         await this.serviceProvider.queryBus.execute(
-          new FindCameraBySerialNumberQuery(camera.serialNumber, nvr.id),
+          new FindCameraBySerialNumberForTenantQuery(
+            tenantId,
+            camera.serialNumber,
+            nvr.id,
+          ),
         );
       if (
         existingById &&
@@ -344,7 +357,7 @@ export class NvrMqttService {
           await this.serviceProvider.commandBus.execute(
             new UpdateCameraCommand({
               id: existing.id,
-              tenantId: nvr.getProps().tenantId,
+              tenantId,
               nvrId: nvr.id,
               isDeleted: false,
               actorProps: queued.metadata.actorProps,
@@ -353,12 +366,13 @@ export class NvrMqttService {
           await this.serviceProvider.commandBus.execute(
             new ActiveCameraCommand({
               id: existing.id,
+              tenantId,
               actorProps: queued.metadata.actorProps,
             }),
           );
           const restored: CameraEntity =
             await this.serviceProvider.queryBus.execute(
-              new FindCameraByIdQuery(existing.id),
+              new FindCameraByIdForTenantQuery(tenantId, existing.id),
             );
           addedCameras.push(toSanitizedCamera(restored));
         } else {
@@ -372,7 +386,11 @@ export class NvrMqttService {
       await this.serviceProvider.commandBus.execute(
         new CreateCameraCommand({
           originId: camera.id,
-          tenantId: camera.tenantId,
+          // Stamp the NVR's persisted tenant and ID rather than the per-camera
+          // fields carried in the queued batch: those are payload data, so a
+          // stale batch entry must not decide which tenant owns a new camera.
+          tenantId,
+          nvrId: nvr.id,
           name: camera.name,
           productModel: camera.productModel,
           username: camera.username,
@@ -382,7 +400,6 @@ export class NvrMqttService {
           streams: camera.streams,
           hasPtz: camera.hasPtz,
           hasAudio: camera.hasAudio,
-          nvrId: camera.nvrId,
           serialNumber: camera.serialNumber,
           actorProps: queued.metadata.actorProps,
         }),
@@ -398,7 +415,11 @@ export class NvrMqttService {
     for (const camera of batch.deletedCameras) {
       const existing: CameraEntity | undefined =
         await this.serviceProvider.queryBus.execute(
-          new FindCameraBySerialNumberQuery(camera.serialNumber, nvr.id),
+          new FindCameraBySerialNumberForTenantQuery(
+            tenantId,
+            camera.serialNumber,
+            nvr.id,
+          ),
         );
       if (!existing) continue;
       if (existing.getProps().nvrId !== nvr.id) {
@@ -408,6 +429,7 @@ export class NvrMqttService {
       await this.serviceProvider.commandBus.execute(
         new SoftDeleteCameraCommand({
           id: existing.id,
+          tenantId,
           actorProps: queued.metadata.actorProps,
         }),
       );
@@ -438,28 +460,33 @@ export class NvrMqttService {
   }
 
   async activateCameras(
+    tenantId: string,
+    nvrEntity: NvrEntity,
     data: { id: AggregateID; cameraIds: AggregateID[] },
     metadata: ActorPropsMsgIdDto,
   ) {
     const { actorProps, msgId } = metadata;
+    this.assertTargetsNvr(nvrEntity, data.id);
     const activatedCameraEntities: CameraEntity[] = [];
     const cameraIds = data.cameraIds;
     for (const cameraId of cameraIds) {
-      const cameraEntity: CameraEntity =
-        await this.serviceProvider.queryBus.execute(
-          new FindCameraByIdQuery(cameraId),
-        );
+      const cameraEntity = await this.requireCameraOnNvr(
+        tenantId,
+        nvrEntity,
+        cameraId,
+      );
       const { isActive, isDeleted } = cameraEntity.getProps();
       if (isActive || isDeleted) continue;
       await this.serviceProvider.commandBus.execute(
         new ActiveCameraCommand({
           id: cameraId,
+          tenantId,
           actorProps,
         }),
       );
       const activatedCameraEntity: CameraEntity =
         await this.serviceProvider.queryBus.execute(
-          new FindCameraByIdQuery(cameraEntity.id),
+          new FindCameraByIdForTenantQuery(tenantId, cameraEntity.id),
         );
       activatedCameraEntities.push(activatedCameraEntity);
     }
@@ -484,28 +511,33 @@ export class NvrMqttService {
   }
 
   async inactivateCameras(
+    tenantId: string,
+    nvrEntity: NvrEntity,
     data: { id: AggregateID; cameraIds: AggregateID[] },
     metadata: ActorPropsMsgIdDto,
   ) {
     const { actorProps, msgId } = metadata;
+    this.assertTargetsNvr(nvrEntity, data.id);
     const cameraIds = data.cameraIds;
     const inactivatedCameraEntities: CameraEntity[] = [];
     for (const cameraId of cameraIds) {
-      const cameraEntity: CameraEntity =
-        await this.serviceProvider.queryBus.execute(
-          new FindCameraByIdQuery(cameraId),
-        );
+      const cameraEntity = await this.requireCameraOnNvr(
+        tenantId,
+        nvrEntity,
+        cameraId,
+      );
       const { isActive } = cameraEntity.getProps();
       if (!isActive) continue;
       await this.serviceProvider.commandBus.execute(
         new InActiveCameraCommand({
           id: cameraId,
+          tenantId,
           actorProps,
         }),
       );
       const inactivatedCameraEntity: CameraEntity =
         await this.serviceProvider.queryBus.execute(
-          new FindCameraByIdQuery(cameraEntity.id),
+          new FindCameraByIdForTenantQuery(tenantId, cameraEntity.id),
         );
       inactivatedCameraEntities.push(inactivatedCameraEntity);
     }
@@ -532,21 +564,26 @@ export class NvrMqttService {
   }
 
   async softDeleteCameras(
+    tenantId: string,
+    nvrEntity: NvrEntity,
     data: { id: AggregateID; cameraIds: AggregateID[] },
     metadata: ActorPropsMsgIdDto,
   ) {
     const { actorProps, msgId } = metadata;
+    this.assertTargetsNvr(nvrEntity, data.id);
     const cameraIds = data.cameraIds;
     const allDependentRuleChains: any = [];
     for (const cameraId of cameraIds) {
-      const cameraEntity = await this.serviceProvider.queryBus.execute(
-        new FindCameraByIdQuery(cameraId),
+      const cameraEntity = await this.requireCameraOnNvr(
+        tenantId,
+        nvrEntity,
+        cameraId,
       );
-      if (!cameraEntity) return;
       if (cameraEntity.getProps().isDeleted) continue;
       await this.serviceProvider.commandBus.execute(
         new SoftDeleteCameraCommand({
           id: cameraEntity.id,
+          tenantId,
           actorProps,
         }),
       );
@@ -567,6 +604,37 @@ export class NvrMqttService {
         },
       },
     );
+  }
+
+  /**
+   * The queued payload names the NVR it claims to target. It must be the NVR
+   * the topic and the persisted record already resolved to, otherwise a device
+   * could act on a sibling NVR by supplying a different `data.id`.
+   */
+  private assertTargetsNvr(nvrEntity: NvrEntity, targetId: AggregateID): void {
+    if (targetId !== nvrEntity.id) {
+      throw new BadRequestException('queued NVR identity mismatch');
+    }
+  }
+
+  /**
+   * Camera IDs arrive inside a queued payload, so each one is re-read under the
+   * validated tenant and must belong to the validated NVR. A camera ID from
+   * another tenant or another NVR fails closed instead of being mutated.
+   */
+  private async requireCameraOnNvr(
+    tenantId: string,
+    nvrEntity: NvrEntity,
+    cameraId: AggregateID,
+  ): Promise<CameraEntity> {
+    const cameraEntity: CameraEntity | undefined =
+      await this.serviceProvider.queryBus.execute(
+        new FindCameraByIdForTenantQuery(tenantId, cameraId),
+      );
+    if (!cameraEntity || cameraEntity.getProps().nvrId !== nvrEntity.id) {
+      throw new BadRequestException('queued camera identity mismatch');
+    }
+    return cameraEntity;
   }
 }
 

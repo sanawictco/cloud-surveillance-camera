@@ -233,7 +233,22 @@ describe('VideoDevicesConfigsMqttController', () => {
 
     await context.controller.handler(context.event);
 
+    // Both entity reads carry the validated topic tenant. An unscoped read by
+    // ID would load a foreign-tenant record and only then compare tenants,
+    // which makes the comparison an assertion rather than an isolation
+    // boundary.
+    expect(context.serviceProvider.queryBus.execute).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ tenantId: 'tenant-id', id: context.nvr.id }),
+    );
+    expect(context.serviceProvider.queryBus.execute).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ tenantId: 'tenant-id', id: camera.id }),
+    );
+    // the validated topic tenant, not the queued payload, is what reaches the
+    // downstream command
     expect(context.cameraMqttService.update).toHaveBeenCalledWith(
+      'tenant-id',
       context.pending.data,
       expect.objectContaining({ msgId: context.pending.msgId }),
     );
@@ -261,6 +276,7 @@ describe('VideoDevicesConfigsMqttController', () => {
     await context.controller.handler(context.event);
 
     expect(context.nvrMqttService.update).toHaveBeenCalledWith(
+      'tenant-id',
       context.pending.data,
       expect.objectContaining({
         msgId: context.pending.msgId,

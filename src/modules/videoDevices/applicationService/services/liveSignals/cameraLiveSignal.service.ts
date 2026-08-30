@@ -1,7 +1,7 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import { WebsocketService } from 'src/extensions/websocket/websocket.service';
-import { FindNvrByIdQuery } from 'src/modules/videoDevices/applicationService/queries/nvr/findNvrById.queryHandler';
+import { FindNvrByIdForTenantQuery } from 'src/modules/videoDevices/applicationService/queries/nvr/findNvrById.queryHandler';
 import { WebSocketTypes } from 'src/modules/shared/websocket.types';
 import { UpdateCameraCommand } from '../../commands/camera/updateCamera.command';
 import { ToConnectedCameraLiveSignalWsResponseDto } from '../../../contracts/camera/websocket/toConnectedCameraLiveSignal.wsResponse.dto';
@@ -23,14 +23,18 @@ export class CameraLiveSignalService {
   ) {}
 
   async toConncted(cameraEntity: CameraEntity) {
-    const nvrEntity: NvrEntity = await this.serviceProvider.queryBus.execute(
-      new FindNvrByIdQuery(cameraEntity.getProps().nvrId),
-    );
+    const { tenantId, nvrId } = cameraEntity.getProps();
+    const nvrEntity: NvrEntity | undefined =
+      await this.serviceProvider.queryBus.execute(
+        new FindNvrByIdForTenantQuery(tenantId, nvrId),
+      );
+    if (!nvrEntity) return;
     cameraEntity.assertTenantMatches(nvrEntity);
     if (!nvrEntity.isConnected()) return;
     await this.serviceProvider.commandBus.execute(
       new UpdateCameraCommand({
         id: cameraEntity.id,
+        tenantId,
         liveSignalStatus: LiveSignalStatuses.CONNECTED,
       }),
     );
@@ -53,6 +57,7 @@ export class CameraLiveSignalService {
     await this.serviceProvider.commandBus.execute(
       new UpdateCameraCommand({
         id: cameraEntity.id,
+        tenantId: cameraEntity.getProps().tenantId,
         liveSignalStatus: LiveSignalStatuses.CONNECTING,
       }),
     );
@@ -76,6 +81,7 @@ export class CameraLiveSignalService {
     await this.serviceProvider.commandBus.execute(
       new UpdateCameraCommand({
         id: cameraEntity.id,
+        tenantId: cameraEntity.getProps().tenantId,
         liveSignalStatus: LiveSignalStatuses.DIS_CONNECTED,
       }),
     );

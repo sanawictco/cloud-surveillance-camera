@@ -18,6 +18,7 @@ import {
 import { SerialNumber } from '../../shared/valueObjects/serialNumber.vo';
 import { IsDeleted } from '../../shared/valueObjects/isDeleted.vo';
 import { EntityTypes } from '../../shared/valueObjects/entityTypes';
+import { cameraDataPubTopic } from '../../shared/deviceMqttTopics';
 import { NvrEntity } from '../nvr/nvr.entity';
 import {
   CameraCloudPubToFogMqttTopics,
@@ -194,7 +195,7 @@ export class CameraEntity extends AggregateRoot<
   private getCloudPubToFogMqttTopics(): CameraCloudPubToFogMqttTopics {
     const { nvrId } = this.getProps();
     return Object.freeze({
-      cameraData: `${nvrId}/${this.id}/camera/data/pub`,
+      cameraData: cameraDataPubTopic(nvrId, this.id),
     });
   }
   generateFogSoftwareConfig(

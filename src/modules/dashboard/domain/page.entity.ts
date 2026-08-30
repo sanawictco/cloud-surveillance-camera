@@ -21,6 +21,7 @@ import { BusinessId } from 'src/dddLib/core/businessId.vo';
 import { Name } from 'src/modules/shared/valueObjects/name.vo';
 import { RunningConfigs } from 'src/modules/shared/valueObjects/runningConfigs.vo';
 import { EntityTypes } from 'src/modules/videoDevices/shared/valueObjects/entityTypes';
+import { pageConfigPubTopic } from 'src/modules/videoDevices/shared/deviceMqttTopics';
 
 export class PageEntity extends AggregateRoot<PageValueObjects, PageProps> {
   protected readonly _id: AggregateID;
@@ -98,7 +99,7 @@ export class PageEntity extends AggregateRoot<PageValueObjects, PageProps> {
   }
   getCloudPubToFogMqttTopics(tenantId: string) {
     const mqttPublishTopicsObject = {
-      pageConfig: `${tenantId}/${this.props.nvrId.unpack()}/page/config/pub`,
+      pageConfig: pageConfigPubTopic(tenantId, this.props.nvrId.unpack()),
     };
     return Object.freeze(mqttPublishTopicsObject);
   }

@@ -9,7 +9,7 @@ import { AggregateID } from 'src/dddLib/core';
 
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import { DashboardApiForVideoDevicesService } from 'src/modules/dashboard/applicationService/apiForAnotherServices/dashboardApiForDevices.service';
-import { FindNvrByIdQuery } from 'src/modules/videoDevices/applicationService/queries/nvr/findNvrById.queryHandler';
+import { FindNvrByIdForTenantQuery } from 'src/modules/videoDevices/applicationService/queries/nvr/findNvrById.queryHandler';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
 import { CAMERA_REPOSITORY } from 'src/modules/videoDevices/infra/camera/camera.diToken';
 import { CameraRepository } from 'src/modules/videoDevices/infra/camera/camera.repository';
@@ -18,8 +18,12 @@ import { CameraActorLogService } from '../../services/actorLogs/cameraActorLog.s
 import { CameraRunningConfigAndCommandService } from '../../services/runningConfigs/cameraRunningConfigAndCommand.service';
 
 export class SoftDeleteCameraCommand extends Command {
+  /** Verified owning tenant; when present the handler fails closed on a foreign camera. */
+  readonly tenantId?: string;
+
   constructor(props: CommandProps<SoftDeleteCameraCommand> & IdType) {
     super(props);
+    this.tenantId = props.tenantId;
   }
 }
 
@@ -38,9 +42,20 @@ export class SoftDeleteCameraCommandHandler implements ICommandHandler<SoftDelet
     const cameraEntity: CameraEntity | undefined =
       await this.cameraRepo.findById(command.id);
     if (!cameraEntity) throw new Error('no camera exist with this id');
-    const nvrEntity: NvrEntity = await this.serviceProvider.queryBus.execute(
-      new FindNvrByIdQuery(cameraEntity.getProps().nvrId),
-    );
+    if (
+      command.tenantId &&
+      cameraEntity.getProps().tenantId !== command.tenantId
+    ) {
+      throw new Error('no camera exist with this id');
+    }
+    const nvrEntity: NvrEntity | undefined =
+      await this.serviceProvider.queryBus.execute(
+        new FindNvrByIdForTenantQuery(
+          cameraEntity.getProps().tenantId,
+          cameraEntity.getProps().nvrId,
+        ),
+      );
+    if (!nvrEntity) throw new Error('no camera exist with this id');
     cameraEntity.assertTenantMatches(nvrEntity);
     const { runningConfigs } = cameraEntity.getProps();
     cameraEntity.softDelete();
@@ -69,9 +84,5 @@ export class SoftDeleteCameraCommandHandler implements ICommandHandler<SoftDelet
       cameraEntity,
       actorId,
     });
-    const nvrEntity: NvrEntity = await this.serviceProvider.queryBus.execute(
-      new FindNvrByIdQuery(cameraEntity.getProps().nvrId),
-    );
-    cameraEntity.assertTenantMatches(nvrEntity);
   }
 }

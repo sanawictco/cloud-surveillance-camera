@@ -15,7 +15,7 @@ import { SystemLogService } from 'src/modules/systemLogs/applicationService/serv
 import { NvrActorLogService } from '../../services/actorLogs/nvrActorLog.service';
 import { NvrLiveSignalService } from '../../services/liveSignals/nvrLiveSignal.service';
 import { NvrRunningConfigService } from '../../services/runningConfigs/nvrRunningConfig.service';
-import { FindAllCamerasQuery } from 'src/modules/videoDevices/applicationService/queries/camera/findAllCameras.queryHandler';
+import { FindAllCamerasForTenantQuery } from 'src/modules/videoDevices/applicationService/queries/camera/findAllCameras.queryHandler';
 import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
 import { DashboardApiForVideoDevicesService } from 'src/modules/dashboard/applicationService/apiForAnotherServices/dashboardApiForDevices.service';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
@@ -74,20 +74,20 @@ export class DeleteNvrCommandHandler implements ICommandHandler<DeleteNvrCommand
     // stop nvr liveSignal
     await this.nvrLiveSignalService.stop(nvrEntity);
     // softDelete dependent cameras
+    const tenantId = nvrEntity.getProps().tenantId;
     const dependentCameraEntities: CameraEntity[] =
       await this.serviceProvider.queryBus.execute(
-        new FindAllCamerasQuery({
-          filter: {
-            tenantId: nvrEntity.getProps().tenantId,
-            nvrId: nvrEntity.id,
-            isDeleted: { $ne: true },
-          },
+        new FindAllCamerasForTenantQuery(tenantId, {
+          filter: { nvrId: nvrEntity.id, isDeleted: { $ne: true } },
         }),
       );
     for (const dependentCameraEntity of dependentCameraEntities) {
       dependentCameraEntity.assertTenantMatches(nvrEntity);
       await this.serviceProvider.commandBus.execute(
-        new SoftDeleteCameraCommand({ id: dependentCameraEntity.id }),
+        new SoftDeleteCameraCommand({
+          id: dependentCameraEntity.id,
+          tenantId,
+        }),
       );
     }
     await this.dashboardApiForVideoDevicesService.deleteDependentPages(

@@ -6,8 +6,8 @@ import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.
 import { ActorDto } from 'src/modules/shared/dtos/actor.dto';
 import { ActorPropsMsgIdDto } from 'src/modules/shared/dtos/actorPropsMsgId.dto';
 import { GLOBAL_ERROR_EVENT } from 'src/utilities/exception.filter';
-import { FindCameraByIdQuery } from '../applicationService/queries/camera/findCameraById.queryHandler';
-import { FindNvrByIdQuery } from '../applicationService/queries/nvr/findNvrById.queryHandler';
+import { FindCameraByIdForTenantQuery } from '../applicationService/queries/camera/findCameraById.queryHandler';
+import { FindNvrByIdForTenantQuery } from '../applicationService/queries/nvr/findNvrById.queryHandler';
 import { CameraMqttService } from '../applicationService/services/mqtt/cameraMqtt.service';
 import { NvrMqttService } from '../applicationService/services/mqtt/nvrMqtt.service';
 import { VideoDeviceConfigQueueMsgDto } from '../applicationService/services/queues/videoDeviceConfig/videoDeviceConfigQueueMsg.dto';
@@ -72,9 +72,12 @@ export class VideoDevicesConfigsMqttController {
       if (!pendingMsg) throw new Error('msg not found');
       this.assertTopicOwnsQueuedEnvelope(topic, pendingMsg);
       this.assertResponseMatchesQueuedConfig(response, pendingMsg);
+      // Read the NVR under the validated topic tenant. An unscoped read by ID
+      // would load a foreign-tenant NVR and only then compare tenants, which
+      // makes the check an assertion instead of an isolation boundary.
       const nvrEntity: NvrEntity | undefined =
         await this.serviceProvider.queryBus.execute(
-          new FindNvrByIdQuery(topic.nvrId),
+          new FindNvrByIdForTenantQuery(topic.tenantId, topic.nvrId),
         );
       this.assertNvrOwnsTopic(topic, nvrEntity);
       const actorProps: ActorDto = pendingMsg.metadata.actorProps as ActorDto;
@@ -87,6 +90,7 @@ export class VideoDevicesConfigsMqttController {
           throw new BadRequestException('queued NVR config type mismatch');
         }
         await this._nvrHandler({
+          tenantId: topic.tenantId,
           nvrEntity,
           configType,
           data,
@@ -95,7 +99,10 @@ export class VideoDevicesConfigsMqttController {
         });
       } else if (pendingMsg.metadata.entityType === EntityTypes.CAMERA) {
         cameraEntity = await this.serviceProvider.queryBus.execute(
-          new FindCameraByIdQuery(pendingMsg.metadata.entityId),
+          new FindCameraByIdForTenantQuery(
+            topic.tenantId,
+            pendingMsg.metadata.entityId,
+          ),
         );
         this.assertCameraOwnsQueuedMessage(
           topic,
@@ -107,6 +114,7 @@ export class VideoDevicesConfigsMqttController {
           throw new BadRequestException('queued camera config type mismatch');
         }
         cameraEntity = await this._cameraHandler({
+          tenantId: topic.tenantId,
           cameraEntity,
           configType,
           data,
@@ -148,6 +156,7 @@ export class VideoDevicesConfigsMqttController {
   }
 
   private async _nvrHandler(props: {
+    tenantId: string;
     nvrEntity: NvrEntity;
     configType: string;
     data: any;
@@ -158,17 +167,17 @@ export class VideoDevicesConfigsMqttController {
       | NvrLifecycleMqttResponseDto;
     metadata: ActorPropsMsgIdDto;
   }) {
-    const { configType, metadata, data, mqttData, nvrEntity } = props;
+    const { tenantId, configType, metadata, data, mqttData, nvrEntity } = props;
     switch (configType) {
       case NvrConfigs.UPDATE:
         if (!metadata.actorProps) throw new Error('actor not found');
-        await this.nvrMqttService.update(data, metadata);
+        await this.nvrMqttService.update(tenantId, data, metadata);
         break;
       case NvrConfigs.ACTIVE:
-        await this.nvrMqttService.active(nvrEntity, data, metadata);
+        await this.nvrMqttService.active(tenantId, nvrEntity, data, metadata);
         break;
       case NvrConfigs.IN_ACTIVE:
-        await this.nvrMqttService.inactive(nvrEntity, data, metadata);
+        await this.nvrMqttService.inactive(tenantId, nvrEntity, data, metadata);
         break;
       case NvrConfigs.REGISTER:
         if (!metadata.actorProps) throw new Error('actor not found');
@@ -190,13 +199,28 @@ export class VideoDevicesConfigsMqttController {
         await this.nvrMqttService.fogLiveSignal(nvrEntity);
         break;
       case NvrConfigs.ACTIVE_MULTI_CAMERAS:
-        await this.nvrMqttService.activateCameras(data, metadata);
+        await this.nvrMqttService.activateCameras(
+          tenantId,
+          nvrEntity,
+          data,
+          metadata,
+        );
         break;
       case NvrConfigs.IN_ACTIVE_MULTI_CAMERAS:
-        await this.nvrMqttService.inactivateCameras(data, metadata);
+        await this.nvrMqttService.inactivateCameras(
+          tenantId,
+          nvrEntity,
+          data,
+          metadata,
+        );
         break;
       case NvrConfigs.SOFT_DELETE_MULTI_CAMERAS:
-        await this.nvrMqttService.softDeleteCameras(data, metadata);
+        await this.nvrMqttService.softDeleteCameras(
+          tenantId,
+          nvrEntity,
+          data,
+          metadata,
+        );
         break;
 
       default:
@@ -205,16 +229,17 @@ export class VideoDevicesConfigsMqttController {
   }
 
   private async _cameraHandler(props: {
+    tenantId: string;
     cameraEntity: CameraEntity;
     configType: string;
     data: any;
     mqttData: NvrLifecycleMqttResponseDto;
     metadata: ActorPropsMsgIdDto;
   }): Promise<CameraEntity> {
-    const { metadata, configType, data, cameraEntity } = props;
+    const { tenantId, metadata, configType, data, cameraEntity } = props;
     switch (configType) {
       case CameraSoftwareConfigs.UPDATE:
-        await this.cameraMqttService.update(data, metadata);
+        await this.cameraMqttService.update(tenantId, data, metadata);
         break;
 
       default:

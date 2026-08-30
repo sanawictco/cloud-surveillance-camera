@@ -25,10 +25,15 @@ import { AggregateID } from 'src/dddLib/core';
 import { DashboardApiForFogCommunicationManagerService } from 'src/modules/dashboard/applicationService/apiForAnotherServices/dashboardApiForFogCommunicationManager.service';
 import { CameraSoftwareConfigs } from 'src/modules/videoDevices/domain/camera/camera.type';
 import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
-import { FindCameraByIdQuery } from '../../queries/camera/findCameraById.queryHandler';
-import { FindAllCamerasQuery } from '../../queries/camera/findAllCameras.queryHandler';
-import { FindNvrByIdQuery } from '../../queries/nvr/findNvrById.queryHandler';
+import { FindCameraByIdForTenantQuery } from '../../queries/camera/findCameraById.queryHandler';
+import { FindAllCamerasForTenantQuery } from '../../queries/camera/findAllCameras.queryHandler';
+import { FindNvrByIdForTenantQuery } from '../../queries/nvr/findNvrById.queryHandler';
 import { CameraRunningConfigAndCommandService } from '../runningConfigs/cameraRunningConfigAndCommand.service';
+import { CLOUD_AVAILABILITY_SCHEDULER_ID } from 'src/extensions/scheduler/schedulerIds';
+import {
+  cloudIsAvailablePubTopic,
+  cloudRecoveryDataAckPubTopic,
+} from 'src/modules/videoDevices/shared/deviceMqttTopics';
 
 export interface FogNvrProjection {
   id: AggregateID;
@@ -123,11 +128,13 @@ export class VideoDevicesApiForFogCommunicationManagerService {
     } else if (queued.metadata.entityType === EntityTypes.CAMERA) {
       const camera: CameraEntity | undefined =
         await this.serviceProvider.queryBus.execute(
-          new FindCameraByIdQuery(queued.metadata.entityId),
+          new FindCameraByIdForTenantQuery(
+            nvrProps.tenantId,
+            queued.metadata.entityId,
+          ),
         );
       if (
         !camera ||
-        camera.getProps().tenantId !== nvrProps.tenantId ||
         camera.getProps().nvrId !== nvr.id ||
         !Object.values(CameraSoftwareConfigs).includes(
           queued.configType as CameraSoftwareConfigs,
@@ -142,25 +149,37 @@ export class VideoDevicesApiForFogCommunicationManagerService {
     return { configType: queued.configType, data: queued.data };
   }
 
+  /**
+   * Genuinely global schedule: it enumerates every active NVR as a system
+   * operation. Each iteration still derives its target from that NVR's own
+   * persisted tenant, so no step interprets "no tenant" as "all tenants".
+   */
   async sendCloudIsAvailableSignalToFog() {
-    await this.serviceProvider.scheduler.setInterval(async () => {
-      const nvrEntities: NvrEntity[] =
-        await this.serviceProvider.queryBus.execute(
-          new FindAllNvrsQuery({ filter: { isActive: true } }),
-        );
-      for (const nvrEntity of nvrEntities) {
-        await this.mqttService.publish(
-          nvrEntity.getCloudPubToFogMqttTopics().cloudIsAvailable,
-          '1',
-        );
-      }
-    }, 10_000);
+    await this.serviceProvider.scheduler.setInterval(
+      async () => {
+        const nvrEntities: NvrEntity[] =
+          await this.serviceProvider.queryBus.execute(
+            new FindAllNvrsQuery({ filter: { isActive: true } }),
+          );
+        for (const nvrEntity of nvrEntities) {
+          const tenantId = nvrEntity.getProps().tenantId;
+          if (!tenantId) continue; // fail closed on an unattributable NVR
+          await this.mqttService.publish(
+            cloudIsAvailablePubTopic(tenantId, nvrEntity.id),
+            '1',
+          );
+        }
+      },
+      10_000,
+      CLOUD_AVAILABILITY_SCHEDULER_ID,
+    );
   }
 
   async preProcessCloudRecovery(nvrEntity: NvrEntity) {
     await this.serviceProvider.commandBus.execute(
       new UpdateNvrCommand({
         id: nvrEntity.id,
+        tenantId: nvrEntity.getProps().tenantId,
         cloudIsRecovering: true,
       }),
     );
@@ -184,6 +203,7 @@ export class VideoDevicesApiForFogCommunicationManagerService {
     await this.serviceProvider.commandBus.execute(
       new UpdateNvrCommand({
         id: nvrEntity.id,
+        tenantId: nvrEntity.getProps().tenantId,
         cloudIsRecovering: false,
       }),
     );
@@ -207,7 +227,10 @@ export class VideoDevicesApiForFogCommunicationManagerService {
     });
     await this.nvrLiveSignalService.toConnected(nvrEntity);
     await this.mqttService.publish(
-      nvrEntity.getCloudPubToFogMqttTopics().cloudRecoveryDataAck,
+      cloudRecoveryDataAckPubTopic(
+        nvrEntity.getProps().tenantId,
+        nvrEntity.id,
+      ),
       'cloud recovery finished',
     );
   }
@@ -235,9 +258,9 @@ export class VideoDevicesApiForFogCommunicationManagerService {
     };
   }
 
-  async resetFogCloudRecovery(nvrId: AggregateID) {
+  async resetFogCloudRecovery(tenantId: AggregateID, nvrId: AggregateID) {
     await this.serviceProvider.commandBus.execute(
-      new UpdateNvrCommand({ id: nvrId, cloudIsRecovering: false }),
+      new UpdateNvrCommand({ id: nvrId, tenantId, cloudIsRecovering: false }),
     );
   }
 
@@ -247,21 +270,19 @@ export class VideoDevicesApiForFogCommunicationManagerService {
     );
   }
 
-  async startFogCloudRecovery(nvrId: AggregateID) {
-    const nvrEntity: NvrEntity = await this.serviceProvider.queryBus.execute(
-      new FindNvrByIdQuery(nvrId),
-    );
+  async startFogCloudRecovery(tenantId: AggregateID, nvrId: AggregateID) {
+    const nvrEntity: NvrEntity | undefined =
+      await this.serviceProvider.queryBus.execute(
+        new FindNvrByIdForTenantQuery(tenantId, nvrId),
+      );
     if (!nvrEntity) throw new Error('NVR does not exist');
     await this.preProcessCloudRecovery(nvrEntity);
     await this.nvrRunningConfigAndCommandService.stopAndRemoveAllRunningConfigs(
       nvrEntity,
     );
     const cameras: CameraEntity[] = await this.serviceProvider.queryBus.execute(
-      new FindAllCamerasQuery({
-        filter: {
-          tenantId: nvrEntity.getProps().tenantId,
-          nvrId: nvrEntity.id,
-        },
+      new FindAllCamerasForTenantQuery(nvrEntity.getProps().tenantId, {
+        filter: { nvrId: nvrEntity.id },
       }),
     );
     for (const camera of cameras) {

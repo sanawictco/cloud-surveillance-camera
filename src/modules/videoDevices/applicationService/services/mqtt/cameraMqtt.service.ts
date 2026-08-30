@@ -8,7 +8,7 @@ import {
 } from 'src/modules/videoDevices/domain/camera/camera.type';
 import { UpdateCameraCommand } from '../../commands/camera/updateCamera.command';
 import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
-import { FindCameraByIdQuery } from '../../queries/camera/findCameraById.queryHandler';
+import { FindCameraByIdForTenantQuery } from '../../queries/camera/findCameraById.queryHandler';
 import { WebsocketService } from 'src/extensions/websocket/websocket.service';
 import { CameraMapper } from 'src/modules/videoDevices/infra/camera/camera.mapper';
 import { LanguageKeys } from 'src/extensions/translation/languageKeys.base';
@@ -23,6 +23,7 @@ export class CameraMqttService {
     private readonly cameraMapper: CameraMapper,
   ) {}
   async update(
+    tenantId: string,
     data: CameraProps & BaseEntityProps,
     metadata: ActorPropsMsgIdDto,
   ) {
@@ -30,13 +31,14 @@ export class CameraMqttService {
     await this.serviceProvider.commandBus.execute(
       new UpdateCameraCommand({
         id: data.id,
+        tenantId,
         name: data.name,
         actorProps,
       }),
     );
     const updatedCameraEntity: CameraEntity =
       await this.serviceProvider.queryBus.execute(
-        new FindCameraByIdQuery(data.id),
+        new FindCameraByIdForTenantQuery(tenantId, data.id),
       );
     this.websocketService.sendMessage<UpdateCameraWsResponseDto>(
       this.websocketService.channels.VIDEO_DEVICES_SOCKET,

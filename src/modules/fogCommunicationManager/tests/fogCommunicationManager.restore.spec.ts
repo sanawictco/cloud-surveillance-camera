@@ -91,7 +91,12 @@ describe('FogCommunicationManagerService restore', () => {
         MONGO_RESTORE_SERIAL_NUMBER: serialNumber,
       }),
     );
-    expect(context.fogApi.startFogCloudRecovery).toHaveBeenCalledWith(nvrId);
+    // recovery is scoped by the authenticated NVR's persisted tenant, so the
+    // NVR is re-read under that tenant rather than by ID alone
+    expect(context.fogApi.startFogCloudRecovery).toHaveBeenCalledWith(
+      tenantId,
+      nvrId,
+    );
     expect(context.fogApi.completeFogCloudRecovery).toHaveBeenCalledWith(
       serialNumber,
     );

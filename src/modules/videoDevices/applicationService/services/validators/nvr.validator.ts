@@ -5,7 +5,7 @@ import { LanguageKeys } from 'src/extensions/translation/languageKeys.base';
 import { AutoRegisterRequestDto } from 'src/modules/videoDevices/contracts/nvr/http/request/autoRegister.request.dto';
 import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
-import { FindAllCamerasQuery } from '../../queries/camera/findAllCameras.queryHandler';
+import { FindAllCamerasForTenantQuery } from '../../queries/camera/findAllCameras.queryHandler';
 import {
   FindNvrByIdForTenantQuery,
   FindNvrByIdQuery,
@@ -61,7 +61,7 @@ export class NvrValidator {
 
     const currentCameras: CameraEntity[] =
       await this.serviceProvider.queryBus.execute(
-        new FindAllCamerasQuery({
+        new FindAllCamerasForTenantQuery(nvrEntity.getProps().tenantId, {
           filter: { nvrId: nvrEntity.id, isDeleted: { $ne: true } },
         }),
       );

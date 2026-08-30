@@ -17,8 +17,19 @@ import { PageSystemLogService } from '../pageSystemLog.service';
 import { buildDeviceJobId } from 'src/dddLib/utils/deviceMessageId';
 import { generateRandomMsgId } from 'src/dddLib/utils/randomIdGenerator';
 import { FindNvrByIdForTenantQuery } from 'src/modules/videoDevices/applicationService/queries/nvr/findNvrById.queryHandler';
+import { EntityTypes } from 'src/modules/videoDevices/shared/valueObjects/entityTypes';
+import {
+  assertTenantQueueMessage,
+  describeTenantQueueFailure,
+} from 'src/modules/shared/tenantQueueMessage';
+import { pageConfigPubTopic } from 'src/modules/videoDevices/shared/deviceMqttTopics';
 
 const MAX_MSG_ID_GENERATION_ATTEMPTS = 5;
+/**
+ * Explicit worker sizing instead of the shared rule-engine default of 1000;
+ * every job here publishes a page configuration to a physical NVR.
+ */
+const PAGE_CONFIG_WORKER_CONCURRENCY = 50;
 
 @Injectable()
 export class PageConfigQueueService implements OnModuleInit {
@@ -38,6 +49,8 @@ export class PageConfigQueueService implements OnModuleInit {
       'pageConfigQueue',
       this.workerMsgHandler.bind(this),
       this.expiredMsgHandler.bind(this),
+      this.failureMsgHandler.bind(this),
+      { concurrency: PAGE_CONFIG_WORKER_CONCURRENCY },
     );
   }
 
@@ -106,48 +119,74 @@ export class PageConfigQueueService implements OnModuleInit {
 
   private async workerMsgHandler(queueMsg: QueueMsg) {
     const msg: PageConfigQueueMsgDto = queueMsg.data;
+    const scope = assertTenantQueueMessage(msg, {
+      allowedEntityTypes: [EntityTypes.PAGE],
+      expectedTopic: ({ tenantId, nvrId }) =>
+        pageConfigPubTopic(tenantId, nvrId),
+      jobId: queueMsg.name,
+    });
     if (msg.metadata.retryCount === queueMsg.opts.repeat?.count) return;
-    await this.mqttService.publish(msg.metadata.topic, msg.msgId);
+    await this.mqttService.publish(scope.topic, scope.msgId);
     this.serviceProvider.logger.debug(
-      `publish pageConfig msgId=${msg.msgId} configType=${msg.configType} retry=${queueMsg.opts.repeat?.count}`,
+      `publish pageConfig tenantId=${scope.tenantId} nvrId=${scope.nvrId} msgId=${scope.msgId} configType=${scope.configType} retry=${queueMsg.opts.repeat?.count}`,
     );
   }
+
   private async expiredMsgHandler(queueMsg: QueueMsg) {
     const msg: PageConfigQueueMsgDto = queueMsg.data;
+    const scope = assertTenantQueueMessage(msg, {
+      allowedEntityTypes: [EntityTypes.PAGE],
+      expectedTopic: ({ tenantId, nvrId }) =>
+        pageConfigPubTopic(tenantId, nvrId),
+      jobId: queueMsg.name,
+      allowExpired: true,
+    });
     this.serviceProvider.logger.debug(
-      `expired pageConfig msgId=${msg.msgId} configType=${msg.configType}`,
+      `expired pageConfig tenantId=${scope.tenantId} nvrId=${scope.nvrId} msgId=${scope.msgId} configType=${scope.configType}`,
     );
-    const { entityId } = msg.metadata;
     let pageEntity: PageEntity;
-    if (msg.configType === PageConfigs.CREATE_PAGE) {
+    if (scope.configType === PageConfigs.CREATE_PAGE) {
       pageEntity = PageEntity.create({
         ...(msg.data as CreatePageProps),
-        tenantId: msg.tenantId,
-        nvrId: msg.nvrId,
-        originId: entityId,
+        tenantId: scope.tenantId,
+        nvrId: scope.nvrId,
+        originId: scope.entityId,
       });
     } else {
       pageEntity = await this.serviceProvider.queryBus.execute(
-        new FindPageByIdForTenantQuery(msg.tenantId, [msg.nvrId], entityId),
+        new FindPageByIdForTenantQuery(
+          scope.tenantId,
+          [scope.nvrId],
+          scope.entityId,
+        ),
       );
     }
-    if (!pageEntity || pageEntity.getProps().nvrId !== msg.nvrId) {
+    if (!pageEntity || pageEntity.getProps().nvrId !== scope.nvrId) {
       throw new Error('page queue tenant scope is invalid');
     }
     const nvrEntity = await this.serviceProvider.queryBus.execute(
-      new FindNvrByIdForTenantQuery(msg.tenantId, msg.nvrId),
+      new FindNvrByIdForTenantQuery(scope.tenantId, scope.nvrId),
     );
     if (!nvrEntity) throw new Error('page queue tenant scope is invalid');
     const expired = await this.pageRunningConfigService.doneAndUnLockConfig(
       pageEntity,
-      msg.tenantId,
-      msg.configType as PageConfigs,
-      msg.msgId,
+      scope.tenantId,
+      scope.configType as PageConfigs,
+      scope.msgId,
     );
     if (!expired) return;
-    await this.pageSystemLogService.handle(msg.tenantId, pageEntity, {
-      configType: msg.configType,
-      msgId: msg.msgId,
+    await this.pageSystemLogService.handle(scope.tenantId, pageEntity, {
+      configType: scope.configType,
+      msgId: scope.msgId,
     });
+  }
+
+  private async failureMsgHandler(queueMsg: QueueMsg, err: Error) {
+    this.serviceProvider.logger.error(
+      `pageConfigQueue job failed: ${describeTenantQueueFailure(
+        queueMsg.data,
+        queueMsg.attemptsMade,
+      )} reason=${err.message}`,
+    );
   }
 }

@@ -12,8 +12,12 @@ import { NvrLiveSignalService } from '../../services/liveSignals/nvrLiveSignal.s
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
 
 export class ActiveNvrCommand extends Command {
+  /** Verified owning tenant; when present the handler fails closed on a foreign NVR. */
+  readonly tenantId?: string;
+
   constructor(props: CommandProps<ActiveNvrCommand>) {
     super(props);
+    this.tenantId = props.tenantId;
   }
 }
 
@@ -31,6 +35,9 @@ export class ActiveNvrCommandHandler implements ICommandHandler<ActiveNvrCommand
       command.id,
     );
     if (!nvrEntity) throw Error('not exist nvr with id');
+    if (command.tenantId && nvrEntity.getProps().tenantId !== command.tenantId) {
+      throw Error('not exist nvr with id');
+    }
     nvrEntity.active();
     await this.nvrRepo.update(nvrEntity);
     const actorId = command.actorProps?.actorId;

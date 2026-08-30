@@ -34,6 +34,12 @@ import { IsActive } from '../../shared/valueObjects/isActive.vo';
 import { MaxCameras } from './valueObjects/maxCameras.vo';
 import { VideoDeviceConfigQueueMsgDto } from '../../applicationService/services/queues/videoDeviceConfig/videoDeviceConfigQueueMsg.dto';
 import { EntityTypes } from '../../shared/valueObjects/entityTypes';
+import {
+  cloudIsAvailablePubTopic,
+  cloudRecoveryDataAckPubTopic,
+  pageConfigPubTopic,
+  videoDeviceConfigPubTopic,
+} from '../../shared/deviceMqttTopics';
 import { ProductModel } from '../camera/valueObjects/productModel.vo';
 
 export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
@@ -171,10 +177,10 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
   getCloudPubToFogMqttTopics(): NvrCloudPubToFogMqttTopics {
     const tenantId = this.getProps().tenantId;
     const mqttPublishTopicsObject: NvrCloudPubToFogMqttTopics = {
-      videoDeviceConfigs: `${tenantId}/${this.id}/videoDevice/Config/pub`,
-      cloudRecoveryDataAck: `${tenantId}/${this.id}/cloudRecoveryData/pub`,
-      cloudIsAvailable: `${tenantId}/${this.id}/cloudIsAvailable/pub`,
-      pageConfig: `${tenantId}/${this.id}/page/config/pub`,
+      videoDeviceConfigs: videoDeviceConfigPubTopic(tenantId, this.id),
+      cloudRecoveryDataAck: cloudRecoveryDataAckPubTopic(tenantId, this.id),
+      cloudIsAvailable: cloudIsAvailablePubTopic(tenantId, this.id),
+      pageConfig: pageConfigPubTopic(tenantId, this.id),
     };
 
     const cameraPublishTopics = this.transformSubscribeToPublishTopics(

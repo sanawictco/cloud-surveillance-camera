@@ -148,6 +148,7 @@ export class NvrSystemLogService {
     await this.serviceProvider.commandBus.execute(
       new UpdateNvrCommand({
         id: nvrProps.id,
+        tenantId: nvrProps.tenantId,
         cloudIsRecovering: false,
       }),
     );

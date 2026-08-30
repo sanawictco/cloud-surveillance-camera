@@ -35,7 +35,10 @@ export interface IQueue<T> {
     queueName: string,
     workerMsgHandler: (msg: QueueMsg) => Promise<void>,
     expiredMsgHandler?: (msg: QueueMsg) => Promise<void>,
-    failureMsgHandler?: (msg: QueueMsg) => Promise<void>,
+    // the failure handler receives the error too (matching QueueService and
+    // BullMQ's own 'failed' event). The interface previously declared a
+    // one-arg handler, so a two-arg implementation did not type-check here.
+    failureMsgHandler?: (msg: QueueMsg, err: Error) => Promise<void>,
     workerOptions?: QueueWorkerOverrides,
   ): IQueue<T>;
   /**

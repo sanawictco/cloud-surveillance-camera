@@ -7,9 +7,14 @@ import { ToConnectedNvrLiveSignalWsResponseDto } from '../../../contracts/nvr/we
 import { WebSocketTypes } from 'src/modules/shared/websocket.types';
 import { ToDisconnectedNvrLiveSignalWsResponseDto } from '../../../contracts/nvr/websocket/toDisconnectedNvrLiveSignal.wsResponse.dto';
 import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
-import { FindAllCamerasQuery } from 'src/modules/videoDevices/applicationService/queries/camera/findAllCameras.queryHandler';
+import { FindAllCamerasForTenantQuery } from 'src/modules/videoDevices/applicationService/queries/camera/findAllCameras.queryHandler';
 import { CameraLiveSignalService } from 'src/modules/videoDevices/applicationService/services/liveSignals/cameraLiveSignal.service';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
+import { FindNvrByIdForTenantQuery } from 'src/modules/videoDevices/applicationService/queries/nvr/findNvrById.queryHandler';
+import {
+  legacyNvrLiveSignalSchedulerId,
+  nvrLiveSignalSchedulerId,
+} from 'src/extensions/scheduler/schedulerIds';
 import {
   NvrConfigs,
   NvrWebSocketDataTypes,
@@ -27,30 +32,44 @@ export class NvrLiveSignalService {
   ) {}
 
   async start(nvrEntity: NvrEntity) {
+    const { tenantId } = nvrEntity.getProps();
     await this.serviceProvider.scheduler.setInterval(
       async () => {
+        // Re-read the NVR under its persisted tenant on every tick so a long
+        // lived schedule acts on current state, and pass that verified entity
+        // (not the closure capture) into the config command.
+        const current: NvrEntity | undefined =
+          await this.serviceProvider.queryBus.execute(
+            new FindNvrByIdForTenantQuery(tenantId, nvrEntity.id),
+          );
+        if (!current) {
+          await this.stop(nvrEntity);
+          return;
+        }
         await this.nvrRunningConfigService.runConfigIfNotDuplicated(
-          nvrEntity,
+          current,
           NvrConfigs.FOG_LIVE_SIGNAL,
           [],
         );
       },
       50_000,
-      nvrEntity.id,
+      nvrLiveSignalSchedulerId(tenantId, nvrEntity.id),
     );
   }
 
   async toConnected(nvrEntity: NvrEntity) {
+    const { tenantId } = nvrEntity.getProps();
     if (!nvrEntity.isConnected()) {
       await this.serviceProvider.commandBus.execute(
         new UpdateNvrCommand({
           id: nvrEntity.id,
+          tenantId,
           liveSignalStatus: LiveSignalStatuses.CONNECTED,
         }),
       );
       const dependentCameraEntities: CameraEntity[] =
         await this.serviceProvider.queryBus.execute(
-          new FindAllCamerasQuery({
+          new FindAllCamerasForTenantQuery(tenantId, {
             filter: {
               nvrId: nvrEntity.id,
               isActive: true,
@@ -78,10 +97,12 @@ export class NvrLiveSignalService {
   }
 
   async toDisconnected(nvrEntity: NvrEntity) {
+    const { tenantId } = nvrEntity.getProps();
     if (!nvrEntity.isDisconnected()) {
       await this.serviceProvider.commandBus.execute(
         new UpdateNvrCommand({
           id: nvrEntity.id,
+          tenantId,
           liveSignalStatus: LiveSignalStatuses.DIS_CONNECTED,
         }),
       );
@@ -97,7 +118,7 @@ export class NvrLiveSignalService {
 
       const dependentCameraEntities: CameraEntity[] =
         await this.serviceProvider.queryBus.execute(
-          new FindAllCamerasQuery({
+          new FindAllCamerasForTenantQuery(tenantId, {
             filter: {
               nvrId: nvrEntity.id,
               isActive: true,
@@ -127,6 +148,15 @@ export class NvrLiveSignalService {
   }
 
   async stop(nvrEntity: NvrEntity) {
-    await this.serviceProvider.scheduler.remove(nvrEntity.id);
+    const { tenantId } = nvrEntity.getProps();
+    await this.serviceProvider.scheduler.remove(
+      nvrLiveSignalSchedulerId(tenantId, nvrEntity.id),
+    );
+    // Also clear the pre-Phase-3 bare-nvrId schedule so an NVR deactivated
+    // right after a deploy does not keep an orphaned live-signal interval
+    // running under the old key.
+    await this.serviceProvider.scheduler
+      .remove(legacyNvrLiveSignalSchedulerId(nvrEntity.id))
+      .catch(() => undefined);
   }
 }

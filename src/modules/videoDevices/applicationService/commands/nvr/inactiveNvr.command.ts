@@ -12,13 +12,17 @@ import { NvrRunningConfigService } from '../../services/runningConfigs/nvrRunnin
 import { NvrLiveSignalService } from '../../services/liveSignals/nvrLiveSignal.service';
 import { NvrActorLogService } from '../../services/actorLogs/nvrActorLog.service';
 import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
-import { FindAllCamerasQuery } from 'src/modules/videoDevices/applicationService/queries/camera/findAllCameras.queryHandler';
+import { FindAllCamerasForTenantQuery } from 'src/modules/videoDevices/applicationService/queries/camera/findAllCameras.queryHandler';
 import { InActiveCameraCommand } from 'src/modules/videoDevices/applicationService/commands/camera/inactiveCamera.command';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
 
 export class InActiveNvrCommand extends Command {
+  /** Verified owning tenant; when present the handler fails closed on a foreign NVR. */
+  readonly tenantId?: string;
+
   constructor(props: CommandProps<InActiveNvrCommand>) {
     super(props);
+    this.tenantId = props.tenantId;
   }
 }
 
@@ -38,6 +42,9 @@ export class InActiveNvrCommandHandler implements ICommandHandler<InActiveNvrCom
       command.id,
     );
     if (!nvrEntity) throw Error('not exist nvr with id');
+    if (command.tenantId && nvrEntity.getProps().tenantId !== command.tenantId) {
+      throw Error('not exist nvr with id');
+    }
     const actorId = command.actorProps?.actorId;
     if (!actorId) throw new Error('actorId does not exist');
     await this.processPreDependencies(nvrEntity, actorId);
@@ -48,11 +55,11 @@ export class InActiveNvrCommandHandler implements ICommandHandler<InActiveNvrCom
   }
 
   private async processPreDependencies(nvrEntity: NvrEntity, actorId?: string) {
+    const tenantId = nvrEntity.getProps().tenantId;
     const dependentCameraEntities: CameraEntity[] =
       await this.serviceProvider.queryBus.execute(
-        new FindAllCamerasQuery({
+        new FindAllCamerasForTenantQuery(tenantId, {
           filter: {
-            tenantId: nvrEntity.getProps().tenantId,
             nvrId: nvrEntity.id,
             isActive: true,
             isDeleted: { $ne: true },
@@ -64,6 +71,7 @@ export class InActiveNvrCommandHandler implements ICommandHandler<InActiveNvrCom
       await this.serviceProvider.commandBus.execute(
         new InActiveCameraCommand({
           id: dependentCameraEntity.id,
+          tenantId,
           actorProps: { actorId },
         }),
       );

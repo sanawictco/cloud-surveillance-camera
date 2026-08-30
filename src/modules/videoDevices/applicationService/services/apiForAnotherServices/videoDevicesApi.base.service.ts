@@ -1,6 +1,5 @@
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
-import { FindCameraByIdQuery } from '../../queries/camera/findCameraById.queryHandler';
 import { CameraValidator } from '../validators/camera.validator';
 
 export class VideoDevicesApiBaseService {
@@ -14,10 +13,5 @@ export class VideoDevicesApiBaseService {
   ) {
     //TODO
     return true;
-  }
-  async findCameraWithId(id: string): Promise<CameraEntity> {
-    const cameraEntity: CameraEntity =
-      await this.serviceProvider.queryBus.execute(new FindCameraByIdQuery(id));
-    return cameraEntity;
   }
 }

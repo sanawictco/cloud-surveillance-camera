@@ -87,6 +87,7 @@ export class FogCommunicationManagerService implements OnApplicationBootstrap {
 
         try {
           await this.videoDevicesApiForFogCommunicationManagerService.startFogCloudRecovery(
+            nvr.tenantId,
             nvr.id,
           );
           await this.runCommand(
@@ -119,6 +120,7 @@ export class FogCommunicationManagerService implements OnApplicationBootstrap {
             nvr.id,
           );
           await this.videoDevicesApiForFogCommunicationManagerService.resetFogCloudRecovery(
+            nvr.tenantId,
             nvr.id,
           );
           throw error;

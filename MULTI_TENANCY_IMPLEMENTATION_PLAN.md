@@ -25,7 +25,9 @@
 | Last updated | 2026-08-29 |
 | Phase 0 status | Complete and runtime-qualified on 2026-08-25 |
 | Phase 1 status | Complete and unit-qualified on 2026-08-26; revised 2026-08-29 (see Phase 1 revision note) |
-| Next implementation phase | Phase 2: MongoDB And Cache Isolation |
+| Phase 2 status | Page slice unit-qualified 2026-08-29; NVR/Camera/Tenant scope, device-secret caching, and legacy backfill still open |
+| Phase 3 status | Implemented and unit-qualified on 2026-08-30 |
+| Next implementation phase | Phase 4: WebSocket Isolation (plus the open Phase 2 slices and the `test/integration/**` two-tenant suites) |
 | System-log visibility | Any active tenant member (no special role); `Report` role reserved for a future camera-event reporting feature |
 
 ## Purpose
@@ -124,8 +126,8 @@ The following code conditions were verified during the audit and motivate the ph
 | High | Device secrets are stored and cached in plaintext, and the NVR password is returned over HTTP | `src/modules/videoDevices/infra/nvr/nvr.schema.ts:23-30`, `src/modules/videoDevices/contracts/nvr/http/response/nvr.response.dto.ts` |
 | High | SMS notification recipients are selected globally | `src/modules/systemLogs/applicationService/services/systemLog.service.ts:130-157` |
 | Medium | Cache keys omit tenant, and cache-wide operations affect all tenants | `src/extensions/caching/cache.service.ts:27`, `327-369` |
-| Medium | Queue workers establish no tenant context and trust their payload structure | `src/extensions/queue/queue.service.ts:267-298` |
-| Medium | Scheduler tenant namespace support exists but is unused | `src/extensions/scheduler/scheduler.service.ts:29-34`, `390-392` |
+| Medium | ~~Queue workers establish no tenant context and trust their payload structure~~ Resolved in Phase 3 by `assertTenantQueueMessage` | `src/modules/shared/tenantQueueMessage.ts` |
+| Medium | ~~Scheduler tenant namespace support exists but is unused~~ Resolved in Phase 3 by tenant-scoped scheduler IDs | `src/extensions/scheduler/schedulerIds.ts` |
 | Medium | TDengine query errors can be returned as empty results | `src/modules/shared/timeseriesRepository.ts:183-203` |
 | Medium | TDengine has no configured detail retention or summary rollups | No retention or rollup implementation exists |
 
@@ -1637,22 +1639,111 @@ backfill also remain.
 
 ### Tasks
 
-- [ ] Add tenant and NVR to every tenant queue message.
-- [ ] Add tenant and NVR to page queue messages.
-- [ ] Add tenant and NVR to camera hardware queue messages.
-- [ ] Change queue lookup APIs to `(tenantId, nvrId, msgId)`.
-- [ ] Validate queue message structure and ownership before worker side effects.
-- [ ] Pass `queueMsg.tenantId` explicitly to async commands and queries.
-- [ ] Add tenant-aware failure and expiry handling.
-- [ ] Add tenant scheduler identifiers.
-- [ ] Make global schedulers pass each persisted entity tenant explicitly.
-- [ ] Review queue concurrency and failed-job retention.
+- [x] Add tenant and NVR to every tenant queue message.
+- [x] Add tenant and NVR to page queue messages.
+- [x] Add tenant and NVR to camera hardware queue messages.
+- [x] Change queue lookup APIs to `(tenantId, nvrId, msgId)`. (Done in Phase 0.)
+- [x] Validate queue message structure and ownership before worker side effects.
+- [x] Pass `queueMsg.tenantId` explicitly to async commands and queries.
+- [x] Add tenant-aware failure and expiry handling.
+- [x] Add tenant scheduler identifiers.
+- [x] Make global schedulers pass each persisted entity tenant explicitly.
+- [x] Review queue concurrency and failed-job retention.
+
+### Phase 3 Implementation Notes
+
+Implemented on 2026-08-30.
+
+**Shared queue envelope.** `src/modules/shared/tenantQueueMessage.ts` adds
+`assertTenantQueueMessage`, one fail-closed validator used by all three device
+queue workers before any side effect. It rejects a job whose structure, tenant
+UUID, NVR UUID, uint32 `msgId`, entity type, derived topic, or issued/expiry
+window is invalid or absent, and returns a `ValidatedTenantQueueScope` that
+handlers use instead of re-reading unvalidated payload fields.
+
+Two properties are load-bearing:
+
+- The **scoped job ID is the tenant boundary.** The validator rebuilds
+  `t-{tenantId}-n-{nvrId}-m-{msgId}` from the message body and compares it to
+  the BullMQ key the job was stored under. A payload whose tenant, NVR, or
+  `msgId` no longer matches its queue slot is rejected. This is what binds the
+  camera-data queue to a tenant at all, because the legacy camera hardware topic
+  has no tenant segment (topic normalization is Phase 5).
+- The **publish target is derived, never echoed.** Workers publish to the topic
+  computed from the validated tenant/NVR, not to the stored `metadata.topic`, so
+  a stale or forged job cannot redirect a payload at another tenant's device.
+  `src/modules/videoDevices/shared/deviceMqttTopics.ts` is now the single owner
+  of every cloud→fog publish topic, so the producer entities and the validator
+  cannot drift.
+
+The validator deliberately does **not** reuse `Guard.isUUIDv4`: that regex is
+unanchored, so `"x<uuid>y"` passes it. Tenant identity becomes a Redis key
+segment here, so it is matched against the whole string.
+
+`entityId` is validated as a whole UUID for the same reason: on the camera-data
+queue it is interpolated into the derived publish topic, so a value such as
+`aaa/#` would otherwise inject MQTT topic separators and a wildcard into the
+address a payload is published to. (This also contains a non-UUID page
+`originId`, which `PageEntity.create` does not itself constrain — such a page
+fails closed at the worker boundary instead of reaching a topic.)
+
+Expiry handlers pass an explicit `allowExpired: true` rather than faking a
+clock. It relaxes *only* the "already expired" comparison — an absent lifetime
+or a foreign queue key is still rejected there — because expiry runs after the
+final retry, when the window is closed by definition.
+
+**Async tenant propagation.** Expiry handlers, the video-device MQTT
+controller, and `NvrMqttService`/`CameraMqttService` now resolve entities with
+`FindNvrByIdForTenantQuery` / `FindCameraByIdForTenantQuery` /
+`FindAllCamerasForTenantQuery` / the new
+`FindCameraBySerialNumberForTenantQuery`, instead of reading by ID and then
+comparing tenants — the latter makes the check an assertion rather than an
+isolation boundary. `UpdateNvrCommand`, `ActiveNvrCommand`, `InActiveNvrCommand`,
+`ActiveCameraCommand`, `InActiveCameraCommand`, and `SoftDeleteCameraCommand`
+accept an optional verified `tenantId` and fail closed on a foreign entity when
+it is supplied (optional only until the remaining synchronous call sites are
+migrated). `NvrMqttService` also re-verifies that each queued camera ID belongs
+to the validated NVR, and stamps the NVR's persisted tenant/ID on newly
+registered cameras rather than trusting the per-camera fields in the queued
+batch. `VideoDevicesApiBaseService.findCameraWithId` was removed: an unscoped
+read by ID with no callers.
+
+**Schedulers.** `src/extensions/scheduler/schedulerIds.ts` owns scheduler
+identity. The NVR live-signal interval moved from a bare, tenant-ambiguous
+`nvrId` key to `tenant-{tenantId}-nvr-{nvrId}-live-signal`; `stop()` also clears
+the legacy key so a deploy does not orphan the old interval. Its callback now
+re-reads the NVR under its persisted tenant on every tick and stops the schedule
+if it is gone, instead of acting on a long-lived closure capture. The
+cloud-availability sweep is explicitly named `system-cloud-availability` and
+derives each publish target from that NVR's own persisted tenant.
+
+**Concurrency and failures.** The three device queues set explicit worker
+concurrency (50) instead of inheriting the shared rule-engine default of 1000,
+which is far above what an MQTT broker plus a physical NVR can absorb. Each has
+a failure handler that logs tenant, NVR, `msgId`, operation, entity, and attempt
+count — and never the payload, which carries device credentials.
+
+`IQueue.createQueue` previously declared a one-argument failure handler while
+`QueueService` passed `(msg, err)`; the interface now matches the
+implementation.
 
 ### Completion Gate
 
 - No async handler relies on HTTP context for data correctness.
 - Forged or inconsistent queue tenant data is rejected.
 - The same uint32-string `msgId` in different NVR scopes does not collide.
+
+Gate status: **unit-qualified only** (2026-08-30 — `npm run build` clean;
+`npm run test` 72 suites / 288 tests). The suites cover envelope rejection
+(foreign tenant/NVR queue key, mismatched topic, wrong entity type, expired and
+unstamped lifetime, out-of-range `msgId`, embedded-UUID tenant), no-publish on
+every rejection, tenant-scoped expiry resolution, camera-to-NVR mismatch,
+scheduler identity, and secret-free failure descriptions.
+
+As in Phase 2, these are mock-based: they prove the handlers *build* and enforce
+tenant-scoped calls, not that Redis/BullMQ and MongoDB enforce isolation end to
+end. Closing this gate needs the `test/integration/**` Testcontainers suites
+with the two-tenant fixture, which still do not exist.
 
 ## Phase 4: WebSocket Isolation
 
@@ -1916,10 +2007,10 @@ SMS notifier A and SMS notifier B
 - [x] Same uint32-string ID under different NVRs creates different queue keys.
 - [x] Active scoped collision causes regeneration.
 - [x] Queue lookup requires tenant, NVR, and uint32-string ID.
-- [ ] Missing queue tenant is rejected.
-- [ ] Queue tenant inconsistent with persisted NVR is rejected.
-- [ ] Worker passes queue tenant to command/query.
-- [ ] Failure and expiry handlers preserve tenant.
+- [x] Missing queue tenant is rejected.
+- [x] Queue tenant inconsistent with persisted NVR is rejected.
+- [x] Worker passes queue tenant to command/query.
+- [x] Failure and expiry handlers preserve tenant.
 
 ### MQTT Tests
 
@@ -2065,8 +2156,8 @@ Multi-tenancy is complete only when all of the following are true.
 
 ### Device Messages And MQTT
 
-- [ ] Device message ID is unsigned 32-bit and nonzero.
-- [ ] Queue identity is scoped by tenant, NVR, and uint32-string message ID.
+- [x] Device message ID is unsigned 32-bit and nonzero.
+- [x] Queue identity is scoped by tenant, NVR, and uint32-string message ID.
 - [ ] MQTT topic, queue, persisted NVR, and target entity are cross-validated.
 - [ ] NVR credentials and ACLs cannot cross tenants.
 

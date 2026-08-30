@@ -12,8 +12,12 @@ import { CameraRepository } from 'src/modules/videoDevices/infra/camera/camera.r
 import { CameraRunningConfigAndCommandService } from '../../services/runningConfigs/cameraRunningConfigAndCommand.service';
 
 export class InActiveCameraCommand extends Command {
+  /** Verified owning tenant; when present the handler fails closed on a foreign camera. */
+  readonly tenantId?: string;
+
   constructor(props: CommandProps<InActiveCameraCommand>) {
     super(props);
+    this.tenantId = props.tenantId;
   }
 }
 
@@ -32,6 +36,12 @@ export class InActiveCameraCommandHandler
     const cameraEntity: CameraEntity | undefined =
       await this.cameraRepo.findById(command.id);
     if (!cameraEntity) throw new Error('no camera exist with this id');
+    if (
+      command.tenantId &&
+      cameraEntity.getProps().tenantId !== command.tenantId
+    ) {
+      throw new Error('no camera exist with this id');
+    }
     cameraEntity.inactive();
     await this.cameraRepo.update(cameraEntity);
     const actorId = command.actorProps?.actorId;

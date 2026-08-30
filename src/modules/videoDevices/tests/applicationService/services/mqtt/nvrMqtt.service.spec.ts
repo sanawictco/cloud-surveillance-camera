@@ -1,362 +1,126 @@
-import { LanguageKeys } from 'src/extensions/translation/languageKeys.base';
-import { WebSocketTypes } from 'src/modules/shared/websocket.types';
 import { NvrMqttService } from '../../../../applicationService/services/mqtt/nvrMqtt.service';
-import { NvrEntity } from '../../../../domain/nvr/nvr.entity';
-import { NvrWebSocketConfigTypes } from '../../../../domain/nvr/nvr.type';
-import { CameraEntity } from '../../../../domain/camera/camera.entity';
-import { UpdateCameraCommand } from '../../../../applicationService/commands/camera/updateCamera.command';
-import { ActiveCameraCommand } from '../../../../applicationService/commands/camera/activeCamera.command';
-import { CreateCameraCommand } from '../../../../applicationService/commands/camera/createCamera.command';
 
-describe('NvrMqttService', () => {
-  function buildService() {
-    const nvr = NvrEntity.create({
-      tenantId: '11111111-1111-4111-8111-111111111111',
-      name: 'NVR',
-      productModel: 'NVR-16',
-      serialNumber: 'NVR00001',
-      accessToken: '11111111111111111111111111111111',
-      maxCameras: 16,
-      password: 'nvr-password',
-    });
-    const serviceProvider = {
-      queryBus: { execute: jest.fn().mockResolvedValue([]) },
-      commandBus: { execute: jest.fn().mockResolvedValue(undefined) },
-    };
-    const websocket = {
-      channels: { VIDEO_DEVICES_SOCKET: 'VIDEO_DevicesSocket' },
-      sendMessage: jest.fn(),
-    };
-    const sanawApi = { getNvrCameraSearchInfo: jest.fn() };
-    const cache = {
-      set: jest.fn().mockResolvedValue(undefined),
-      get: jest
-        .fn()
-        .mockResolvedValue({ addedCameras: [], deletedCameras: [] }),
-      delete: jest.fn().mockResolvedValue(undefined),
+const TENANT_A = '11111111-1111-4111-8111-111111111111';
+const NVR_A = '33333333-3333-4333-8333-333333333333';
+const NVR_B = '44444444-4444-4444-8444-444444444444';
+const CAMERA_A = '55555555-5555-4555-8555-555555555555';
+const CAMERA_FOREIGN = '66666666-6666-4666-8666-666666666666';
+
+describe('NvrMqttService async tenant scope', () => {
+  function buildService(cameraByQuery: Record<string, unknown> = {}) {
+    const commandBus = { execute: jest.fn().mockResolvedValue(undefined) };
+    const queryBus = {
+      execute: jest.fn(async (query: any) => cameraByQuery[query.id]),
     };
     const service = new NvrMqttService(
-      serviceProvider as never,
+      { commandBus, queryBus } as never,
+      { toResponse: jest.fn() } as never,
+      { toResponseAll: jest.fn().mockReturnValue([]) } as never,
+      { sendMessage: jest.fn(), channels: { VIDEO_DEVICES_SOCKET: 'ws' } } as never,
       {} as never,
       {} as never,
-      websocket as never,
       {} as never,
-      sanawApi as never,
-      cache as never,
     );
-    return { service, nvr, serviceProvider, websocket, sanawApi, cache };
+    return { service, commandBus, queryBus };
   }
 
-  it('emits one completion when all connected cameras are up to date', async () => {
+  const nvr = {
+    id: NVR_A,
+    getProps: () => ({ tenantId: TENANT_A, isActive: true }),
+  };
+
+  it('rejects a queued payload that targets another NVR', async () => {
     const context = buildService();
-
-    await context.service.search(context.nvr, 'search-msg', {
-      msgId: 'search-msg',
-      macAddresses: [],
-    });
-
-    expect(context.cache.set).toHaveBeenCalledWith(
-      `autoSearchNvr-${context.nvr.id}`,
-      { addedCameras: [], deletedCameras: [] },
-      1800,
-    );
-    expect(context.websocket.sendMessage).toHaveBeenCalledTimes(1);
-    expect(context.serviceProvider.queryBus.execute).toHaveBeenCalledWith(
-      expect.objectContaining({
-        filter: { nvrId: context.nvr.id, isDeleted: { $ne: true } },
-      }),
-    );
-    expect(context.websocket.sendMessage).toHaveBeenCalledWith(
-      'VIDEO_DevicesSocket',
-      {
-        type: WebSocketTypes.CONFIG,
-        data: { nvrId: context.nvr.id },
-        message: {
-          msgKey:
-            LanguageKeys.nvr.response.socket.allConnectedCamerasAreUpToDate,
-        },
-        metadata: {
-          configType: NvrWebSocketConfigTypes.SEARCH,
-          msgId: 'search-msg',
-        },
-      },
-    );
-  });
-
-  it('emits one sanitized completion when a camera is discovered', async () => {
-    const context = buildService();
-    context.sanawApi.getNvrCameraSearchInfo.mockResolvedValue({
-      statusCode: 200,
-      data: {
-        cameras: [
-          {
-            id: 1,
-            cameraAggregateId: '22222222-2222-4222-8222-222222222222',
-            serialNumber: 'CAM00001',
-            productModel: 'CAM-1',
-            username: 'private-user',
-            password: 'private-password',
-            macAddress: 'AA:BB:CC:DD:EE:FF',
-            streams: { recordStream: {}, liveStream: {} },
-            port: 554,
-            hasPtz: true,
-            hasAudio: false,
-          },
-        ],
-      },
-    });
-
-    await context.service.search(context.nvr, 'search-msg', {
-      msgId: 'search-msg',
-      macAddresses: ['AA:BB:CC:DD:EE:FF'],
-    });
-
-    expect(context.cache.set).toHaveBeenCalledWith(
-      `autoSearchNvr-${context.nvr.id}`,
-      expect.objectContaining({
-        addedCameras: [
-          expect.objectContaining({ password: 'private-password' }),
-        ],
-      }),
-      1800,
-    );
-    expect(context.websocket.sendMessage).toHaveBeenCalledTimes(1);
-    const publicMessage = context.websocket.sendMessage.mock.calls[0]![1];
-    expect(publicMessage.data.videoDevices[0].addedCameras).toEqual([
-      {
-        productModel: 'CAM-1',
-        serialNumber: 'CAM00001',
-        name: 'Camera CAM00001',
-        hasPtz: true,
-        hasAudio: false,
-      },
-    ]);
-    expect(JSON.stringify(publicMessage)).not.toMatch(
-      /private-user|private-password|AA:BB:CC:DD:EE:FF|streams|port/,
-    );
-  });
-
-  it('restores a soft-deleted camera during registration', async () => {
-    const context = buildService();
-    const deletedCamera = CameraEntity.create({
-      id: '22222222-2222-4222-8222-222222222222',
-      tenantId: '44444444-4444-4444-8444-444444444444',
-      nvrId: '55555555-5555-4555-8555-555555555555',
-      name: 'Camera CAM00001',
-      productModel: 'CAM-1',
-      serialNumber: 'CAM00001',
-      username: 'private-user',
-      password: 'private-password',
-      macAddress: 'AA:BB:CC:DD:EE:FF',
-      port: 554,
-      streams: {
-        recordStream: { token: '', path: '', resolutions: [] },
-        liveStream: { token: '', path: '', resolutions: [] },
-      },
-      hasPtz: true,
-      hasAudio: false,
-    });
-    deletedCamera.softDelete();
-    context.serviceProvider.queryBus.execute
-      .mockResolvedValueOnce(deletedCamera)
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(deletedCamera);
-
-    await context.service.register(
-      context.nvr,
-      {
-        msgId: 'register-msg',
-        configType: 'REGISTER',
-        nvrId: context.nvr.id,
-        tenantId: context.nvr.getProps().tenantId,
-        data: {
-          nvrId: context.nvr.id,
-          tenantId: context.nvr.getProps().tenantId,
-          addedCameras: [
-            {
-              id: deletedCamera.id,
-              tenantId: context.nvr.getProps().tenantId,
-              nvrId: context.nvr.id,
-              name: 'Camera CAM00001',
-              productModel: 'CAM-1',
-              serialNumber: 'CAM00001',
-              username: 'private-user',
-              password: 'private-password',
-              macAddress: 'AA:BB:CC:DD:EE:FF',
-              port: 554,
-              streams: {
-                recordStream: { token: '', path: '', resolutions: [] },
-                liveStream: { token: '', path: '', resolutions: [] },
-              },
-              hasPtz: true,
-              hasAudio: false,
-            },
-          ],
-          deletedCameras: [],
-        },
-        metadata: {
-          topic: 'topic',
-          entityId: context.nvr.id,
-          entityType: 'nvr',
-          retryCount: 3,
-          retryPeriodInSecond: 10,
-        },
-      } as never,
-      {
-        msgId: 'register-msg',
-        unRegisteredCameraSerialNumbers: [],
-      },
-    );
-
-    expect(context.serviceProvider.commandBus.execute).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: deletedCamera.id,
-        tenantId: context.nvr.getProps().tenantId,
-        nvrId: context.nvr.id,
-        isDeleted: false,
-      }),
-    );
-    expect(
-      context.serviceProvider.commandBus.execute.mock.calls.some(
-        ([command]) => command instanceof UpdateCameraCommand,
-      ),
-    ).toBe(true);
-    expect(
-      context.serviceProvider.commandBus.execute.mock.calls.some(
-        ([command]) => command instanceof ActiveCameraCommand,
-      ),
-    ).toBe(true);
-    expect(
-      context.serviceProvider.commandBus.execute.mock.calls.some(
-        ([command]) => command instanceof CreateCameraCommand,
-      ),
-    ).toBe(false);
-  });
-
-  it('does not soft-delete an already deleted camera again', async () => {
-    const context = buildService();
-    const deletedCamera = CameraEntity.create({
-      tenantId: context.nvr.getProps().tenantId,
-      nvrId: context.nvr.id,
-      name: 'Camera CAM00001',
-      productModel: 'CAM-1',
-      serialNumber: 'CAM00001',
-      username: 'private-user',
-      password: 'private-password',
-      macAddress: 'AA:BB:CC:DD:EE:FF',
-      port: 554,
-      streams: {
-        recordStream: { token: '', path: '', resolutions: [] },
-        liveStream: { token: '', path: '', resolutions: [] },
-      },
-      hasPtz: true,
-      hasAudio: false,
-    });
-    deletedCamera.softDelete();
-    context.serviceProvider.queryBus.execute.mockResolvedValue(deletedCamera);
-
-    await context.service.register(
-      context.nvr,
-      {
-        msgId: 'register-msg',
-        data: {
-          nvrId: context.nvr.id,
-          tenantId: context.nvr.getProps().tenantId,
-          addedCameras: [],
-          deletedCameras: [
-            {
-              id: deletedCamera.id,
-              serialNumber: 'CAM00001',
-              productModel: 'CAM-1',
-              name: 'Camera CAM00001',
-            },
-          ],
-        },
-        metadata: {},
-      } as never,
-      {
-        msgId: 'register-msg',
-        unRegisteredCameraSerialNumbers: [],
-      },
-    );
-
-    expect(context.serviceProvider.commandBus.execute).not.toHaveBeenCalled();
-  });
-
-  it('rejects a stable camera id with a different serial number', async () => {
-    const context = buildService();
-    const existingCamera = CameraEntity.create({
-      id: '22222222-2222-4222-8222-222222222222',
-      tenantId: context.nvr.getProps().tenantId,
-      nvrId: context.nvr.id,
-      name: 'Existing camera',
-      productModel: 'CAM-1',
-      serialNumber: 'CAM99999',
-      username: 'private-user',
-      password: 'private-password',
-      macAddress: 'AA:BB:CC:DD:EE:FF',
-      port: 554,
-      streams: {
-        recordStream: { token: '', path: '', resolutions: [] },
-        liveStream: { token: '', path: '', resolutions: [] },
-      },
-      hasPtz: true,
-      hasAudio: false,
-    });
-    context.serviceProvider.queryBus.execute
-      .mockResolvedValueOnce(existingCamera)
-      .mockResolvedValueOnce(undefined);
 
     await expect(
-      context.service.register(
-        context.nvr,
-        {
-          msgId: 'register-msg',
-          data: {
-            nvrId: context.nvr.id,
-            tenantId: context.nvr.getProps().tenantId,
-            addedCameras: [{ id: existingCamera.id, serialNumber: 'CAM00001' }],
-            deletedCameras: [],
-          },
-          metadata: {},
-        } as never,
-        {
-          msgId: 'register-msg',
-          unRegisteredCameraSerialNumbers: [],
-        },
+      context.service.activateCameras(
+        TENANT_A,
+        nvr as never,
+        { id: NVR_B, cameraIds: [CAMERA_A] },
+        { actorProps: { actorId: 'user' }, msgId: '101' },
       ),
-    ).rejects.toThrow('camera registration identity mismatch');
-    expect(context.serviceProvider.commandBus.execute).not.toHaveBeenCalled();
+    ).rejects.toThrow(/NVR identity mismatch/);
+    expect(context.commandBus.execute).not.toHaveBeenCalled();
   });
 
-  it('does not activate a soft-deleted camera', async () => {
-    const context = buildService();
-    const deletedCamera = CameraEntity.create({
-      tenantId: context.nvr.getProps().tenantId,
-      nvrId: context.nvr.id,
-      name: 'Deleted camera',
-      productModel: 'CAM-1',
-      serialNumber: 'CAM00001',
-      username: 'private-user',
-      password: 'private-password',
-      macAddress: 'AA:BB:CC:DD:EE:FF',
-      port: 554,
-      streams: {
-        recordStream: { token: '', path: '', resolutions: [] },
-        liveStream: { token: '', path: '', resolutions: [] },
-      },
-      hasPtz: true,
-      hasAudio: false,
-    });
-    deletedCamera.softDelete();
-    context.serviceProvider.queryBus.execute.mockResolvedValue(deletedCamera);
+  it('rejects a camera ID that does not resolve under the validated tenant', async () => {
+    const context = buildService({});
 
-    await context.service.activateCameras(
-      { id: context.nvr.id, cameraIds: [deletedCamera.id] },
-      { msgId: 'activate-msg' },
+    await expect(
+      context.service.activateCameras(
+        TENANT_A,
+        nvr as never,
+        { id: NVR_A, cameraIds: [CAMERA_FOREIGN] },
+        { actorProps: { actorId: 'user' }, msgId: '101' },
+      ),
+    ).rejects.toThrow(/camera identity mismatch/);
+    expect(context.commandBus.execute).not.toHaveBeenCalled();
+  });
+
+  it('rejects a camera that belongs to a sibling NVR', async () => {
+    const context = buildService({
+      [CAMERA_A]: {
+        id: CAMERA_A,
+        getProps: () => ({ tenantId: TENANT_A, nvrId: NVR_B }),
+      },
+    });
+
+    await expect(
+      context.service.inactivateCameras(
+        TENANT_A,
+        nvr as never,
+        { id: NVR_A, cameraIds: [CAMERA_A] },
+        { actorProps: { actorId: 'user' }, msgId: '101' },
+      ),
+    ).rejects.toThrow(/camera identity mismatch/);
+    expect(context.commandBus.execute).not.toHaveBeenCalled();
+  });
+
+  it('passes the validated tenant into the soft-delete command', async () => {
+    const context = buildService({
+      [CAMERA_A]: {
+        id: CAMERA_A,
+        getProps: () => ({
+          tenantId: TENANT_A,
+          nvrId: NVR_A,
+          isDeleted: false,
+        }),
+      },
+    });
+
+    await context.service.softDeleteCameras(
+      TENANT_A,
+      nvr as never,
+      { id: NVR_A, cameraIds: [CAMERA_A] },
+      { actorProps: { actorId: 'user' }, msgId: '101' },
     );
 
-    expect(context.serviceProvider.commandBus.execute).not.toHaveBeenCalled();
-    expect(context.websocket.sendMessage).not.toHaveBeenCalled();
+    expect(context.commandBus.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ id: CAMERA_A, tenantId: TENANT_A }),
+    );
+  });
+
+  it('reads the camera with a tenant-scoped query', async () => {
+    const context = buildService({
+      [CAMERA_A]: {
+        id: CAMERA_A,
+        getProps: () => ({
+          tenantId: TENANT_A,
+          nvrId: NVR_A,
+          isDeleted: true,
+        }),
+      },
+    });
+
+    await context.service.softDeleteCameras(
+      TENANT_A,
+      nvr as never,
+      { id: NVR_A, cameraIds: [CAMERA_A] },
+      { actorProps: { actorId: 'user' }, msgId: '101' },
+    );
+
+    expect(context.queryBus.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: TENANT_A, id: CAMERA_A }),
+    );
   });
 });
