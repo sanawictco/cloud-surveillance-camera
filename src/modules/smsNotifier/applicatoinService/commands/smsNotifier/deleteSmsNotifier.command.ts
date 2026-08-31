@@ -42,6 +42,9 @@ export class DeleteSmsNotifierCommandHandler implements ICommandHandler<DeleteSm
   }
 
   private async processDepenedencies(command: DeleteSmsNotifierCommand) {
-    await this.employeesActorLogService.smsNotifierDeleted(command.phoneNumber);
+    await this.employeesActorLogService.smsNotifierDeleted(
+      command.tenantId,
+      command.phoneNumber,
+    );
   }
 }

@@ -2,38 +2,59 @@ import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { Inject } from '@nestjs/common';
 import { ACTOR_LOG_REPOSITORY } from '../../infra/actorLog.diToken';
 import { ActorLogRepository } from '../../infra/actorLog.timeseriesRepository';
-import { TimeseriesQueryBase } from 'src/dddLib/applicationService';
-import { CountDataParams } from 'src/dddLib/infra/timeseriesRepository.base';
-import { SANAW_KIOSK_USER_ID } from '../../domain/actorLog.type';
+import {
+  assertActorLogIds,
+  buildActorLogQueryFilter,
+} from '../../infra/actorLogFilter';
+import {
+  ActorLogTypes,
+  assertActorLogTenantId,
+  assertActorLogTypes,
+  actorLogSuperTableName,
+} from '../../domain/actorLog.type';
 
-export class CountAllActorLogsQuery extends TimeseriesQueryBase {
-  constructor(props: CountDataParams) {
-    super(props);
-    this.superTableName = props.superTableName;
-    this.subTableName = props.subTableName;
-    this.timeRangeInUnix = props.timeRangeInUnix;
+export class CountAllActorLogsQuery {
+  tenantId: string;
+  actorTypes?: ActorLogTypes[];
+  actorIds?: string[];
+  from?: number;
+  to?: number;
+  constructor(props: {
+    tenantId: string;
+    actorTypes?: ActorLogTypes[];
+    actorIds?: string[];
+    from?: number;
+    to?: number;
+  }) {
+    assertActorLogTenantId(props.tenantId);
+    if (props.actorTypes) assertActorLogTypes(props.actorTypes);
+    assertActorLogIds(props.actorIds);
+    this.tenantId = props.tenantId;
+    this.actorTypes = props.actorTypes;
+    this.actorIds = props.actorIds;
+    this.from = props.from;
+    this.to = props.to;
   }
 }
 @QueryHandler(CountAllActorLogsQuery)
-export class CountAllActorLogsQueryHandler
-  implements IQueryHandler<CountAllActorLogsQuery>
-{
+export class CountAllActorLogsQueryHandler implements IQueryHandler<CountAllActorLogsQuery> {
   constructor(
     @Inject(ACTOR_LOG_REPOSITORY)
     protected readonly actorLogRepo: ActorLogRepository,
   ) {}
 
-  async execute(query: CountAllActorLogsQuery) {
-    let _subTableName;
-    if (query.subTableName && query.subTableName === SANAW_KIOSK_USER_ID)
-      _subTableName = query.subTableName;
-    else if (query.subTableName) {
-      _subTableName = query.subTableName + '-actorLog';
-    }
-    const records = await this.actorLogRepo.count({
-      ...query,
-      subTableName: _subTableName,
+  async execute(query: CountAllActorLogsQuery): Promise<number> {
+    return await this.actorLogRepo.count({
+      superTableName: actorLogSuperTableName(query.tenantId),
+      timeRangeInUnix:
+        query.from !== undefined && query.to !== undefined
+          ? { start: query.from, end: query.to }
+          : undefined,
+      filter: buildActorLogQueryFilter({
+        tenantId: query.tenantId,
+        actorTypes: query.actorTypes,
+        actorIds: query.actorIds,
+      }),
     });
-    return records;
   }
 }

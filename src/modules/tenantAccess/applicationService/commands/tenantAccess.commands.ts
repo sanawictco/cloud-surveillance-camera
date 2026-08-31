@@ -4,6 +4,7 @@ import { EmployeeRoles } from 'src/extensions/sanawApi/dtos/employees/employeeRo
 import { EmployeeRecord } from 'src/modules/tenantAccess/domain/types/employee.type';
 import { EmployeeRepository } from 'src/modules/tenantAccess/infra/repositories/employee.repository';
 import { TenantAccessRepository } from '../../infra/tenantAccess.repository';
+import { ActorLogApiService } from 'src/modules/actorLogs/applicationService/services/actorLogApi.service';
 
 async function requireMutableEmployee(
   employeeRepository: EmployeeRepository,
@@ -169,6 +170,7 @@ export class HardDeleteTenantEmployeeCommandHandler implements ICommandHandler<H
   constructor(
     private readonly employeeRepository: EmployeeRepository,
     private readonly tenantAccessRepository: TenantAccessRepository,
+    private readonly actorLogApiService: ActorLogApiService,
   ) {}
 
   async execute(
@@ -194,6 +196,12 @@ export class HardDeleteTenantEmployeeCommandHandler implements ICommandHandler<H
       command.tenantId,
       employee.userId,
     );
+    // Per-member actor-log hard delete: row-deletes this user's events from
+    // this tenant's child table only. The same SSO user's records in other
+    // tenants are separate child tables and remain untouched.
+    await this.actorLogApiService.deleteActorLogs(command.tenantId, [
+      employee.userId,
+    ]);
     return employee;
   }
 }

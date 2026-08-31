@@ -49,7 +49,7 @@ export class UpdateTenantCommandHandler implements ICommandHandler<UpdateTenantC
     });
     await this.tenantRepo.update(tenantEntity);
     if (command.name)
-      await this.tenantActorLogService.nameUpdated(command.name);
+      await this.tenantActorLogService.nameUpdated(command.id, command.name);
     return command.id;
   }
 }

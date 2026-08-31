@@ -3,28 +3,34 @@ import {
   CommandProps,
 } from 'src/dddLib/applicationService/command.base';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import { Inject } from '@nestjs/common';
+import { BadRequestException, Inject } from '@nestjs/common';
 import {
-  ACTOR_LOG_SUPER_TABLE,
   ActorLogMessageProps,
   ActorLogRecordFormat,
   ActorLogTypes,
   CreateActorLogProps,
+  assertActorLogTenantId,
+  assertActorLogTypes,
 } from 'src/modules/actorLogs/domain/actorLog.type';
 import { ACTOR_LOG_REPOSITORY } from '../../infra/actorLog.diToken';
 import { ActorLogRepository } from '../../infra/actorLog.timeseriesRepository';
+import { TenantAccessService } from 'src/modules/tenantAccess/applicationService/tenantAccess.service';
 
 export class CreateActorLogCommand
   extends Command
   implements CreateActorLogProps
 {
-  createdAt: number;
+  createdAt?: number;
+  tenantId: string;
   actorType: ActorLogTypes;
   actorId: string;
   messageProps: ActorLogMessageProps;
   constructor(props: CommandProps<CreateActorLogCommand>) {
     super(props);
-    this.createdAt = props.createdAt;
+    assertActorLogTenantId(props.tenantId);
+    assertActorLogTypes([props.actorType]);
+    this.tenantId = props.tenantId;
+    this.createdAt = props?.createdAt;
     this.actorType = props.actorType;
     this.actorId = props.actorId;
     this.messageProps = props.messageProps;
@@ -32,27 +38,27 @@ export class CreateActorLogCommand
 }
 
 @CommandHandler(CreateActorLogCommand)
-export class CreateActorLogCommandHandler
-  implements ICommandHandler<CreateActorLogCommand>
-{
+export class CreateActorLogCommandHandler implements ICommandHandler<CreateActorLogCommand> {
   constructor(
     @Inject(ACTOR_LOG_REPOSITORY)
     protected readonly actorLogRepo: ActorLogRepository,
+    private readonly tenantAccessService: TenantAccessService,
   ) {}
 
   async execute(command: CreateActorLogCommand): Promise<void> {
-    const { createdAt, actorType, actorId, messageProps } = command;
+    const { tenantId, actorType, actorId, messageProps } = command;
+    if (!(await this.tenantAccessService.tenantExists(tenantId))) {
+      throw new BadRequestException('tenant does not exist');
+    }
     const actorLog: ActorLogRecordFormat = [
-      createdAt,
+      tenantId,
       actorType,
       actorId,
       messageProps,
     ];
-
     await this.actorLogRepo.insert({
-      superTableName: ACTOR_LOG_SUPER_TABLE,
-      subTableName: command.actorId + '-actorLog',
       data: actorLog,
+      createdAt: command.createdAt,
     });
   }
 }

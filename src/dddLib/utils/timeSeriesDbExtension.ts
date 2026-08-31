@@ -69,14 +69,45 @@ export class TimeSeriesDbExtension {
     let valuesInsertFormat: string = '';
     for (let i = 0; i < data.length; i++) {
       if (typeof data[i] === 'string') {
-        const value = (data[i] as string)
-          .replaceAll('\\', '\\\\')
-          .replaceAll("'", "''");
-        valuesInsertFormat += ` '${value}',`;
+        valuesInsertFormat += ` ${this.quoteStringLiteral(data[i] as string)},`;
       } else valuesInsertFormat += ` ${data[i]},`;
     }
     valuesInsertFormat = valuesInsertFormat.slice(0, -1);
     return valuesInsertFormat;
+  }
+
+  /**
+   * Escapes a value into a safe TDengine SQL string literal. The only central
+   * place allowed to turn caller data into a quoted SQL fragment; every filter
+   * and value must pass through it instead of raw template interpolation.
+   */
+  static quoteStringLiteral(value: string): string {
+    const escaped = value.replaceAll('\\', '\\\\').replaceAll("'", "''");
+    return `'${escaped}'`;
+  }
+
+  /**
+   * Formats a unix-millisecond time range as UTC epoch bounds. Timestamps are
+   * stored and compared as numeric UTC epoch milliseconds; no local-timezone
+   * adjustment is applied anywhere in the time-series layer.
+   */
+  private static toUtcTimeRangeBounds(timeRangeInUnix: {
+    start: number;
+    end: number;
+  }): { start: number; end: number } {
+    const { start, end } = timeRangeInUnix;
+    if (
+      !Number.isFinite(start) ||
+      !Number.isFinite(end) ||
+      !Number.isSafeInteger(start) ||
+      !Number.isSafeInteger(end)
+    ) {
+      throw new Error(
+        'time range bounds must be finite unix millisecond integers',
+      );
+    }
+    if (start > end) throw new Error('time range start must not exceed end');
+    return { start, end };
   }
 
   private static toValidSuperOrSubTableName(superTableName: string): string {
@@ -130,19 +161,9 @@ export class TimeSeriesDbExtension {
         '` ';
     }
     if (timeRangeInUnix) {
-      let { start, end } = timeRangeInUnix;
-      const UTC_DIFF_IN_MILI_SECONDS = 3.5 * 60 * 60 * 1000;
-      start = start + UTC_DIFF_IN_MILI_SECONDS;
-      end = end + UTC_DIFF_IN_MILI_SECONDS;
-      const fromDateTime = new Date(start)
-        .toISOString()
-        .replace('T', ' ')
-        .replace('Z', '');
-      const toDateTime = new Date(end)
-        .toISOString()
-        .replace('T', ' ')
-        .replace('Z', '');
-      sqlQuery += `WHERE (createdAt BETWEEN "${fromDateTime}" AND "${toDateTime}") `;
+      const { start, end } =
+        TimeSeriesDbExtension.toUtcTimeRangeBounds(timeRangeInUnix);
+      sqlQuery += `WHERE (createdAt BETWEEN ${start} AND ${end}) `;
     }
 
     if (filter) {
@@ -179,19 +200,9 @@ export class TimeSeriesDbExtension {
       queryCommand = `SELECT COUNT(*) FROM ` + '`' + `${subTableName}` + '`';
     }
     if (timeRangeInUnix) {
-      let { start, end } = timeRangeInUnix;
-      const UTC_DIFF_IN_MILI_SECONDS = 3.5 * 60 * 60 * 1000;
-      start = start + UTC_DIFF_IN_MILI_SECONDS;
-      end = end + UTC_DIFF_IN_MILI_SECONDS;
-      const fromDateTime = new Date(start)
-        .toISOString()
-        .replace('T', ' ')
-        .replace('Z', '');
-      const toDateTime = new Date(end)
-        .toISOString()
-        .replace('T', ' ')
-        .replace('Z', '');
-      queryCommand += ` WHERE createdAt BETWEEN "${fromDateTime}" AND "${toDateTime}"`;
+      const { start, end } =
+        TimeSeriesDbExtension.toUtcTimeRangeBounds(timeRangeInUnix);
+      queryCommand += ` WHERE createdAt BETWEEN ${start} AND ${end}`;
     }
     if (filter) {
       if (timeRangeInUnix) {

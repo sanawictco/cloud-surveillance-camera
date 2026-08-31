@@ -20,6 +20,7 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { tenantAccessCommandHandlers } from './applicationService/commands/tenantAccess.commands';
 import { tenantAccessQueryHandlers } from './applicationService/queries/tenantAccess.queries';
 import { TenantAccessRepository } from './infra/tenantAccess.repository';
+import { ActorLogModule } from 'src/modules/actorLogs/actorLog.module';
 
 @Global()
 @Module({
@@ -30,6 +31,7 @@ import { TenantAccessRepository } from './infra/tenantAccess.repository';
     ]),
     CqrsModule,
     SanawApiModule,
+    ActorLogModule,
   ],
   providers: [
     EmployeeRepository,

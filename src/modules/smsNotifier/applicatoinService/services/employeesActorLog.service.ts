@@ -9,8 +9,9 @@ export class EmployeesActorLogService {
     private readonly actorLogApiService: ActorLogApiService,
   ) {}
 
-  async added(phoneNumber: string) {
+  async added(tenantId: string, phoneNumber: string) {
     await this.actorLogApiService.registerActorLog({
+      tenantId,
       messageProps: {
         key: LanguageKeys.employee.actorLog.added,
         params: [phoneNumber],
@@ -18,8 +19,9 @@ export class EmployeesActorLogService {
     });
   }
 
-  async rolesUpdated(phoneNumber: string) {
+  async rolesUpdated(tenantId: string, phoneNumber: string) {
     await this.actorLogApiService.registerActorLog({
+      tenantId,
       messageProps: {
         key: LanguageKeys.employee.actorLog.rolesUpdated,
         params: [phoneNumber],
@@ -27,8 +29,9 @@ export class EmployeesActorLogService {
     });
   }
 
-  async deleted(phoneNumber: string) {
+  async deleted(tenantId: string, phoneNumber: string) {
     await this.actorLogApiService.registerActorLog({
+      tenantId,
       messageProps: {
         key: LanguageKeys.employee.actorLog.deleted,
         params: [phoneNumber],
@@ -36,8 +39,9 @@ export class EmployeesActorLogService {
     });
   }
 
-  async softDeleted(phoneNumber: string) {
+  async softDeleted(tenantId: string, phoneNumber: string) {
     await this.actorLogApiService.registerActorLog({
+      tenantId,
       messageProps: {
         key: LanguageKeys.employee.actorLog.softDeleted,
         params: [phoneNumber],
@@ -45,8 +49,9 @@ export class EmployeesActorLogService {
     });
   }
 
-  async recovered(phoneNumber: string) {
+  async recovered(tenantId: string, phoneNumber: string) {
     await this.actorLogApiService.registerActorLog({
+      tenantId,
       messageProps: {
         key: LanguageKeys.employee.actorLog.recovered,
         params: [phoneNumber],
@@ -54,8 +59,9 @@ export class EmployeesActorLogService {
     });
   }
 
-  async smsNotifierAdded(phoneNumber: string) {
+  async smsNotifierAdded(tenantId: string, phoneNumber: string) {
     await this.actorLogApiService.registerActorLog({
+      tenantId,
       messageProps: {
         key: LanguageKeys.smsNotifier.actorLog.added,
         params: [phoneNumber],
@@ -63,8 +69,9 @@ export class EmployeesActorLogService {
     });
   }
 
-  async smsNotifierUpdated(phoneNumber: string) {
+  async smsNotifierUpdated(tenantId: string, phoneNumber: string) {
     await this.actorLogApiService.registerActorLog({
+      tenantId,
       messageProps: {
         key: LanguageKeys.smsNotifier.actorLog.updated,
         params: [phoneNumber],
@@ -72,8 +79,9 @@ export class EmployeesActorLogService {
     });
   }
 
-  async smsNotifierDeleted(phoneNumber: string) {
+  async smsNotifierDeleted(tenantId: string, phoneNumber: string) {
     await this.actorLogApiService.registerActorLog({
+      tenantId,
       messageProps: {
         key: LanguageKeys.smsNotifier.actorLog.deleted,
         params: [phoneNumber],

@@ -9,8 +9,14 @@ export class TenantActorLogService {
     private readonly actorLogApiService: ActorLogApiService,
   ) {}
 
-  async nameUpdated(name: string) {
+  /**
+   * Logs a rename of `tenantId` itself. Tenant operations are
+   * platform-authorized: the target tenant comes from the command, never from
+   * ambient context or a request body.
+   */
+  async nameUpdated(tenantId: string, name: string) {
     await this.actorLogApiService.registerActorLog({
+      tenantId,
       messageProps: {
         key: LanguageKeys.tenant.actorLog.nameUpdated,
         params: [name],

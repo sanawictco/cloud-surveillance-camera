@@ -64,7 +64,7 @@ describe('SystemLogRepository', () => {
     expect(repository.findAll).toHaveBeenCalledTimes(3);
     for (const [params] of (repository.findAll as jest.Mock).mock.calls) {
       expect(params.filter).toContain(`tenantId='${tenantA}'`);
-      expect(params.filter).toContain("entityId= 'device-id'");
+      expect(params.filter).toContain("entityId='device-id'");
       expect(params.filter).not.toContain(tenantB);
     }
     expect(tdengineClient.exec).toHaveBeenCalledWith(

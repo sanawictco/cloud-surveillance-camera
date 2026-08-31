@@ -54,6 +54,9 @@ export class UpdateSmsNotifierCommandHandler implements ICommandHandler<UpdateSm
   }
 
   private async processDependencies(command: UpdateSmsNotifierCommand) {
-    await this.employeesActorLogService.smsNotifierUpdated(command.phoneNumber);
+    await this.employeesActorLogService.smsNotifierUpdated(
+      command.tenantId,
+      command.phoneNumber,
+    );
   }
 }

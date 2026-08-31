@@ -29,6 +29,7 @@
 | Phase 3 status            | Implemented and unit-qualified on 2026-08-30                                                                                                      |
 | Phase 4 status            | Implemented and unit-qualified on 2026-08-30                                                                                                      |
 | Phase 5 status            | Topic hierarchy, ACL provisioning, validation, and idempotent consumers implemented and unit-qualified on 2026-08-31; credential split still open |
+| Phase 6 status            | Actor-log v2 tenant isolation implemented and unit-qualified on 2026-08-31; UTC time ranges; legacy backfill, retention, and rollups still open |
 | Next implementation phase | The open Phase 5 slice (credential split), the open Phase 2 slices, and the `test/integration/**` two-tenant suites                               |
 | System-log visibility     | Any active tenant member (no special role); `Report` role reserved for a future camera-event reporting feature                                    |
 
@@ -927,14 +928,28 @@ system_log_detail_v2
   -> system_log_t_<tenant-a>
   -> system_log_t_<tenant-b>
 
-actor_log_detail_v2
-  -> actor_log_t_<tenant-a>
-  -> actor_log_t_<tenant-b>
+actor_log (one supertable per tenant)
+  tenant-a stable: actor_log_t_<tenant-a>
+    -> actor_log_t_<tenant-a>_<actor-1>
+    -> actor_log_t_<tenant-a>_<actor-2>
 
 daily_report_v1
   -> daily_report_t_<tenant-a>
   -> daily_report_t_<tenant-b>
 ```
+
+Decision 2026-08-31: supertable names carry no version suffix. Actor logs
+use one supertable per tenant (`actor_log_t_<tenant>`) with one child table
+per (tenant, actor) and tags `(tenantId, actorId)`: tenant identity is the
+supertable, so per-tenant backup, deletion (`DROP STABLE`), and provisioning
+are single-table operations, per-user reports tag-prune to an exact child
+table, and a member's history is removable with one `DROP TABLE`. The tenant
+tag is still present on every child table (invariant 12) and all reads run
+against the tenant's own supertable with a tenant predicate. System logs keep
+the tenant-plus-severity child topology. Development has no legacy data to
+preserve; a dev TDengine still holding tables of the old shape must be
+dropped or recreated, because `CREATE STABLE IF NOT EXISTS` cannot upgrade an
+existing supertable.
 
 This is appropriate for:
 
@@ -1927,22 +1942,22 @@ isolation suites remain open before the completion gate can close.
 
 ### Tasks
 
-- [ ] Verify deployed TDengine row identity and same-timestamp behavior.
+- [ ] Verify deployed TDengine row identity and same-timestamp behavior. (Requires a live TDengine session; the process-local allocator below is the selected mitigation for the single-instance deployment in the meantime.)
 - [x] Select and unit-test a per-child monotonic millisecond allocator for the current single-instance deployment.
 - [ ] Create detail and summary databases with configured retention.
 - [x] Create tenant-tagged v2 system-log supertable.
-- [ ] Create tenant-tagged v2 actor-log supertable.
+- [x] Create tenant-tagged actor-log supertable. (One supertable per tenant — `actor_log_t_<tenant>` with `(tenantId, actorId)` tags; no version suffix, decision 2026-08-31.)
 - [x] Create deterministic tenant-plus-severity system-log child tables as the collision-risk-reducing transitional topology.
-- [ ] Create one child table per tenant under each log supertable.
+- [x] Create one child table per tenant under each log supertable. (Actor logs: one child per (tenant, actor) under the tenant's supertable; system logs keep the tenant-plus-severity topology by decision.)
 - [ ] Create one child table per tenant under each summary supertable.
-- [ ] Replace raw filters with typed query contracts.
-- [ ] Validate or bind every value and identifier.
-- [ ] Remove hardcoded timezone offset and use UTC.
+- [x] Replace raw filters with typed query contracts. (Actor-log queries take no caller filters or table names at all; system-log queries take typed fields only. The shared `FindDataParams.filter` remains as an infra-internal detail — no application caller passes a raw filter.)
+- [x] Validate or bind every value and identifier. (All filter literals now pass the central `TimeSeriesDbExtension.quoteStringLiteral` escaper; identifiers are server-derived validated UUIDs. Remaining hardening: allowlist order-by columns in the shared repository.)
+- [x] Remove hardcoded timezone offset and use UTC.
 - [x] Add required tenant to system-log commands, queries, counts, and cleanup.
-- [ ] Add explicit tenant to actor-log commands and queries.
+- [x] Add explicit tenant to actor-log commands and queries.
 - [ ] Add idempotent rollup jobs.
 - [x] Stop swallowing TDengine query errors.
-- [ ] Dual-write and reconcile before switching reads.
+- [ ] Dual-write and reconcile before switching reads. (Moot for actor logs today: no legacy reader exists and the tenant-tagged table is the only write target, mirroring the accepted system-log approach. Revisit if a legacy consumer appears.)
 - [ ] Backfill legacy records to the known legacy tenant.
 
 ### Partial System-Log V2 Implementation
@@ -1983,6 +1998,101 @@ Legacy unscoped rows remain untouched in `systemLogSuperTable`. Normal tenant
 APIs do not read that table, because assigning or exposing those rows without a
 proven tenant would violate isolation. Backfill and reconciliation remain open
 Phase 6 work.
+
+### Partial Actor-Log V2 Implementation
+
+Implemented on 2026-08-31:
+
+- `tenantId` is required and UUID-validated by the actor-log create command and
+  every actor-log query; creation checks that the tenant exists before writing
+  (mirroring `CreateSystemLogCommandHandler`).
+- New records are written to the tenant's own supertable
+  (`actor_log_t_<tenant>`, tags `tenantId` + `actorId`) into a child table
+  per (tenant, actor) (`actor_log_t_<tenant>_<actor>`), created implicitly by
+  `INSERT ... USING`. The stable is ensured once per process on the tenant's
+  first write; boot-time `initSuperTables` no longer creates any actor-log
+  stable. Names are always derived server-side from validated UUIDs;
+  caller-supplied super/sub table names are ignored by the repository. This
+  replaces the legacy `<actorId>-actorLog` per-user child tables under one
+  global supertable, which mixed the same SSO user across tenants (both audit
+  Critical findings: user-keyed child tables, and membership deletion
+  dropping a user-global actor table).
+- Naming decision 2026-08-31: no version suffix; per-tenant supertables and
+  per-(tenant, actor) children. Reads run against the tenant's supertable
+  with a `tenantId` predicate; per-user reads add an `actorId` predicate that
+  TDengine resolves by tag pruning before scanning. Tenant-wide backup,
+  deletion (`DROP STABLE`), and provisioning are single-table operations.
+- `CreateActorLogSubTableCommand` and `DeleteActorLogSubTableCommand` were
+  removed with their API-service methods and the empty `actorLogsDataReport`
+  stub. There is no per-user child table anymore; v2 child tables are created
+  implicitly by `INSERT ... USING`.
+- Same-millisecond collision safety: the per-child monotonic millisecond
+  allocator was extracted from the system-log repository into
+  `src/modules/shared/monotonicTimestamp.ts` and is now shared by both log
+  repositories, so the two implementations cannot drift.
+- Every `registerActorLog` call site now passes a verified tenant explicitly:
+  NVR/camera/page actor services derive it from the persisted entity's
+  `tenantId`, SMS-notifier commands pass `command.tenantId`, and the tenant
+  rename passes the targeted tenant ID (platform-authorized target, not
+  ambient context). `ActorLogApiService.registerActorLog` requires `tenantId`
+  and fails closed without it; the existing no-actor skip for system-driven
+  cloud-recovery flows is preserved. Legacy ambient-context tenant resolution
+  is gone.
+- Actor-log reads (`findAll`, `findAllPaginated` + implicit count, `count`)
+  accept typed fields only — tenant, optional actor types, optional UTC time
+  range — and always query the tenant-derived child table plus a tenant tag
+  predicate. Callers never supply a table name or a raw filter. (No production
+  reader existed before; these are the future report surface.)
+- Kiosk identity preserved: `SANAW_KIOSK_USER_ID` (`00000000-...`) stays in
+  the actor-log domain. During fog-only operation the kiosk is the only user;
+  when cloud access returns, its actor logs restore to the cloud under this
+  actor ID and remain reportable by filtering on the actor ID within the
+  tenant child table — never by table name.
+- Membership hard delete removes actor logs (decision 2026-08-31):
+  `HardDeleteTenantEmployeeCommand` now calls `DeleteTenantActorLogsCommand`,
+  which requires explicit actor IDs (an absent filter can never wipe a
+  tenant's history), and `ActorLogRepository.dropByActor` executes one
+  `DROP TABLE IF EXISTS` against the actor's child table inside the tenant's
+  own supertable — instant, tenant-scoped by construction. The same SSO
+  user's records in other tenants live under different supertables and are
+  untouched. Whole-tenant actor-log deletion stays a separately named,
+  platform-authorized Phase 9 lifecycle operation (`DROP STABLE`).
+- Per-user report shape: the typed queries accept optional `actorIds` and
+  `actorTypes` plus a UTC time range, and always read the tenant's own
+  supertable. The `actorId` predicate is carried by the child-table tag, so
+  TDengine prunes to the matching child tables before scanning — per-user
+  reports touch only that user's rows; tenant-wide reports scan exactly the
+  tenant's data.
+- SQL literals: `TimeSeriesDbExtension.quoteStringLiteral` is the single
+  escaper for every filter literal; the system-log query handlers and
+  `deleteAll` now build filters through it as well. Backfill of pre-existing
+  actor-log rows to the legacy tenant remains open Phase 6 work.
+- UTC: the hardcoded +03:30 offset was removed from
+  `TimeSeriesDbExtension.createFindAllQuery`/`createCountQuery`. Time ranges
+  are compared as numeric UTC epoch milliseconds with integer and ordering
+  validation; no caller passed the old string/offset path at change time.
+
+### Phase 6 Qualification Evidence
+
+The following gates passed on 2026-08-31 (actor-log slice):
+
+```text
+npm run test  (79 suites / 352 tests)
+npm run build
+git diff --check
+```
+
+New unit coverage: tenant-derived actor child-table selection (same actor in
+two tenants lands in different tables), ignored caller-controlled table names,
+central literal escaping, same-millisecond monotonic allocation, fail-closed
+missing/foreign/malformed tenant at the command, repository, query, and API
+facade layers, no-actor skip preservation, UTC numeric time-range bounds and
+rejections, supertable creation including legacy-table non-creation, and the
+shared allocator's per-table independence. As in prior phases these are
+mock-based unit gates; the `test/integration/**` two-tenant TDengine suites
+(tenant A insert invisible to tenant B query, same actor separated across
+tenants, tenant A delete leaves tenant B unchanged) remain open before the
+completion gate can close.
 
 ### Completion Gate
 

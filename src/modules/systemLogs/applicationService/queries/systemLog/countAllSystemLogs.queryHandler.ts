@@ -10,6 +10,7 @@ import {
   assertSystemLogTenantId,
   assertSystemLogTypes,
 } from 'src/modules/systemLogs/domain/systemLog.type';
+import { TimeSeriesDbExtension } from 'src/dddLib/utils/timeSeriesDbExtension';
 
 export class CountAllSystemLogsQuery extends TimeseriesQueryBase {
   tenantId: string;
@@ -42,10 +43,12 @@ export class CountAllSystemLogsQueryHandler implements IQueryHandler<CountAllSys
     const typeFilters: string[] = [];
     if (query?.types.length) {
       for (const type of query.types) {
-        typeFilters.push(`groupId='${type}'`);
+        typeFilters.push(
+          `groupId=${TimeSeriesDbExtension.quoteStringLiteral(type)}`,
+        );
       }
     }
-    query.filter = `tenantId='${query.tenantId}'`;
+    query.filter = `tenantId=${TimeSeriesDbExtension.quoteStringLiteral(query.tenantId)}`;
     if (typeFilters.length > 0) {
       query.filter += ` AND (${typeFilters.join(' OR ')})`;
     }

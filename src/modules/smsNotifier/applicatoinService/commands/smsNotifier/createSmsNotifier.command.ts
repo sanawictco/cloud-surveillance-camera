@@ -50,6 +50,9 @@ export class CreateSmsNotifierCommandHandler implements ICommandHandler<CreateSm
   }
 
   private async processDependencies(command: CreateSmsNotifierCommand) {
-    await this.employeesActorLogService.smsNotifierAdded(command.phoneNumber);
+    await this.employeesActorLogService.smsNotifierAdded(
+      command.tenantId,
+      command.phoneNumber,
+    );
   }
 }

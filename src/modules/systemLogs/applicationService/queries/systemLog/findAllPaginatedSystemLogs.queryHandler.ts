@@ -12,6 +12,7 @@ import {
   systemLogSelectedColumns,
 } from 'src/modules/systemLogs/domain/systemLog.type';
 import { FindDataParams } from 'src/dddLib/infra/timeseriesRepository.base';
+import { TimeSeriesDbExtension } from 'src/dddLib/utils/timeSeriesDbExtension';
 
 export class FindAllPaginatedSystemLogsQuery extends PaginatedTimeseriesQueryBase {
   tenantId: string;
@@ -44,10 +45,12 @@ export class FindAllPaginatedSystemLogsQueryHandler implements IQueryHandler<Fin
     const typeFilters: string[] = [];
     if (query?.types.length) {
       for (const type of query.types) {
-        typeFilters.push(`groupId='${type}'`);
+        typeFilters.push(
+          `groupId=${TimeSeriesDbExtension.quoteStringLiteral(type)}`,
+        );
       }
     }
-    query.filter = `tenantId='${query.tenantId}'`;
+    query.filter = `tenantId=${TimeSeriesDbExtension.quoteStringLiteral(query.tenantId)}`;
     if (typeFilters.length > 0) {
       query.filter += ` AND (${typeFilters.join(' OR ')})`;
     }

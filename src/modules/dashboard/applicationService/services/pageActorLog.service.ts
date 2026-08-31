@@ -11,6 +11,7 @@ export class PageActorLogService {
     const { actorId } = props;
     const { name } = props.pageEntity.getProps();
     await this.actorLogApiService.registerActorLog({
+      tenantId: props.pageEntity.getProps().tenantId,
       actorId,
       messageProps: {
         key: LanguageKeys.dashboard.actorLog.created,
@@ -32,6 +33,7 @@ export class PageActorLogService {
 
     if (name) {
       await this.actorLogApiService.registerActorLog({
+        tenantId: props.pageEntity.getProps().tenantId,
         actorId,
         messageProps: {
           key: LanguageKeys.dashboard.actorLog.nameUpdated,
@@ -41,6 +43,7 @@ export class PageActorLogService {
     }
     if (destIndex) {
       await this.actorLogApiService.registerActorLog({
+        tenantId: props.pageEntity.getProps().tenantId,
         actorId,
         messageProps: {
           key: LanguageKeys.dashboard.actorLog.pageIndexUpdated,
@@ -50,6 +53,7 @@ export class PageActorLogService {
     }
     if (content) {
       await this.actorLogApiService.registerActorLog({
+        tenantId: props.pageEntity.getProps().tenantId,
         actorId,
         messageProps: {
           key: LanguageKeys.dashboard.actorLog.contentUpdated,
@@ -63,6 +67,7 @@ export class PageActorLogService {
     const { actorId } = props;
     const { name } = props.pageEntity.getProps();
     await this.actorLogApiService.registerActorLog({
+      tenantId: props.pageEntity.getProps().tenantId,
       actorId,
       messageProps: {
         key: LanguageKeys.dashboard.actorLog.deleted,

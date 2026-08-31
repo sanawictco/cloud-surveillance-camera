@@ -25,6 +25,7 @@ import {
   TDENGINE_RESTFULL_OPTIONS,
   TimeseriesRepository,
 } from 'src/modules/shared/timeseriesRepository';
+import { MonotonicTimestampAllocator } from 'src/modules/shared/monotonicTimestamp';
 import type {
   TdengineClient,
   TdengineRestOptions,
@@ -35,7 +36,7 @@ export class SystemLogRepository
   extends TimeseriesRepository
   implements TimeseriesRepositoryBase<SystemLogRecordFormat>
 {
-  private readonly lastTimestampByTable = new Map<string, number>();
+  private readonly timestampAllocator = new MonotonicTimestampAllocator();
 
   constructor(
     @Inject(TDENGINE_CLIENT) tdengineClient: TdengineClient,
@@ -52,9 +53,10 @@ export class SystemLogRepository
     assertSystemLogTenantId(tenantId);
     const subTableName = systemLogSubTableName(tenantId, type);
     const requestedTimestamp = params?.createdAt ?? Date.now();
-    const previousTimestamp = this.lastTimestampByTable.get(subTableName) ?? 0;
-    const createdAt = Math.max(requestedTimestamp, previousTimestamp + 1);
-    this.lastTimestampByTable.set(subTableName, createdAt);
+    const createdAt = this.timestampAllocator.next(
+      subTableName,
+      requestedTimestamp,
+    );
     const { superTableInsertFormat, subTableInsertFormat } =
       TimeSeriesDbExtension.getSuperTableAndSubTableInsertFormat(
         SYSTEM_LOG_SUPER_TABLE,
@@ -101,15 +103,16 @@ export class SystemLogRepository
     if (!Guard.isBetween(entityId, 1, SYSTEM_LOG_ENTITY_ID_COLUMN_SIZE)) {
       throw new ArgumentInvalidException('invalid system log entityId');
     }
-    const entityFilter = TimeSeriesDbExtension.getValuesInsertFormat([
-      entityId,
-    ]);
+    const entityFilter = TimeSeriesDbExtension.quoteStringLiteral(entityId);
     for (const type of Object.values(SystemLogTypes)) {
       const subTableName = systemLogSubTableName(tenantId, type);
       const deletedRecords: Array<[number | string]> = await this.findAll({
         superTableName: SYSTEM_LOG_SUPER_TABLE,
         selectedColumns: ['createdAt'],
-        filter: `tenantId='${tenantId}' AND groupId='${type}' AND entityId=${entityFilter}`,
+        filter:
+          `tenantId=${TimeSeriesDbExtension.quoteStringLiteral(tenantId)} ` +
+          `AND groupId=${TimeSeriesDbExtension.quoteStringLiteral(type)} ` +
+          `AND entityId=${entityFilter}`,
       });
       const { subTableInsertFormat } =
         TimeSeriesDbExtension.getSuperTableAndSubTableInsertFormat(

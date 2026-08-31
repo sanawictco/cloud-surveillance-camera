@@ -9,6 +9,7 @@ import {
   systemLogSelectedColumns,
 } from 'src/modules/systemLogs/domain/systemLog.type';
 import { FindDataParams } from 'src/dddLib/infra/timeseriesRepository.base';
+import { TimeSeriesDbExtension } from 'src/dddLib/utils/timeSeriesDbExtension';
 
 export class FindAllSystemLogsQuery extends TimeseriesQueryBase {
   tenantId: string;
@@ -29,7 +30,7 @@ export class FindAllSystemLogsQueryHandler implements IQueryHandler<FindAllSyste
   async execute(query: FindAllSystemLogsQuery) {
     query.superTableName = SYSTEM_LOG_SUPER_TABLE;
     query.selectedColumns = systemLogSelectedColumns;
-    query.filter = `tenantId='${query.tenantId}'`;
+    query.filter = `tenantId=${TimeSeriesDbExtension.quoteStringLiteral(query.tenantId)}`;
     const records = await this.systemLogRepo.findAll(query);
     return records;
   }

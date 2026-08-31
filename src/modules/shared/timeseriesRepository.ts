@@ -17,11 +17,6 @@ import {
 } from 'src/extensions/tdengine/tdeinge.tokens';
 
 import {
-  ACTOR_LOG_SUPER_TABLE,
-  actorLogColumnNames,
-  actorLogColumnTypes,
-} from 'src/modules/actorLogs/domain/actorLog.type';
-import {
   SYSTEM_LOG_SUPER_TABLE,
   SYSTEM_LOG_TENANT_ID_COLUMN_SIZE,
   systemLogColumnNames,
@@ -49,17 +44,9 @@ export class TimeseriesRepository {
     protected readonly tdengineRestOptions: TdengineRestOptions,
   ) {}
   async initSuperTables(): Promise<void> {
-    await this.tdengineClient.exec(
-      TimeSeriesDbExtension.createSuperTableQuery(
-        {
-          superTableName: ACTOR_LOG_SUPER_TABLE,
-          columnNames: actorLogColumnNames,
-          columnDataTypes: actorLogColumnTypes,
-        },
-        50,
-      ),
-    );
-
+    // Actor-log supertables are NOT created here: they are per-tenant
+    // (actor_log_t_<tenant>) and are ensured once per process by
+    // ActorLogRepository on each tenant's first write.
     await this.tdengineClient.exec(
       TimeSeriesDbExtension.createSuperTableQuery({
         superTableName: SYSTEM_LOG_SUPER_TABLE,

@@ -22,6 +22,7 @@ export class CameraActorLogService {
     const { cameraEntity, actorId } = props;
     const { name } = cameraEntity.getProps();
     await this.actorLogApiService.registerActorLog({
+      tenantId: cameraEntity.getProps().tenantId,
       actorId,
       messageProps: {
         key: LanguageKeys.camera.actorLog.deleted,
@@ -34,6 +35,7 @@ export class CameraActorLogService {
     const { cameraEntity, actorId } = props;
     const { name } = cameraEntity.getProps();
     await this.actorLogApiService.registerActorLog({
+      tenantId: cameraEntity.getProps().tenantId,
       actorId,
       messageProps: {
         key: LanguageKeys.camera.actorLog.activated,
@@ -45,6 +47,7 @@ export class CameraActorLogService {
     const { cameraEntity, actorId } = props;
     const { name } = cameraEntity.getProps();
     await this.actorLogApiService.registerActorLog({
+      tenantId: cameraEntity.getProps().tenantId,
       actorId,
       messageProps: {
         key: LanguageKeys.camera.actorLog.inactivated,
@@ -60,6 +63,7 @@ export class CameraActorLogService {
     const { cameraEntity, actorId } = props;
     const { name } = cameraEntity.getProps();
     await this.actorLogApiService.registerActorLog({
+      tenantId: cameraEntity.getProps().tenantId,
       actorId,
       messageProps: {
         key: LanguageKeys.camera.actorLog.recoveredFromTrash,
@@ -72,6 +76,7 @@ export class CameraActorLogService {
     const { cameraEntity } = props;
     const { name, serialNumber } = cameraEntity.getProps();
     await this.actorLogApiService.registerActorLog({
+      tenantId: cameraEntity.getProps().tenantId,
       messageProps: {
         key: LanguageKeys.camera.actorLog.deleted,
         params: [name, serialNumber],

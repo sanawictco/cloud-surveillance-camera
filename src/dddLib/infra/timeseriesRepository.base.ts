@@ -45,20 +45,24 @@ export class CreateSubTableParams {
 }
 
 export class InsertDataParams<RecordFormat> {
-  superTableName: string;
-  subTableName: string;
+  /**
+   * Table names are optional because tenant-isolated repositories derive
+   * them server-side from validated identity and ignore caller values.
+   */
+  superTableName?: string;
+  subTableName?: string;
   data: RecordFormat;
   createdAt?: number;
 
   constructor(
-    superTableName: string,
-    subTableName: string,
-    data: RecordFormat,
+    superTableName?: string,
+    subTableName?: string,
+    data?: RecordFormat,
     createdAt?: number,
   ) {
     this.superTableName = superTableName;
     this.subTableName = subTableName;
-    this.data = data;
+    this.data = data as RecordFormat;
     this.createdAt = createdAt;
   }
 }

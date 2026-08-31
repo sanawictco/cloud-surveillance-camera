@@ -17,6 +17,7 @@ export class NvrActorLogService {
     const { nvrEntity } = props;
     const { name, serialNumber } = nvrEntity.getProps();
     await this.actorLogApiService.registerActorLog({
+      tenantId: nvrEntity.getProps().tenantId,
       messageProps: {
         key: LanguageKeys.nvr.actorLog.created,
         params: [name, serialNumber],
@@ -40,6 +41,7 @@ export class NvrActorLogService {
     const newLang = updatedProps.lang;
     if (newName) {
       await this.actorLogApiService.registerActorLog({
+        tenantId: nvrEntity.getProps().tenantId,
         actorId,
         messageProps: {
           key: LanguageKeys.nvr.actorLog.nameUpdated,
@@ -49,6 +51,7 @@ export class NvrActorLogService {
     }
     if (newPassword) {
       await this.actorLogApiService.registerActorLog({
+        tenantId: nvrEntity.getProps().tenantId,
         actorId,
         messageProps: {
           key: LanguageKeys.nvr.actorLog.passwordUpdated,
@@ -71,6 +74,7 @@ export class NvrActorLogService {
         messageProps.key = LanguageKeys.nvr.actorLog.langUpdated.toKu;
 
       await this.actorLogApiService.registerActorLog({
+        tenantId: nvrEntity.getProps().tenantId,
         actorId,
         messageProps,
       });
@@ -78,8 +82,10 @@ export class NvrActorLogService {
   }
 
   async delete(props: { nvrEntity: NvrEntity }) {
-    const { name, serialNumber } = props.nvrEntity.getProps();
+    const { nvrEntity } = props;
+    const { name, serialNumber, tenantId } = nvrEntity.getProps();
     await this.actorLogApiService.registerActorLog({
+      tenantId,
       messageProps: {
         key: LanguageKeys.nvr.actorLog.deleted,
         params: [name, serialNumber],
@@ -91,6 +97,7 @@ export class NvrActorLogService {
     const { nvrEntity, actorId } = props;
     const { name, serialNumber } = nvrEntity.getProps();
     await this.actorLogApiService.registerActorLog({
+      tenantId: nvrEntity.getProps().tenantId,
       actorId,
       messageProps: {
         key: LanguageKeys.nvr.actorLog.active,
@@ -103,6 +110,7 @@ export class NvrActorLogService {
     const { nvrEntity, actorId } = props;
     const { name, serialNumber } = nvrEntity.getProps();
     await this.actorLogApiService.registerActorLog({
+      tenantId: nvrEntity.getProps().tenantId,
       actorId,
       messageProps: {
         key: LanguageKeys.nvr.actorLog.inactive,

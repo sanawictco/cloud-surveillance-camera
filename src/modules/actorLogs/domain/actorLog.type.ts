@@ -1,3 +1,5 @@
+import { isUUID } from 'class-validator';
+
 export enum ActorLogTypes {
   EMPLOYEE = 'EMPLOYEE',
   RULE_CHAIN = 'RULE_CHAIN',
@@ -11,19 +13,20 @@ export class ActorLogMessageProps {
   ) {}
 }
 export interface CreateActorLogProps {
-  createdAt: number;
+  tenantId: string;
   actorType: ActorLogTypes;
   actorId: string;
   messageProps: ActorLogMessageProps;
 }
 
 export type ActorLogRecordFormat = [
-  number,
+  string,
   ActorLogTypes,
   string,
   ActorLogMessageProps,
 ];
 
+export const ACTOR_LOG_TENANT_ID_COLUMN_SIZE = 36;
 export const ACTOR_LOG_ACTOR_ID_COLUMN_SIZE = 36;
 export const ACTOR_LOG_MESSAGE_KEY_COLUMN_SIZE = 200;
 export const ACTOR_LOG_ACTOR_LOG_TYPE_COLUMN_SIZE = 20;
@@ -45,5 +48,61 @@ export const actorLogColumnTypes: string[] = [
   `VARCHAR(${ACTOR_LOG_MESSAGE_PARAMS_COLUMN_SIZE})`,
 ];
 
-export const ACTOR_LOG_SUPER_TABLE = 'actorLogSuperTable';
+export function assertActorLogTenantId(tenantId: string): void {
+  if (!isUUID(tenantId, '4')) throw new Error('tenantId must be a UUID v4');
+}
+
+export function assertActorLogTypes(types: ActorLogTypes[]): void {
+  if (
+    !Array.isArray(types) ||
+    types.some((type) => !Object.values(ActorLogTypes).includes(type))
+  ) {
+    throw new Error('actor log type is invalid');
+  }
+}
+
+/**
+ * Actor-log topology (decision 2026-08-31): one supertable per tenant and one
+ * child table per (tenant, actor). Tenant identity is the supertable, so
+ * per-tenant backup, deletion, and provisioning are single-table operations
+ * and per-user reports hit an exact child table. Names are always derived
+ * server-side from validated UUIDs; clients never provide table names.
+ */
+function tenantTableSuffix(id: string): string {
+  return id.replaceAll('-', '').toLowerCase();
+}
+
+export function actorLogSuperTableName(tenantId: string): string {
+  assertActorLogTenantId(tenantId);
+  return `actor_log_t_${tenantTableSuffix(tenantId)}`;
+}
+
+/**
+ * Actor ids are UUID-shaped SSO subjects (or the all-zero kiosk id, whose
+ * version nibble is 0). The check is anchored so embedded UUIDs or SQL
+ * fragments can never pass as an identity.
+ */
+export function assertActorLogId(actorId: string): void {
+  const uuidShape =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidShape.test(actorId)) {
+    throw new Error('actorId must be a UUID');
+  }
+}
+
+export function actorLogSubTableName(
+  tenantId: string,
+  actorId: string,
+): string {
+  assertActorLogTenantId(tenantId);
+  assertActorLogId(actorId);
+  return `actor_log_t_${tenantTableSuffix(tenantId)}_${tenantTableSuffix(actorId)}`;
+}
+
+/**
+ * Identity of the fog kiosk user. During fog-only operation the kiosk is the
+ * only user; when cloud access returns, kiosk actor logs are restored to the
+ * cloud under this actor ID so they remain reportable. Reporting must filter
+ * by this actorId — never by a table name.
+ */
 export const SANAW_KIOSK_USER_ID = '00000000-0000-0000-0000-000000000000';

@@ -4,8 +4,7 @@ import { ActorLogApiService } from './applicationService/services/actorLogApi.se
 import { ACTOR_LOG_REPOSITORY } from './infra/actorLog.diToken';
 import { ActorLogRepository } from './infra/actorLog.timeseriesRepository';
 import { CreateActorLogCommandHandler } from './applicationService/commands/createActorLog.command';
-import { CreateActorLogSubTableCommandHandler } from './applicationService/commands/createActorLogSubTable.command';
-import { DeleteActorLogSubTableCommandHandler } from './applicationService/commands/deleteActorLogSubTable.command';
+import { DeleteTenantActorLogsCommandHandler } from './applicationService/commands/deleteTenantActorLogs.command';
 import { FindAllActorLogsQueryHandler } from './applicationService/queries/findAllActorLogs.queryHandler';
 import { FindAllPaginatedActorLogsQueryHandler } from './applicationService/queries/findAllPaginatedActorLogs.queryHandler';
 import { CountAllActorLogsQueryHandler } from './applicationService/queries/countAllActorLogs.queryHandler';
@@ -15,8 +14,7 @@ import { ActorLogsService } from './applicationService/services/actorLog.service
 
 const commandHandlers: Provider[] = [
   CreateActorLogCommandHandler,
-  CreateActorLogSubTableCommandHandler,
-  DeleteActorLogSubTableCommandHandler,
+  DeleteTenantActorLogsCommandHandler,
 ];
 const queryHandlers: Provider[] = [
   FindAllActorLogsQueryHandler,
