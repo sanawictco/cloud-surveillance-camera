@@ -14,7 +14,7 @@ const NOW = 1_000_000;
 
 function buildMessage(overrides: Record<string, any> = {}) {
   const metadata = {
-    topic: `${TENANT_A}/${NVR_A}/videoDevice/Config/pub`,
+    topic: `tenants/${TENANT_A}/nvrs/${NVR_A}/config/to-fog`,
     entityId: NVR_A,
     entityType: EntityTypes.NVR,
     retryCount: 3,
@@ -37,7 +37,7 @@ function assertConfig(message: unknown, jobId?: string) {
   return assertTenantQueueMessage(message, {
     allowedEntityTypes: [EntityTypes.NVR, EntityTypes.CAMERA],
     expectedTopic: ({ tenantId, nvrId }) =>
-      `${tenantId}/${nvrId}/videoDevice/Config/pub`,
+      `tenants/${tenantId}/nvrs/${nvrId}/config/to-fog`,
     jobId,
     now: NOW,
   });
@@ -57,7 +57,7 @@ describe('assertTenantQueueMessage', () => {
       configType: 'update',
       entityId: NVR_A,
       entityType: EntityTypes.NVR,
-      topic: `${TENANT_A}/${NVR_A}/videoDevice/Config/pub`,
+      topic: `tenants/${TENANT_A}/nvrs/${NVR_A}/config/to-fog`,
       jobId: `t-${TENANT_A}-n-${NVR_A}-m-4294967295`,
     });
   });
@@ -102,14 +102,15 @@ describe('assertTenantQueueMessage', () => {
 
   it('rejects an entity type this queue does not serve', () => {
     expect(() =>
-      assertConfig(buildMessage({ metadata: { entityType: EntityTypes.PAGE } })),
+      assertConfig(
+        buildMessage({ metadata: { entityType: EntityTypes.PAGE } }),
+      ),
     ).toThrow(/entity is invalid/);
   });
 
   it('rejects an entityId that could inject MQTT topic separators', () => {
-    // entityId is interpolated into the derived publish topic on the
-    // camera-data queue, so a value like `aaa/#` would otherwise place a
-    // wildcard in the address the payload is published to
+    // entityId must be a whole UUID wherever identity is threaded through
+    // topics or Redis keys; a value like `aaa/#` carries separators
     const evilId = 'aaa/#';
     expect(() =>
       assertTenantQueueMessage(
@@ -117,13 +118,13 @@ describe('assertTenantQueueMessage', () => {
           metadata: {
             entityId: evilId,
             entityType: EntityTypes.CAMERA,
-            topic: `${NVR_A}/${evilId}/camera/data/pub`,
+            topic: `tenants/${TENANT_A}/nvrs/${NVR_A}/cameras/to-fog`,
           },
         }),
         {
           allowedEntityTypes: [EntityTypes.CAMERA],
           expectedTopic: ({ nvrId, entityId }) =>
-            `${nvrId}/${entityId}/camera/data/pub`,
+            `tenants/${TENANT_A}/nvrs/${nvrId}/cameras/to-fog`,
           now: NOW,
         },
       ),
@@ -140,7 +141,9 @@ describe('assertTenantQueueMessage', () => {
     expect(() =>
       assertConfig(
         buildMessage({
-          metadata: { topic: `${TENANT_B}/${NVR_A}/videoDevice/Config/pub` },
+          metadata: {
+            topic: `tenants/${TENANT_B}/nvrs/${NVR_A}/config/to-fog`,
+          },
         }),
       ),
     ).toThrow(/topic is invalid/);
@@ -150,7 +153,9 @@ describe('assertTenantQueueMessage', () => {
     expect(() =>
       assertConfig(
         buildMessage({
-          metadata: { topic: `${TENANT_A}/${NVR_B}/videoDevice/Config/pub` },
+          metadata: {
+            topic: `tenants/${TENANT_A}/nvrs/${NVR_B}/config/to-fog`,
+          },
         }),
       ),
     ).toThrow(/topic is invalid/);
@@ -159,7 +164,9 @@ describe('assertTenantQueueMessage', () => {
   it('rejects a message with no lifetime stamped', () => {
     expect(() =>
       assertConfig(
-        buildMessage({ metadata: { issuedAt: undefined, expiresAt: undefined } }),
+        buildMessage({
+          metadata: { issuedAt: undefined, expiresAt: undefined },
+        }),
       ),
     ).toThrow(/lifetime is invalid/);
   });
@@ -192,7 +199,7 @@ describe('assertTenantQueueMessage', () => {
       {
         allowedEntityTypes: [EntityTypes.NVR],
         expectedTopic: ({ tenantId, nvrId }) =>
-          `${tenantId}/${nvrId}/videoDevice/Config/pub`,
+          `tenants/${tenantId}/nvrs/${nvrId}/config/to-fog`,
         now: NOW,
         allowExpired: true,
       },
@@ -212,7 +219,7 @@ describe('assertTenantQueueMessage', () => {
         {
           allowedEntityTypes: [EntityTypes.NVR],
           expectedTopic: ({ tenantId, nvrId }) =>
-            `${tenantId}/${nvrId}/videoDevice/Config/pub`,
+            `tenants/${tenantId}/nvrs/${nvrId}/config/to-fog`,
           now: NOW,
           allowExpired: true,
         },
@@ -225,7 +232,7 @@ describe('assertTenantQueueMessage', () => {
       assertTenantQueueMessage(buildMessage(), {
         allowedEntityTypes: [EntityTypes.NVR],
         expectedTopic: ({ tenantId, nvrId }) =>
-          `${tenantId}/${nvrId}/videoDevice/Config/pub`,
+          `tenants/${tenantId}/nvrs/${nvrId}/config/to-fog`,
         jobId: `t-${TENANT_B}-n-${NVR_A}-m-4294967295`,
         now: NOW,
         allowExpired: true,
@@ -258,7 +265,7 @@ describe('assertTenantQueueMessage', () => {
         nvrId: NVR_B,
         metadata: {
           entityId: NVR_B,
-          topic: `${TENANT_A}/${NVR_B}/videoDevice/Config/pub`,
+          topic: `tenants/${TENANT_A}/nvrs/${NVR_B}/config/to-fog`,
         },
       }),
     );
@@ -268,9 +275,7 @@ describe('assertTenantQueueMessage', () => {
   });
 
   it('rejects a non-object message', () => {
-    expect(() => assertConfig('not-a-message')).toThrow(
-      /structure is invalid/,
-    );
+    expect(() => assertConfig('not-a-message')).toThrow(/structure is invalid/);
   });
 });
 
@@ -292,8 +297,6 @@ describe('describeTenantQueueFailure', () => {
   });
 
   it('describes an unparsable message without throwing', () => {
-    expect(describeTenantQueueFailure(undefined)).toContain(
-      'tenantId=unknown',
-    );
+    expect(describeTenantQueueFailure(undefined)).toContain('tenantId=unknown');
   });
 });

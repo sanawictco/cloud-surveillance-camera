@@ -17,7 +17,7 @@ function buildJob(overrides: Record<string, any> = {}) {
     nvrId: NVR_A,
     ...overrides,
     metadata: {
-      topic: `${TENANT_A}/${NVR_A}/videoDevice/Config/pub`,
+      topic: `tenants/${TENANT_A}/nvrs/${NVR_A}/config/to-fog`,
       entityId: NVR_A,
       entityType: EntityTypes.NVR,
       retryCount: 2,
@@ -28,7 +28,8 @@ function buildJob(overrides: Record<string, any> = {}) {
     },
   };
   return {
-    name: overrides.name ?? `t-${data.tenantId}-n-${data.nvrId}-m-${data.msgId}`,
+    name:
+      overrides.name ?? `t-${data.tenantId}-n-${data.nvrId}-m-${data.msgId}`,
     data,
     opts: { repeat: { count: 0 } },
     attemptsMade: 1,
@@ -93,8 +94,9 @@ describe('VideoDeviceConfigQueueService', () => {
 
     await context.work(buildJob());
 
+    expect(context.mqttService.publish).toHaveBeenCalledTimes(1);
     expect(context.mqttService.publish).toHaveBeenCalledWith(
-      `${TENANT_A}/${NVR_A}/videoDevice/Config/pub`,
+      `tenants/${TENANT_A}/nvrs/${NVR_A}/config/to-fog`,
       '101',
     );
   });
@@ -115,7 +117,7 @@ describe('VideoDeviceConfigQueueService', () => {
       context.work(
         buildJob({
           metadata: {
-            topic: `${TENANT_B}/${NVR_A}/videoDevice/Config/pub`,
+            topic: `tenants/${TENANT_B}/nvrs/${NVR_A}/config/to-fog`,
           },
         }),
       ),
@@ -173,7 +175,9 @@ describe('VideoDeviceConfigQueueService', () => {
     await expect(
       context.expire(buildJob({ metadata: { entityId: NVR_B } })),
     ).rejects.toThrow(/identity mismatch/);
-    expect(context.nvrRunningConfigs.doneAndUnlockConfig).not.toHaveBeenCalled();
+    expect(
+      context.nvrRunningConfigs.doneAndUnlockConfig,
+    ).not.toHaveBeenCalled();
   });
 
   it('rejects expiry when the queued camera belongs to another NVR', async () => {

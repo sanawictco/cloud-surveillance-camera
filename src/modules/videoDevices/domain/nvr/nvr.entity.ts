@@ -28,13 +28,13 @@ import { NvrUpdatedDomainEvent } from './events/nvrUpdated.domainEvent';
 import { NvrInActivatedDomainEvent } from './events/nvrInActivated.domainEvent';
 import { NvrActivatedDomainEvent } from './events/nvrActivated.domainEvent';
 import { NvrDeletedDomainEvent } from './events/nvrDeleted.domainEvent';
-import { CameraCloudSubOnFogMqttTopics } from 'src/modules/videoDevices/domain/camera/camera.type';
 import { BusinessId } from 'src/dddLib/core/businessId.vo';
 import { IsActive } from '../../shared/valueObjects/isActive.vo';
 import { MaxCameras } from './valueObjects/maxCameras.vo';
 import { VideoDeviceConfigQueueMsgDto } from '../../applicationService/services/queues/videoDeviceConfig/videoDeviceConfigQueueMsg.dto';
 import { EntityTypes } from '../../shared/valueObjects/entityTypes';
 import {
+  cameraDataPubTopic,
   cloudIsAvailablePubTopic,
   cloudRecoveryDataAckPubTopic,
   pageConfigPubTopic,
@@ -174,37 +174,20 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
     );
   }
 
+  /**
+   * Cloud->fog topics this NVR's fog device may subscribe to. All are exact
+   * topics, so an NVR can never reach another tenant's or NVR's topics through
+   * its ACL.
+   */
   getCloudPubToFogMqttTopics(): NvrCloudPubToFogMqttTopics {
     const tenantId = this.getProps().tenantId;
-    const mqttPublishTopicsObject: NvrCloudPubToFogMqttTopics = {
+    return Object.freeze({
       videoDeviceConfigs: videoDeviceConfigPubTopic(tenantId, this.id),
       cloudRecoveryDataAck: cloudRecoveryDataAckPubTopic(tenantId, this.id),
       cloudIsAvailable: cloudIsAvailablePubTopic(tenantId, this.id),
       pageConfig: pageConfigPubTopic(tenantId, this.id),
-    };
-
-    const cameraPublishTopics = this.transformSubscribeToPublishTopics(
-      CameraCloudSubOnFogMqttTopics,
-      'cameraData',
-    );
-
-    return Object.freeze({
-      ...mqttPublishTopicsObject,
-      ...cameraPublishTopics,
+      cameraData: cameraDataPubTopic(tenantId, this.id),
     });
-  }
-
-  private transformSubscribeToPublishTopics(
-    topics: Record<string, string>,
-    key: string,
-  ): Record<string, string> {
-    const transformedTopics = { ...topics };
-    if (transformedTopics[key]) {
-      transformedTopics[key] = transformedTopics[key]
-        .replace(/\+/, this.id)
-        .replace('/sub', '/pub');
-    }
-    return transformedTopics;
   }
 
   generateFogConfig(

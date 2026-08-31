@@ -64,7 +64,7 @@ describe('VideoDeviceDataQueueService worker', () => {
       nvrId: NVR_A,
       ...overrides,
       metadata: {
-        topic: `${NVR_A}/${CAMERA_A}/camera/data/pub`,
+        topic: `tenants/${TENANT_A}/nvrs/${NVR_A}/cameras/to-fog`,
         entityId: CAMERA_A,
         entityType: EntityTypes.CAMERA,
         retryCount: 2,
@@ -75,7 +75,8 @@ describe('VideoDeviceDataQueueService worker', () => {
       },
     };
     return {
-      name: overrides.name ?? `t-${data.tenantId}-n-${data.nvrId}-m-${data.msgId}`,
+      name:
+        overrides.name ?? `t-${data.tenantId}-n-${data.nvrId}-m-${data.msgId}`,
       data,
       opts: { repeat: { count: 0 } },
       attemptsMade: 1,
@@ -87,8 +88,9 @@ describe('VideoDeviceDataQueueService worker', () => {
 
     await context.work(buildJob());
 
+    expect(context.mqttService.publish).toHaveBeenCalledTimes(1);
     expect(context.mqttService.publish).toHaveBeenCalledWith(
-      `${NVR_A}/${CAMERA_A}/camera/data/pub`,
+      `tenants/${TENANT_A}/nvrs/${NVR_A}/cameras/to-fog`,
       `${CAMERA_A},move,101,1,2`,
     );
   });
@@ -97,9 +99,7 @@ describe('VideoDeviceDataQueueService worker', () => {
     const context = buildService();
 
     await expect(
-      context.work(
-        buildJob({ name: `t-${TENANT_B}-n-${NVR_A}-m-101` }),
-      ),
+      context.work(buildJob({ name: `t-${TENANT_B}-n-${NVR_A}-m-101` })),
     ).rejects.toThrow(/scope is invalid/);
     expect(context.mqttService.publish).not.toHaveBeenCalled();
   });
@@ -110,7 +110,9 @@ describe('VideoDeviceDataQueueService worker', () => {
     await expect(
       context.work(
         buildJob({
-          metadata: { topic: `${NVR_B}/${CAMERA_A}/camera/data/pub` },
+          metadata: {
+            topic: `tenants/${TENANT_A}/nvrs/${NVR_B}/cameras/to-fog`,
+          },
         }),
       ),
     ).rejects.toThrow(/topic is invalid/);
@@ -135,7 +137,7 @@ describe('VideoDeviceDataQueueService worker', () => {
           metadata: {
             entityType: EntityTypes.NVR,
             entityId: NVR_A,
-            topic: `${NVR_A}/${NVR_A}/camera/data/pub`,
+            topic: `tenants/${TENANT_A}/nvrs/${NVR_A}/cameras/to-fog`,
           },
         }),
       ),

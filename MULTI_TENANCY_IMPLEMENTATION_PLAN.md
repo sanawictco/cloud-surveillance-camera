@@ -2,34 +2,35 @@
 
 ## Document Status
 
-| Field | Decision |
-|---|---|
-| Service | `cloud-surveillance-camera` |
-| Architecture | NestJS 11, CQRS, MongoDB, TDengine, Redis, BullMQ, MQTT, Socket.IO, Keycloak |
-| Current safety level | Treat as single-tenant until the isolation gates in this document pass |
-| Target isolation | Shared infrastructure with strict logical tenant isolation |
-| Identity authority | Keycloak SSO |
-| Membership authority | MongoDB in this service |
-| User membership | One SSO user may belong to multiple tenants |
-| Active tenant | Explicitly selected and validated for each HTTP request or WebSocket connection |
-| Authorization | Tenant-scoped `EmployeeRoles` enforced at controllers; all tenants have the same features |
-| Database authorization | No per-user database accounts or ordinary per-user CRUD limits |
-| MongoDB | Shared collections with mandatory tenant filters |
-| Redis and BullMQ | Shared infrastructure with tenant-aware keys and messages |
-| MQTT | Shared EMQX broker with per-NVR credentials and exact topic ACLs |
-| TDengine | Shared databases; one child table per tenant for each log/report supertable |
-| Fog recovery | Tenant/NVR-scoped domain import, not whole-database restore |
-| Deployment | One application instance initially |
-| Report retention | 90 days detailed data and 2 years summarized data |
-| Device `msgId` | Canonical decimal string containing a random unsigned 32-bit value, scoped by tenant and NVR |
-| Last updated | 2026-08-29 |
-| Phase 0 status | Complete and runtime-qualified on 2026-08-25 |
-| Phase 1 status | Complete and unit-qualified on 2026-08-26; revised 2026-08-29 (see Phase 1 revision note) |
-| Phase 2 status | Page slice unit-qualified 2026-08-29; NVR/Camera/Tenant scope, device-secret caching, and legacy backfill still open |
-| Phase 3 status | Implemented and unit-qualified on 2026-08-30 |
-| Phase 4 status | Implemented and unit-qualified on 2026-08-30 |
-| Next implementation phase | Phase 5: MQTT Topic And Device Isolation (plus the open Phase 2 slices and the `test/integration/**` two-tenant suites) |
-| System-log visibility | Any active tenant member (no special role); `Report` role reserved for a future camera-event reporting feature |
+| Field                     | Decision                                                                                                                                          |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Service                   | `cloud-surveillance-camera`                                                                                                                       |
+| Architecture              | NestJS 11, CQRS, MongoDB, TDengine, Redis, BullMQ, MQTT, Socket.IO, Keycloak                                                                      |
+| Current safety level      | Treat as single-tenant until the isolation gates in this document pass                                                                            |
+| Target isolation          | Shared infrastructure with strict logical tenant isolation                                                                                        |
+| Identity authority        | Keycloak SSO                                                                                                                                      |
+| Membership authority      | MongoDB in this service                                                                                                                           |
+| User membership           | One SSO user may belong to multiple tenants                                                                                                       |
+| Active tenant             | Explicitly selected and validated for each HTTP request or WebSocket connection                                                                   |
+| Authorization             | Tenant-scoped `EmployeeRoles` enforced at controllers; all tenants have the same features                                                         |
+| Database authorization    | No per-user database accounts or ordinary per-user CRUD limits                                                                                    |
+| MongoDB                   | Shared collections with mandatory tenant filters                                                                                                  |
+| Redis and BullMQ          | Shared infrastructure with tenant-aware keys and messages                                                                                         |
+| MQTT                      | Shared EMQX broker with per-NVR credentials and exact topic ACLs                                                                                  |
+| TDengine                  | Shared databases; one child table per tenant for each log/report supertable                                                                       |
+| Fog recovery              | Tenant/NVR-scoped domain import, not whole-database restore                                                                                       |
+| Deployment                | One application instance initially                                                                                                                |
+| Report retention          | 90 days detailed data and 2 years summarized data                                                                                                 |
+| Device `msgId`            | Canonical decimal string containing a random unsigned 32-bit value, scoped by tenant and NVR                                                      |
+| Last updated              | 2026-08-29                                                                                                                                        |
+| Phase 0 status            | Complete and runtime-qualified on 2026-08-25                                                                                                      |
+| Phase 1 status            | Complete and unit-qualified on 2026-08-26; revised 2026-08-29 (see Phase 1 revision note)                                                         |
+| Phase 2 status            | Page slice unit-qualified 2026-08-29; NVR/Camera/Tenant scope, device-secret caching, and legacy backfill still open                              |
+| Phase 3 status            | Implemented and unit-qualified on 2026-08-30                                                                                                      |
+| Phase 4 status            | Implemented and unit-qualified on 2026-08-30                                                                                                      |
+| Phase 5 status            | Topic hierarchy, ACL provisioning, validation, and idempotent consumers implemented and unit-qualified on 2026-08-31; credential split still open |
+| Next implementation phase | The open Phase 5 slice (credential split), the open Phase 2 slices, and the `test/integration/**` two-tenant suites                               |
+| System-log visibility     | Any active tenant member (no special role); `Report` role reserved for a future camera-event reporting feature                                    |
 
 ## Purpose
 
@@ -88,6 +89,7 @@ The first multi-tenant implementation does not require:
 - Per-tenant Redis databases
 - Per-tenant BullMQ queues
 - Fine-grained per-camera user grants
+- Per-camera MQTT topics and per-camera ACL rules (camera commands are addressed to the NVR-level `cameras` topic; the payload carries the camera ID, and per-camera topics would only matter with per-camera principals or routing)
 - A policy engine such as OpenFGA
 - A Socket.IO Redis adapter while the service has one instance
 - Dedicated TDengine infrastructure per tenant
@@ -106,31 +108,31 @@ Apply targeted limits only where an operation can create significant cost or sha
 
 The following code conditions were verified during the audit and motivate the phases in this document.
 
-| Severity | Finding | Evidence |
-|---|---|---|
-| Critical | Authenticated user and request context contain no tenant | `src/utilities/auth/protection.middleware.ts:143-152`, `src/extensions/userInfo/userInfo.dto.ts:5-10`, `src/dddLib/utils/appRequestContext.ts:4-21` |
-| Critical | NVR creation assumes exactly one tenant and uses the first tenant | `src/modules/videoDevices/applicationService/services/http/nvr.http.service.ts:64-86` |
-| Critical | Generic Mongo reads, writes, deletes, counts, and aggregates do not require tenant | `src/modules/shared/parent.repository.ts:40-60`, `65-113`, `115-150` |
-| Critical | Socket.IO sends business messages to every cached connected client | `src/extensions/websocket/websocket.service.ts:120-166` |
-| Critical | WebSocket sessions contain no tenant and join no tenant room | `src/extensions/websocket/websocketClientCachedModel.ts:3-9`, `src/extensions/websocket/websocket.service.ts:101-105` |
-| Critical | TDengine system and actor logs contain no tenant dimension | `src/modules/systemLogs/domain/systemLog.type.ts`, `src/modules/actorLogs/domain/actorLog.type.ts` |
-| Critical | Actor child tables are keyed only by user ID, mixing the same SSO user across tenants | `src/modules/actorLogs/applicationService/commands/createActorLog.command.ts:43-56` |
-| Critical | Membership deletion can drop the actor table for the user across all tenants | `src/modules/actorLogs/applicationService/commands/deleteActorLogSubTable.command.ts:28-30` |
-| Critical | Two controllers register `POST /fog-communication-manager/configs` with different validation | `src/modules/fogCommunicationManager/fogCommunicationManager.controller.ts:26-32`, `src/modules/videoDevices/controllers/fogCommunication.http.controller.ts:11-19` |
-| Critical | The legacy fog configuration flow can retrieve a queue message by supplied `msgId` without complete ownership checks | `src/modules/fogCommunicationManager/fogCommunicationManager.service.ts:59-83` |
-| Critical | An NVR-authenticated endpoint can invoke whole MongoDB and TDengine restore tools | `src/modules/fogCommunicationManager/fogCommunicationManager.service.ts:119-155`, `235-274` |
-| Critical | TDengine values, filters, columns, and identifiers are assembled through raw SQL strings | `src/dddLib/utils/timeSeriesDbExtension.ts`, `src/modules/systemLogs/infra/repositories/systemLog.timeseriesRepository.ts` |
-| High | Employees, pages, and SMS notifiers have no tenant field | `src/modules/employees/infra/schemas/employee.schema.ts`, `smsNotifier.schema.ts`, `src/modules/dashboard/infra/schemas/page.schema.ts` |
-| High | Current Keycloak/Sanaw employee roles are global rather than tenant-membership roles | `src/modules/shared/roles.guard.ts`, `src/modules/employees/applicatoinService/services/employee.service.ts` |
-| High | Page MQTT entities and messages do not carry or validate tenant ownership | `src/modules/dashboard/domain/page.entity.ts`, `src/modules/dashboard/controllers/page.mqtt.controller.ts` |
-| High | Existing `msgId` generation has only 16 bits | `src/dddLib/utils/randomIdGenerator.ts:7-10` |
-| High | Device secrets are stored and cached in plaintext, and the NVR password is returned over HTTP | `src/modules/videoDevices/infra/nvr/nvr.schema.ts:23-30`, `src/modules/videoDevices/contracts/nvr/http/response/nvr.response.dto.ts` |
-| High | SMS notification recipients are selected globally | `src/modules/systemLogs/applicationService/services/systemLog.service.ts:130-157` |
-| Medium | Cache keys omit tenant, and cache-wide operations affect all tenants | `src/extensions/caching/cache.service.ts:27`, `327-369` |
-| Medium | ~~Queue workers establish no tenant context and trust their payload structure~~ Resolved in Phase 3 by `assertTenantQueueMessage` | `src/modules/shared/tenantQueueMessage.ts` |
-| Medium | ~~Scheduler tenant namespace support exists but is unused~~ Resolved in Phase 3 by tenant-scoped scheduler IDs | `src/extensions/scheduler/schedulerIds.ts` |
-| Medium | TDengine query errors can be returned as empty results | `src/modules/shared/timeseriesRepository.ts:183-203` |
-| Medium | TDengine has no configured detail retention or summary rollups | No retention or rollup implementation exists |
+| Severity | Finding                                                                                                                           | Evidence                                                                                                                                                            |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Critical | Authenticated user and request context contain no tenant                                                                          | `src/utilities/auth/protection.middleware.ts:143-152`, `src/extensions/userInfo/userInfo.dto.ts:5-10`, `src/dddLib/utils/appRequestContext.ts:4-21`                 |
+| Critical | NVR creation assumes exactly one tenant and uses the first tenant                                                                 | `src/modules/videoDevices/applicationService/services/http/nvr.http.service.ts:64-86`                                                                               |
+| Critical | Generic Mongo reads, writes, deletes, counts, and aggregates do not require tenant                                                | `src/modules/shared/parent.repository.ts:40-60`, `65-113`, `115-150`                                                                                                |
+| Critical | Socket.IO sends business messages to every cached connected client                                                                | `src/extensions/websocket/websocket.service.ts:120-166`                                                                                                             |
+| Critical | WebSocket sessions contain no tenant and join no tenant room                                                                      | `src/extensions/websocket/websocketClientCachedModel.ts:3-9`, `src/extensions/websocket/websocket.service.ts:101-105`                                               |
+| Critical | TDengine system and actor logs contain no tenant dimension                                                                        | `src/modules/systemLogs/domain/systemLog.type.ts`, `src/modules/actorLogs/domain/actorLog.type.ts`                                                                  |
+| Critical | Actor child tables are keyed only by user ID, mixing the same SSO user across tenants                                             | `src/modules/actorLogs/applicationService/commands/createActorLog.command.ts:43-56`                                                                                 |
+| Critical | Membership deletion can drop the actor table for the user across all tenants                                                      | `src/modules/actorLogs/applicationService/commands/deleteActorLogSubTable.command.ts:28-30`                                                                         |
+| Critical | Two controllers register `POST /fog-communication-manager/configs` with different validation                                      | `src/modules/fogCommunicationManager/fogCommunicationManager.controller.ts:26-32`, `src/modules/videoDevices/controllers/fogCommunication.http.controller.ts:11-19` |
+| Critical | The legacy fog configuration flow can retrieve a queue message by supplied `msgId` without complete ownership checks              | `src/modules/fogCommunicationManager/fogCommunicationManager.service.ts:59-83`                                                                                      |
+| Critical | An NVR-authenticated endpoint can invoke whole MongoDB and TDengine restore tools                                                 | `src/modules/fogCommunicationManager/fogCommunicationManager.service.ts:119-155`, `235-274`                                                                         |
+| Critical | TDengine values, filters, columns, and identifiers are assembled through raw SQL strings                                          | `src/dddLib/utils/timeSeriesDbExtension.ts`, `src/modules/systemLogs/infra/repositories/systemLog.timeseriesRepository.ts`                                          |
+| High     | Employees, pages, and SMS notifiers have no tenant field                                                                          | `src/modules/employees/infra/schemas/employee.schema.ts`, `smsNotifier.schema.ts`, `src/modules/dashboard/infra/schemas/page.schema.ts`                             |
+| High     | Current Keycloak/Sanaw employee roles are global rather than tenant-membership roles                                              | `src/modules/shared/roles.guard.ts`, `src/modules/employees/applicatoinService/services/employee.service.ts`                                                        |
+| High     | Page MQTT entities and messages do not carry or validate tenant ownership                                                         | `src/modules/dashboard/domain/page.entity.ts`, `src/modules/dashboard/controllers/page.mqtt.controller.ts`                                                          |
+| High     | Existing `msgId` generation has only 16 bits                                                                                      | `src/dddLib/utils/randomIdGenerator.ts:7-10`                                                                                                                        |
+| High     | Device secrets are stored and cached in plaintext, and the NVR password is returned over HTTP                                     | `src/modules/videoDevices/infra/nvr/nvr.schema.ts:23-30`, `src/modules/videoDevices/contracts/nvr/http/response/nvr.response.dto.ts`                                |
+| High     | SMS notification recipients are selected globally                                                                                 | `src/modules/systemLogs/applicationService/services/systemLog.service.ts:130-157`                                                                                   |
+| Medium   | Cache keys omit tenant, and cache-wide operations affect all tenants                                                              | `src/extensions/caching/cache.service.ts:27`, `327-369`                                                                                                             |
+| Medium   | ~~Queue workers establish no tenant context and trust their payload structure~~ Resolved in Phase 3 by `assertTenantQueueMessage` | `src/modules/shared/tenantQueueMessage.ts`                                                                                                                          |
+| Medium   | ~~Scheduler tenant namespace support exists but is unused~~ Resolved in Phase 3 by tenant-scoped scheduler IDs                    | `src/extensions/scheduler/schedulerIds.ts`                                                                                                                          |
+| Medium   | TDengine query errors can be returned as empty results                                                                            | `src/modules/shared/timeseriesRepository.ts:183-203`                                                                                                                |
+| Medium   | TDengine has no configured detail retention or summary rollups                                                                    | No retention or rollup implementation exists                                                                                                                        |
 
 ## Existing Controls To Preserve
 
@@ -342,13 +344,13 @@ Async message
 
 The asynchronous tenant source depends on the producer:
 
-| Producer | Tenant source |
-|---|---|
-| HTTP-created job | Verified synchronous `context.tenantId` copied into queue message |
-| NVR scheduler | Persisted `nvr.tenantId` copied into queue message |
-| MQTT response | Topic tenant cross-checked against queue message and persisted NVR |
-| Global scheduler | Persisted tenant from each entity being processed |
-| Platform operation | Explicit platform-authorized target tenant |
+| Producer           | Tenant source                                                      |
+| ------------------ | ------------------------------------------------------------------ |
+| HTTP-created job   | Verified synchronous `context.tenantId` copied into queue message  |
+| NVR scheduler      | Persisted `nvr.tenantId` copied into queue message                 |
+| MQTT response      | Topic tenant cross-checked against queue message and persisted NVR |
+| Global scheduler   | Persisted tenant from each entity being processed                  |
+| Platform operation | Explicit platform-authorized target tenant                         |
 
 After validation, asynchronous code should call:
 
@@ -434,13 +436,13 @@ function buildDeviceJobId(
 Queue APIs must move from:
 
 ```typescript
-getRepeatableMsg(msgId)
+getRepeatableMsg(msgId);
 ```
 
 to:
 
 ```typescript
-getRepeatableMsg(tenantId, nvrId, msgId)
+getRepeatableMsg(tenantId, nvrId, msgId);
 ```
 
 Fog HTTP must derive tenant and NVR from authenticated serial number before constructing the queue key.
@@ -534,10 +536,7 @@ Examples:
 ```typescript
 findOne({ tenantId, id });
 
-updateOne(
-  { tenantId, id: entity.id },
-  update,
-);
+updateOne({ tenantId, id: entity.id }, update);
 
 deleteOne({ tenantId, id: entity.id });
 ```
@@ -549,7 +548,11 @@ If an update or delete matches zero rows, it must not silently appear successful
 Every tenant-owned aggregation must begin with an unavoidable tenant match:
 
 ```typescript
-{ $match: { tenantId } }
+{
+  $match: {
+    tenantId;
+  }
+}
 ```
 
 The pagination count must use the exact same tenant filter as the data query.
@@ -567,9 +570,9 @@ Do not interpret missing tenant as all tenants.
 Global boot and platform operations must be separately named, for example:
 
 ```typescript
-findAllActiveNvrsAsSystem()
-restoreAllNvrsToCacheAsSystem()
-deleteTenantDataAsPlatform(tenantId)
+findAllActiveNvrsAsSystem();
+restoreAllNvrsToCacheAsSystem();
+deleteTenantDataAsPlatform(tenantId);
 ```
 
 These methods must not be callable accidentally from normal tenant controllers.
@@ -600,19 +603,19 @@ SMS recipients for a system event must be selected from the event tenant only.
 
 ### Recommended Indexes
 
-| Collection | Index | Purpose |
-|---|---|---|
-| NVR | `{ tenantId: 1, id: 1 }` | Tenant ID lookup |
-| NVR | `{ tenantId: 1, name: 1 }` | Tenant name uniqueness if required |
-| NVR | `{ serialNumber: 1 }` | Global hardware serial uniqueness |
-| Camera | `{ tenantId: 1, id: 1 }` | Tenant ID lookup |
-| Camera | `{ tenantId: 1, nvrId: 1, serialNumber: 1 }` | Unique device under NVR |
-| Camera | `{ tenantId: 1, nvrId: 1, macAddress: 1 }` | Unique device under NVR |
-| Page | `{ tenantId: 1, nvrId: 1, type: 1, pageIndex: 1 }` | Ordered page query |
-| Page | `{ tenantId: 1, nvrId: 1, name: 1 }` | Name uniqueness if required |
-| Membership | `{ tenantId: 1, userId: 1 }` | Unique membership |
-| Membership | `{ userId: 1, status: 1 }` | User tenant list |
-| SMS notifier | `{ tenantId: 1, userId: 1 }` | Unique preference |
+| Collection   | Index                                              | Purpose                            |
+| ------------ | -------------------------------------------------- | ---------------------------------- |
+| NVR          | `{ tenantId: 1, id: 1 }`                           | Tenant ID lookup                   |
+| NVR          | `{ tenantId: 1, name: 1 }`                         | Tenant name uniqueness if required |
+| NVR          | `{ serialNumber: 1 }`                              | Global hardware serial uniqueness  |
+| Camera       | `{ tenantId: 1, id: 1 }`                           | Tenant ID lookup                   |
+| Camera       | `{ tenantId: 1, nvrId: 1, serialNumber: 1 }`       | Unique device under NVR            |
+| Camera       | `{ tenantId: 1, nvrId: 1, macAddress: 1 }`         | Unique device under NVR            |
+| Page         | `{ tenantId: 1, nvrId: 1, type: 1, pageIndex: 1 }` | Ordered page query                 |
+| Page         | `{ tenantId: 1, nvrId: 1, name: 1 }`               | Name uniqueness if required        |
+| Membership   | `{ tenantId: 1, userId: 1 }`                       | Unique membership                  |
+| Membership   | `{ userId: 1, status: 1 }`                         | User tenant list                   |
+| SMS notifier | `{ tenantId: 1, userId: 1 }`                       | Unique preference                  |
 
 ## Redis Cache And Locks
 
@@ -752,20 +755,27 @@ A shared cloud MQTT client with wildcard subscriptions across tenants is accepta
 - Every application handler validates topic ownership.
 - Duplicate delivery is idempotent.
 
-### Versioned Topic Hierarchy
+### Topic Hierarchy
 
-Normalize new topics to:
+Normalize topics to (decision 2026-08-31: no version prefix and no legacy
+shapes — the fog client does not exist yet, so a single hierarchy is adopted
+directly and the dual-run steps were dropped):
 
 ```text
-v1/tenants/{tenantId}/nvrs/{nvrId}/config/to-fog
-v1/tenants/{tenantId}/nvrs/{nvrId}/config/to-cloud
-v1/tenants/{tenantId}/nvrs/{nvrId}/pages/to-fog
-v1/tenants/{tenantId}/nvrs/{nvrId}/pages/to-cloud
-v1/tenants/{tenantId}/nvrs/{nvrId}/cameras/{cameraId}/commands/to-fog
-v1/tenants/{tenantId}/nvrs/{nvrId}/cameras/{cameraId}/events/to-cloud
-v1/tenants/{tenantId}/nvrs/{nvrId}/system-logs/to-cloud
-v1/tenants/{tenantId}/nvrs/{nvrId}/cloud-status/to-fog
+tenants/{tenantId}/nvrs/{nvrId}/config/to-fog
+tenants/{tenantId}/nvrs/{nvrId}/config/to-cloud
+tenants/{tenantId}/nvrs/{nvrId}/pages/to-fog
+tenants/{tenantId}/nvrs/{nvrId}/pages/to-cloud
+tenants/{tenantId}/nvrs/{nvrId}/cameras/to-fog
+tenants/{tenantId}/nvrs/{nvrId}/system-logs/to-cloud
+tenants/{tenantId}/nvrs/{nvrId}/cloud-status/to-fog
 ```
+
+Direction suffixes: `to-fog` = cloud publishes, fog subscribes; `to-cloud` =
+fog publishes, cloud subscribes. Camera commands are addressed to the
+NVR-level `cameras` topic: fog is one principal owning every camera under its
+NVR and the payload carries the camera ID; per-camera topics are deferred
+(see Explicitly Deferred Complexity).
 
 Avoid case differences such as `Config` and `config`.
 
@@ -823,6 +833,13 @@ Apply it to page, camera-data, system-log, and future MQTT handlers.
 ### ACL Lock
 
 If the distributed MQTT ACL lock cannot be acquired, abort the read-modify-write operation. Do not continue without the lock.
+
+Decision 2026-08-31: with camera commands addressed to the NVR-level topic
+there are no per-camera ACL rules, so the read-modify-write paths
+(`createCameraTopics`, `deleteCameraTopics`) and the NVR ACL lock were
+removed. NVR provisioning is a single create/delete of the EMQX user plus its
+whole rule set (`createNvrTopics` / `deleteNvrTopics`), which needs no lock.
+Reintroduce the lock with the per-camera ACL rules if they are ever added.
 
 ## WebSocket Isolation
 
@@ -1386,13 +1403,13 @@ DELETED
 
 ### Enforcement
 
-| Status | User API | Fog/MQTT | Reads | Jobs |
-|---|---|---|---|---|
-| Provisioning | Limited | Limited | Limited | Setup only |
-| Active | Allowed | Allowed | Allowed | Allowed |
-| Suspended | Writes blocked | Blocked by policy | Policy dependent | Nonessential jobs stopped |
-| Deleting | Blocked | Blocked | Export only | Cleanup only |
-| Deleted | Blocked | Blocked | Blocked | None |
+| Status       | User API       | Fog/MQTT          | Reads            | Jobs                      |
+| ------------ | -------------- | ----------------- | ---------------- | ------------------------- |
+| Provisioning | Limited        | Limited           | Limited          | Setup only                |
+| Active       | Allowed        | Allowed           | Allowed          | Allowed                   |
+| Suspended    | Writes blocked | Blocked by policy | Policy dependent | Nonessential jobs stopped |
+| Deleting     | Blocked        | Blocked           | Export only      | Cleanup only              |
+| Deleted      | Blocked        | Blocked           | Blocked          | None                      |
 
 ### Tenant Deletion
 
@@ -1625,10 +1642,10 @@ backfill migration.
 - Warm and cold cache paths have identical isolation.
 - Global behavior is explicit rather than caused by missing tenant.
 
-Gate status: **not met.** The Page slice is only *unit*-qualified (2026-08-29 —
+Gate status: **not met.** The Page slice is only _unit_-qualified (2026-08-29 —
 `npm run build` clean; `npm run test` 68 suites / 235 tests, all mock-based).
 
-Mock assertions prove the repository *builds* tenant-scoped filters; they do
+Mock assertions prove the repository _builds_ tenant-scoped filters; they do
 not prove MongoDB enforces isolation, that the new compound indexes are valid,
 or that a cross-tenant read by known UUID returns not found end to end. Per the
 Testing Strategy, closing this gate requires the two-tenant fixture and
@@ -1689,7 +1706,7 @@ address a payload is published to. (This also contains a non-UUID page
 fails closed at the worker boundary instead of reaching a topic.)
 
 Expiry handlers pass an explicit `allowExpired: true` rather than faking a
-clock. It relaxes *only* the "already expired" comparison — an absent lifetime
+clock. It relaxes _only_ the "already expired" comparison — an absent lifetime
 or a foreign queue key is still rejected there — because expiry runs after the
 final retry, when the window is closed by definition.
 
@@ -1741,7 +1758,7 @@ unstamped lifetime, out-of-range `msgId`, embedded-UUID tenant), no-publish on
 every rejection, tenant-scoped expiry resolution, camera-to-NVR mismatch,
 scheduler identity, and secret-free failure descriptions.
 
-As in Phase 2, these are mock-based: they prove the handlers *build* and enforce
+As in Phase 2, these are mock-based: they prove the handlers _build_ and enforce
 tenant-scoped calls, not that Redis/BullMQ and MongoDB enforce isolation end to
 end. Closing this gate needs the `test/integration/**` Testcontainers suites
 with the two-tenant fixture, which still do not exist.
@@ -1828,21 +1845,83 @@ production origin rejected), which still do not exist.
 
 ### Tasks
 
-- [ ] Introduce versioned tenant/NVR topic hierarchy.
-- [ ] Add tenant to camera and page topic generation.
+- [x] Introduce tenant/NVR topic hierarchy. (No version prefix and no legacy shapes: the fog client does not exist yet, decided 2026-08-31.)
+- [x] Add tenant to camera and page topic generation.
 - [ ] Split HTTP and MQTT device credentials.
-- [ ] Apply concrete EMQX ACLs for versioned topics.
-- [ ] Generalize topic/queue/NVR/entity validation to every MQTT handler.
-- [ ] Remove unused subscriptions with no handler.
-- [ ] Make consumers idempotent.
-- [ ] Dual-run legacy topics only for deployed fog compatibility.
-- [ ] Remove legacy topic support after migration.
+- [x] Apply concrete EMQX ACLs for tenant topics.
+- [x] Generalize topic/queue/NVR/entity validation to every MQTT handler.
+- [x] Remove unused subscriptions with no handler.
+- [x] Make consumers idempotent.
+- [x] ~~Dual-run legacy topics only for deployed fog compatibility.~~ N/A — no fog is deployed; a single hierarchy was adopted directly.
 
 ### Completion Gate
 
 - NVR A cannot publish or subscribe to Tenant B topics.
 - Forged topic and queue combinations cause no side effects.
 - Every MQTT operation passes validated tenant into CQRS.
+
+### Phase 5 Implementation Notes
+
+Implemented on 2026-08-31. Because the fog client does not exist yet, the
+original dual-run/legacy-compatibility steps were dropped by decision and the
+hierarchy was adopted directly, without a version prefix.
+
+- `src/modules/videoDevices/shared/deviceMqttTopics.ts` is the single owner of
+  every cloud<->fog topic: the builders (`tenants/{tenantId}/nvrs/{nvrId}/
+config|pages|cloud-status|cloud-recovery/to-fog` and
+  `tenants/{tenantId}/nvrs/{nvrId}/cameras/{cameraId}/commands/to-fog`) and
+  strict fog->cloud response topic parsers (`parseNvrConfigResponseTopic`,
+  `parsePageConfigResponseTopic`) that validate the complete topic shape and
+  require whole-UUID tenant/NVR segments, so a wildcard, separator, or
+  traversal injected by a foreign publisher can never reach the ownership
+  checks as a usable identity. The anchored UUID check moved to
+  `src/modules/shared/uuid.ts` and is reused by the Phase 3 queue validator.
+  Direction suffixes: `to-fog` = cloud publishes/fog subscribes, `to-cloud` =
+  fog publishes/cloud subscribes.
+- Camera and page topics carry the tenant. The camera hardware-command topic
+  is NVR-level (`.../cameras/to-fog`) because fog is one principal owning all
+  its cameras and the payload carries the camera ID; per-camera topics are
+  explicitly deferred. The queued `metadata.topic` stamped by the entities and
+  the queue envelope validator's expected topic are the same builder output,
+  so a forged or stale job cannot redirect a payload at another tenant's
+  device.
+- EMQX ACLs. `NvrEntity.getCloudSubOnFogMqttTopics()` and
+  `getCloudPubToFogMqttTopics()` provision the fog-publish (response) and
+  fog-subscribe (command) exact topics, so `createNvrTopics` grants an NVR
+  exactly its own tenant/NVR topics. Because there are no per-camera topics
+  and therefore no per-camera ACL rules, the read-modify-write methods
+  `createCameraTopics`/`deleteCameraTopics` and the NVR ACL lock were removed;
+  provisioning is a whole rule-set create/delete.
+- Unused subscriptions removed. The cloud subscribes only to response topics
+  with a live `@OnEvent` handler (config and page responses). The handlerless
+  `camera/data/sub` and `videoDevices/systemLogs/sub` wildcards are gone.
+- Idempotent consumers. An unknown or already-consumed `msgId` in either MQTT
+  controller is a debug-level skip with no side effects and no error event
+  (duplicates and late responses after expiry-handler consumption are
+  expected); every structural, ownership, lifetime, and operation-type
+  mismatch still fails closed.
+- Still open in this phase: splitting the HTTP and MQTT device credentials
+  (deferred — the fog device receives its MQTT password from the Sanaw
+  registration flow, so the split needs a coordinated fog/Sanaw change; see
+  the Secrets phase) and the `test/integration/**` two-tenant EMQX/MQTT
+  isolation suites.
+
+### Phase 5 Qualification Evidence
+
+The following gates passed on 2026-08-31:
+
+```text
+npm run test  (73 suites / 320 tests)
+npm run build
+```
+
+New unit coverage: tenant/NVR topic builders, response topic parsers
+(rejection of wrong resources, reversed direction, wildcards, traversal,
+embedded UUIDs, and non-UUID identity), single-hierarchy publish targets
+derived from the validated queue scope in all three device queue workers,
+response-topic handling in both MQTT controllers, and idempotent unknown-msgId
+skips. As in Phases 2–4 these are mock-based unit gates; the two-tenant EMQX
+isolation suites remain open before the completion gate can close.
 
 ## Phase 6: TDengine V2 And Reports
 
@@ -2011,12 +2090,12 @@ Follow the Sanaw testing standard.
 
 ### Test Levels
 
-| Level | Location | Main use |
-|---|---|---|
-| Unit | `src/modules/<module>/tests/**` and mirrored extension test trees | Context, employee-role guards, topic parser, SQL builder, ID generation |
-| Integration | `test/integration/**` | Real MongoDB, Redis/BullMQ, TDengine, and EMQX through Testcontainers |
-| E2E | `test/**/*.e2e-spec.ts` | Critical HTTP tenant switching and fog-to-cloud flow |
-| Contract | Pact message tests where contracts cross services | MQTT and external contracts when introduced |
+| Level       | Location                                                          | Main use                                                                |
+| ----------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Unit        | `src/modules/<module>/tests/**` and mirrored extension test trees | Context, employee-role guards, topic parser, SQL builder, ID generation |
+| Integration | `test/integration/**`                                             | Real MongoDB, Redis/BullMQ, TDengine, and EMQX through Testcontainers   |
+| E2E         | `test/**/*.e2e-spec.ts`                                           | Critical HTTP tenant switching and fog-to-cloud flow                    |
+| Contract    | Pact message tests where contracts cross services                 | MQTT and external contracts when introduced                             |
 
 ### Two-Tenant Fixture
 
@@ -2080,7 +2159,7 @@ SMS notifier A and SMS notifier B
 - [ ] Queue entity and camera/page mismatch is rejected.
 - [ ] Payload validation occurs before side effects.
 - [ ] Duplicate delivery is idempotent.
-- [x] ACL lock failure aborts mutation.
+- [x] ~~ACL lock failure aborts mutation.~~ Superseded 2026-08-31: the read-modify-write ACL paths and the lock were removed (see ACL Lock); provisioning is a whole rule-set create/delete.
 
 ### Fog Restore Qualification Tests
 
@@ -2159,7 +2238,7 @@ SMS notifier A and SMS notifier B
 9. Run two-tenant staging isolation tests.
 10. Enable async tenant propagation and scoped uint32-string message IDs.
 11. Enable tenant WebSocket rooms.
-12. Introduce MQTT v1 topics and migrate fog clients.
+12. Provision fog clients on the tenant/NVR topic hierarchy.
 13. Enable TDengine v2 dual-write.
 14. Backfill and reconcile TDengine.
 15. Switch report reads to v2.
@@ -2175,8 +2254,6 @@ Temporary flags may include:
 TENANT_CONTEXT_REQUIRED
 TENANT_REPOSITORY_SCOPE_ENABLED
 TENANT_WEBSOCKET_ROOMS_ENABLED
-MQTT_V1_TOPICS_ENABLED
-MQTT_LEGACY_TOPICS_ENABLED
 TDENGINE_V2_DUAL_WRITE
 TDENGINE_V2_READS
 FOG_DOMAIN_IMPORT_ENABLED

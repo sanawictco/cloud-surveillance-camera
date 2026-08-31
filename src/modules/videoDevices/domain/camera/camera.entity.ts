@@ -193,9 +193,9 @@ export class CameraEntity extends AggregateRoot<
   }
 
   private getCloudPubToFogMqttTopics(): CameraCloudPubToFogMqttTopics {
-    const { nvrId } = this.getProps();
+    const { tenantId, nvrId } = this.getProps();
     return Object.freeze({
-      cameraData: cameraDataPubTopic(nvrId, this.id),
+      cameraData: cameraDataPubTopic(tenantId, nvrId),
     });
   }
   generateFogSoftwareConfig(

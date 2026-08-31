@@ -15,7 +15,7 @@ describe('DashboardApiForFogCommunicationManagerService', () => {
       configType: PageConfigs.CREATE_PAGE,
       data: { id: 'page-id', nvrId },
       metadata: {
-        topic: `${tenantId}/${nvrId}/page/config/pub`,
+        topic: `tenants/${tenantId}/nvrs/${nvrId}/pages/to-fog`,
         entityId: 'page-id',
         entityType: EntityTypes.PAGE,
         issuedAt: Date.now() - 1000,

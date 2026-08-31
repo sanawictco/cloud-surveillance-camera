@@ -69,14 +69,17 @@ export interface NvrCloudPubToFogMqttTopics {
   cloudRecoveryDataAck: string;
   cloudIsAvailable: string;
   pageConfig: string;
+  cameraData: string;
 }
 
+/**
+ * Fog->cloud response topics the shared cloud MQTT client subscribes to.
+ * The `+` wildcards are tenantId and nvrId; handlers must parse the concrete
+ * topic and validate ownership (see `deviceMqttTopics.ts` parsers).
+ */
 export const NvrCloudSubOnFogMqttTopics = {
-  // first + is tenantId and second + is nvrId
-  videoDeviceConfigs: `+/+/videoDevice/Config/sub`,
-  cameraCommands: `+/+/camera/data/sub`,
-  videoDevicesSystemLogs: `+/+/videoDevices/systemLogs/sub`,
-  pageConfigs: `+/+/page/config/sub`,
+  videoDeviceConfigs: `tenants/+/nvrs/+/config/to-cloud`,
+  pageConfigs: `tenants/+/nvrs/+/pages/to-cloud`,
 };
 
 export enum NvrConfigs {

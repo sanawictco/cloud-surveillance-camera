@@ -7,6 +7,7 @@ import { FindPageByIdForTenantQuery } from '../queries/findPageById.queryHandler
 import { PageEntity } from '../../domain/page.entity';
 import { FindAllPagesForTenantQuery } from '../queries/findAllPages.queryHandler';
 import { PageRunningConfigService } from '../services/pageRunningConfig.service';
+import { pageConfigPubTopic } from 'src/modules/videoDevices/shared/deviceMqttTopics';
 
 @Injectable()
 export class DashboardApiForFogCommunicationManagerService {
@@ -52,7 +53,7 @@ export class DashboardApiForFogCommunicationManagerService {
       queued.metadata.issuedAt > now ||
       queued.metadata.expiresAt <= queued.metadata.issuedAt ||
       queued.metadata.expiresAt < now ||
-      queued.metadata.topic !== `${tenantId}/${nvrId}/page/config/pub`
+      queued.metadata.topic !== pageConfigPubTopic(tenantId, nvrId)
     ) {
       throw new Error('configuration is unavailable');
     }

@@ -1,16 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import axios from 'axios';
 import AppConfig from 'configs/app.config';
-import { CacheService } from '../caching/cache.service';
 import { ServiceProvider } from '../serviceProvider/serviceProvider.service';
 import { MqttRuleDto } from './dtos/mqttRule.dto';
 
 @Injectable()
 export class MqttApiService {
-  constructor(
-    private readonly cacheService: CacheService<unknown>,
-    private readonly serviceProvider: ServiceProvider,
-  ) {}
+  constructor(private readonly serviceProvider: ServiceProvider) {}
 
   private readonly basicAuth: object = {
     auth: {
@@ -145,107 +141,6 @@ export class MqttApiService {
       return { statusCode: 200, data: response.data };
     } catch (err) {
       throw err;
-    }
-  }
-
-  async createCameraTopics(
-    nvrSerialNumber: string,
-    topics: { pubs: object; subs: object },
-  ) {
-    const getAllUserAclRulesUrl = `${
-      AppConfig().mqtt.api.apiUrl
-    }/authorization/sources/built_in_database/rules/users/${nvrSerialNumber}`;
-
-    const updateUserAclRulesUrl = `${
-      AppConfig().mqtt.api.apiUrl
-    }/authorization/sources/built_in_database/rules/users/${nvrSerialNumber}`;
-
-    const cameraAclRules = this.createAclRules(topics);
-
-    return this.withNvrAclLock(nvrSerialNumber, async () => {
-      try {
-        const res1 = await axios.get(getAllUserAclRulesUrl, this.basicAuth);
-        const res2 = await axios.put(
-          updateUserAclRulesUrl,
-          {
-            rules: [...res1.data.rules, ...cameraAclRules],
-            username: nvrSerialNumber,
-          },
-          this.basicAuth,
-        );
-        // await this.addAutoSubscribeTopics(topics);
-        return {
-          statusCode: 200,
-          data: res2.data,
-        };
-      } catch (err) {
-        throw err;
-      }
-    });
-  }
-
-  async deleteCameraTopics(
-    nvrSerialNumber: string,
-    nvrId: string,
-    cameraId: string,
-  ) {
-    const getAllUserAclRulesUrl = `${
-      AppConfig().mqtt.api.apiUrl
-    }/authorization/sources/built_in_database/rules/users/${nvrSerialNumber}`;
-
-    const updateUserAclRulesUrl = `${
-      AppConfig().mqtt.api.apiUrl
-    }/authorization/sources/built_in_database/rules/users/${nvrSerialNumber}`;
-
-    return this.withNvrAclLock(nvrSerialNumber, async () => {
-      try {
-        const res1 = await axios.get(getAllUserAclRulesUrl, this.basicAuth);
-        const updatedRules = this.deleteRulesIfMatch(
-          res1.data.rules,
-          `${nvrId}/${cameraId}`,
-        );
-        const res2 = await axios.put(
-          updateUserAclRulesUrl,
-          {
-            rules: updatedRules,
-            username: nvrSerialNumber,
-          },
-          this.basicAuth,
-        );
-        await this.deleteAutoSubscribeTopics(`${nvrId}/${cameraId}`);
-        return {
-          statusCode: 200,
-          data: res2.data,
-        };
-      } catch (err) {
-        throw err;
-      }
-    });
-  }
-
-  private async withNvrAclLock<R>(
-    nvrSerialNumber: string,
-    operation: () => Promise<R>,
-  ): Promise<R> {
-    const lockKey = `mqtt-acl:${nvrSerialNumber}`;
-    const deadline = Date.now() + 5_000;
-    let token: string | null = null;
-
-    while (!token && Date.now() < deadline) {
-      token = await this.cacheService.acquireLock(lockKey, 15);
-      if (!token) await new Promise((resolve) => setTimeout(resolve, 150));
-    }
-
-    if (!token) {
-      throw new Error(
-        `MQTT ACL lock for NVR ${nvrSerialNumber} was not acquired`,
-      );
-    }
-
-    try {
-      return await operation();
-    } finally {
-      await this.cacheService.releaseLock(lockKey, token);
     }
   }
 

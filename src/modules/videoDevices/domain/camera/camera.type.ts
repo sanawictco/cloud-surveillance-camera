@@ -118,10 +118,6 @@ export class CameraCloudPubToFogMqttTopics {
   }
 }
 
-export const CameraCloudSubOnFogMqttTopics = {
-  cameraData: `+/+/camera/data/sub`,
-};
-
 export type CameraLanguageKeys = {
   camera: {
     actorLog: {

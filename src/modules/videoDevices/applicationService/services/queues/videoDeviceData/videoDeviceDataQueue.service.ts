@@ -121,16 +121,19 @@ export class VideoDeviceDataQueueService implements OnModuleInit {
   }
 
   /**
-   * The camera hardware topic has no tenant segment, so tenant binding for this
-   * queue comes from the scoped job ID (validated below) plus the persisted
-   * camera->NVR->tenant relationship checked at expiry.
+   * Validates the job's own tenant scope before publishing. The publish target
+   * is the tenant/NVR-scoped topic derived from the validated identity, never
+   * the raw stored `metadata.topic`, so a stale or forged job cannot reach
+   * another tenant's device. The camera itself is addressed inside the payload
+   * (`cameraId,cmdKey,msgId,data`); the scoped job ID remains the queue's
+   * tenant boundary.
    */
   private async workerMsgHandler(queueMsg: QueueMsg) {
     const msg: VideoDeviceDataQueueMsgDto = queueMsg.data;
     const scope = assertTenantQueueMessage(msg, {
       allowedEntityTypes: [EntityTypes.CAMERA],
-      expectedTopic: ({ nvrId, entityId }) =>
-        cameraDataPubTopic(nvrId, entityId),
+      expectedTopic: ({ tenantId, nvrId }) =>
+        cameraDataPubTopic(tenantId, nvrId),
       jobId: queueMsg.name,
     });
     if (msg.metadata.retryCount === queueMsg.opts.repeat?.count) return;
@@ -144,8 +147,8 @@ export class VideoDeviceDataQueueService implements OnModuleInit {
     const msg: VideoDeviceDataQueueMsgDto = queueMsg.data;
     const scope = assertTenantQueueMessage(msg, {
       allowedEntityTypes: [EntityTypes.CAMERA],
-      expectedTopic: ({ nvrId, entityId }) =>
-        cameraDataPubTopic(nvrId, entityId),
+      expectedTopic: ({ tenantId, nvrId }) =>
+        cameraDataPubTopic(tenantId, nvrId),
       jobId: queueMsg.name,
       allowExpired: true,
     });

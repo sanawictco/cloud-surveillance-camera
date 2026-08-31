@@ -4,16 +4,20 @@ import { CameraSoftwareConfigs } from '../../domain/camera/camera.type';
 import { NvrConfigs } from '../../domain/nvr/nvr.type';
 import { EntityTypes } from '../../shared/valueObjects/entityTypes';
 
+const TENANT_A = '11111111-1111-4111-8111-111111111111';
+const NVR_A = '33333333-3333-4333-8333-333333333333';
+const CAMERA_A = '55555555-5555-4555-8555-555555555555';
+
 describe('VideoDevicesConfigsMqttController', () => {
   function buildController() {
     const nvr = {
-      id: 'nvr-id',
-      getProps: () => ({ tenantId: 'tenant-id' }),
+      id: NVR_A,
+      getProps: () => ({ tenantId: TENANT_A }),
     };
     const pending = {
       msgId: '101',
       nvrId: nvr.id,
-      tenantId: 'tenant-id',
+      tenantId: TENANT_A,
       configType: NvrConfigs.SEARCH,
       data: {},
       metadata: {
@@ -22,7 +26,7 @@ describe('VideoDevicesConfigsMqttController', () => {
         actorProps: { actorId: 'employee-id', actorType: 'EMPLOYEE' },
         issuedAt: Date.now() - 1000,
         expiresAt: Date.now() + 60_000,
-        topic: 'tenant-id/nvr-id/videoDevice/Config/pub',
+        topic: `tenants/${TENANT_A}/nvrs/${NVR_A}/config/to-fog`,
       },
     };
     const queue = {
@@ -39,6 +43,7 @@ describe('VideoDevicesConfigsMqttController', () => {
     const serviceProvider = {
       queryBus: { execute: jest.fn().mockResolvedValue(nvr) },
       eventEmitter: { emit: jest.fn() },
+      logger: { debug: jest.fn(), error: jest.fn() },
     };
     const runningConfigs = {
       doneAndUnlockConfig: jest.fn().mockResolvedValue(true),
@@ -55,7 +60,7 @@ describe('VideoDevicesConfigsMqttController', () => {
       cameraRunningConfigs as never,
     );
     const event = {
-      topic: 'tenant-id/nvr-id/videoDevice/Config/sub',
+      topic: `tenants/${TENANT_A}/nvrs/${NVR_A}/config/to-cloud`,
       message: JSON.stringify({
         msgId: pending.msgId,
         macAddresses: [],
@@ -81,7 +86,7 @@ describe('VideoDevicesConfigsMqttController', () => {
     await context.controller.handler(context.event);
 
     expect(context.queue.getAndDeleteRepeatableMsg).toHaveBeenCalledWith(
-      'tenant-id',
+      TENANT_A,
       context.nvr.id,
       context.pending.msgId,
     );
@@ -104,7 +109,8 @@ describe('VideoDevicesConfigsMqttController', () => {
 
   it('rejects an invalid topic before queue lookup', async () => {
     const context = buildController();
-    context.event.topic = 'tenant-id/nvr-id/videoDevice/config/sub';
+    // a foreign topic shape (reversed direction) must never reach the queue
+    context.event.topic = `tenants/${TENANT_A}/nvrs/${NVR_A}/config/to-fog`;
 
     await context.controller.handler(context.event);
 
@@ -117,7 +123,20 @@ describe('VideoDevicesConfigsMqttController', () => {
     );
   });
 
-  it('reports an unknown msgId without business side effects', async () => {
+  it('rejects a response topic whose identity is not a whole UUID', async () => {
+    const context = buildController();
+    context.event.topic = `tenants/not-a-tenant/nvrs/not-an-nvr/config/to-cloud`;
+
+    await context.controller.handler(context.event);
+
+    expect(context.queue.getRepeatableMsg).not.toHaveBeenCalled();
+    expect(context.serviceProvider.eventEmitter.emit).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(BadRequestException),
+    );
+  });
+
+  it('skips an unknown msgId idempotently without business side effects', async () => {
     const context = buildController();
     context.queue.getRepeatableMsg.mockResolvedValue(undefined);
 
@@ -127,10 +146,9 @@ describe('VideoDevicesConfigsMqttController', () => {
     expect(context.queue.getAndDeleteRepeatableMsg).not.toHaveBeenCalled();
     expect(context.nvrMqttService.search).not.toHaveBeenCalled();
     expect(context.runningConfigs.doneAndUnlockConfig).not.toHaveBeenCalled();
-    expect(context.serviceProvider.eventEmitter.emit).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({ message: 'msg not found' }),
-    );
+    // A duplicate or late response (already consumed by this handler or the
+    // expiry handler) is idempotently ignored, not reported as an error.
+    expect(context.serviceProvider.eventEmitter.emit).not.toHaveBeenCalled();
   });
 
   it('rejects unexpected MQTT fields before queue lookup', async () => {
@@ -203,7 +221,7 @@ describe('VideoDevicesConfigsMqttController', () => {
 
     expect(context.nvrMqttService.search).toHaveBeenCalled();
     expect(context.queue.getAndDeleteRepeatableMsg).toHaveBeenCalledWith(
-      'tenant-id',
+      TENANT_A,
       context.nvr.id,
       context.pending.msgId,
     );
@@ -218,8 +236,8 @@ describe('VideoDevicesConfigsMqttController', () => {
   it('accepts and finalizes an owned camera config', async () => {
     const context = buildController();
     const camera = {
-      id: 'camera-id',
-      getProps: () => ({ nvrId: context.nvr.id, tenantId: 'tenant-id' }),
+      id: CAMERA_A,
+      getProps: () => ({ nvrId: context.nvr.id, tenantId: TENANT_A }),
     };
     context.pending.msgId = '102';
     context.pending.configType = CameraSoftwareConfigs.UPDATE as never;
@@ -239,21 +257,21 @@ describe('VideoDevicesConfigsMqttController', () => {
     // boundary.
     expect(context.serviceProvider.queryBus.execute).toHaveBeenNthCalledWith(
       1,
-      expect.objectContaining({ tenantId: 'tenant-id', id: context.nvr.id }),
+      expect.objectContaining({ tenantId: TENANT_A, id: context.nvr.id }),
     );
     expect(context.serviceProvider.queryBus.execute).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ tenantId: 'tenant-id', id: camera.id }),
+      expect.objectContaining({ tenantId: TENANT_A, id: camera.id }),
     );
     // the validated topic tenant, not the queued payload, is what reaches the
     // downstream command
     expect(context.cameraMqttService.update).toHaveBeenCalledWith(
-      'tenant-id',
+      TENANT_A,
       context.pending.data,
       expect.objectContaining({ msgId: context.pending.msgId }),
     );
     expect(context.queue.getAndDeleteRepeatableMsg).toHaveBeenCalledWith(
-      'tenant-id',
+      TENANT_A,
       context.nvr.id,
       context.pending.msgId,
     );
@@ -276,7 +294,7 @@ describe('VideoDevicesConfigsMqttController', () => {
     await context.controller.handler(context.event);
 
     expect(context.nvrMqttService.update).toHaveBeenCalledWith(
-      'tenant-id',
+      TENANT_A,
       context.pending.data,
       expect.objectContaining({
         msgId: context.pending.msgId,
@@ -284,7 +302,7 @@ describe('VideoDevicesConfigsMqttController', () => {
       }),
     );
     expect(context.queue.getAndDeleteRepeatableMsg).toHaveBeenCalledWith(
-      'tenant-id',
+      TENANT_A,
       context.nvr.id,
       context.pending.msgId,
     );
@@ -298,24 +316,24 @@ describe('VideoDevicesConfigsMqttController', () => {
   it.each([
     {
       name: 'another NVR',
-      cameraProps: { nvrId: 'another-nvr', tenantId: 'tenant-id' },
-      dataId: 'camera-id',
+      cameraProps: { nvrId: 'another-nvr', tenantId: TENANT_A },
+      dataId: CAMERA_A,
     },
     {
       name: 'another tenant',
-      cameraProps: { nvrId: 'nvr-id', tenantId: 'another-tenant' },
-      dataId: 'camera-id',
+      cameraProps: { nvrId: NVR_A, tenantId: 'another-tenant' },
+      dataId: CAMERA_A,
     },
     {
       name: 'another payload entity',
-      cameraProps: { nvrId: 'nvr-id', tenantId: 'tenant-id' },
+      cameraProps: { nvrId: NVR_A, tenantId: TENANT_A },
       dataId: 'another-camera',
     },
   ])(
     'rejects a camera config owned by $name',
     async ({ cameraProps, dataId }) => {
       const context = buildController();
-      const camera = { id: 'camera-id', getProps: () => cameraProps };
+      const camera = { id: CAMERA_A, getProps: () => cameraProps };
       context.pending.msgId = '102';
       context.pending.configType = CameraSoftwareConfigs.UPDATE as never;
       context.pending.data = { id: dataId, name: 'Updated camera' };

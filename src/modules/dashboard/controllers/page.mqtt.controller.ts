@@ -11,6 +11,11 @@ import { PageRunningConfigService } from '../applicationService/services/pageRun
 import { PageConfigQueueService } from '../applicationService/services/queues/pageConfigQueue.service';
 import { PageMqttRequestDto } from '../contracts/page.mqttRequest.dto';
 import { NvrCloudSubOnFogMqttTopics } from 'src/modules/videoDevices/domain/nvr/nvr.type';
+import {
+  pageConfigPubTopic,
+  parsePageConfigResponseTopic,
+  type ParsedDeviceResponseTopic,
+} from 'src/modules/videoDevices/shared/deviceMqttTopics';
 import { ActorPropsMsgIdDto } from 'src/modules/shared/dtos/actorPropsMsgId.dto';
 import { validateMqttPayload } from 'src/extensions/mqtt/validateMqttPayload';
 import { EntityTypes } from 'src/modules/videoDevices/shared/valueObjects/entityTypes';
@@ -40,8 +45,16 @@ export class PageMqttController {
         topic.nvrId,
         msgId,
       );
+      if (!msg) {
+        // Idempotent consumption: a duplicate or late response whose pending
+        // config was already consumed must not re-run side effects or surface
+        // as an error.
+        this.serviceProvider.logger.debug(
+          `no pending page config for tenantId=${topic.tenantId} nvrId=${topic.nvrId} msgId=${msgId}`,
+        );
+        return;
+      }
       if (
-        !msg ||
         msg.msgId !== msgId ||
         msg.tenantId !== topic.tenantId ||
         msg.nvrId !== topic.nvrId ||
@@ -52,7 +65,7 @@ export class PageMqttController {
         msg.metadata.expiresAt <= msg.metadata.issuedAt ||
         msg.metadata.expiresAt < Date.now() ||
         msg.metadata.topic !==
-          `${topic.tenantId}/${topic.nvrId}/page/config/pub` ||
+          pageConfigPubTopic(topic.tenantId, topic.nvrId) ||
         !Object.values(PageConfigs).includes(msg.configType as PageConfigs)
       ) {
         throw new Error('page configuration is unavailable');
@@ -60,85 +73,82 @@ export class PageMqttController {
       const actorProps = msg?.metadata?.actorProps;
       const metadata: ActorPropsMsgIdDto = { actorProps, msgId };
       if (!actorProps) return;
-      if (msg) {
-        const data: any = msg.data;
-        if (
-          data.id !== msg.metadata.entityId ||
-          (data.nvrId !== undefined && data.nvrId !== topic.nvrId)
-        ) {
-          throw new Error('page configuration payload identity mismatch');
-        }
+      const data: any = msg.data;
+      if (
+        data.id !== msg.metadata.entityId ||
+        (data.nvrId !== undefined && data.nvrId !== topic.nvrId)
+      ) {
+        throw new Error('page configuration payload identity mismatch');
+      }
 
-        const pageEntity: PageEntity | undefined =
-          await this.serviceProvider.queryBus.execute(
-            new FindPageByIdForTenantQuery(
-              topic.tenantId,
-              [topic.nvrId],
-              data.id,
-            ),
+      const pageEntity: PageEntity | undefined =
+        await this.serviceProvider.queryBus.execute(
+          new FindPageByIdForTenantQuery(
+            topic.tenantId,
+            [topic.nvrId],
+            data.id,
+          ),
+        );
+      const nvrEntity = await this.serviceProvider.queryBus.execute(
+        new FindNvrByIdForTenantQuery(topic.tenantId, topic.nvrId),
+      );
+      if (!nvrEntity) {
+        throw new Error('page configuration entity ownership mismatch');
+      }
+      if (
+        msg.configType !== PageConfigs.CREATE_PAGE &&
+        (!pageEntity ||
+          pageEntity.id !== msg.metadata.entityId ||
+          pageEntity.getProps().nvrId !== topic.nvrId)
+      ) {
+        throw new Error('page configuration entity ownership mismatch');
+      }
+
+      switch (msg.configType) {
+        case PageConfigs.CREATE_PAGE:
+          await this.pagesMqttService.create(
+            topic.tenantId,
+            topic.nvrId,
+            data,
+            metadata,
           );
-        const nvrEntity = await this.serviceProvider.queryBus.execute(
-          new FindNvrByIdForTenantQuery(topic.tenantId, topic.nvrId),
-        );
-        if (!nvrEntity) {
-          throw new Error('page configuration entity ownership mismatch');
-        }
-        if (
-          msg.configType !== PageConfigs.CREATE_PAGE &&
-          (!pageEntity ||
-            pageEntity.id !== msg.metadata.entityId ||
-            pageEntity.getProps().nvrId !== topic.nvrId)
-        ) {
-          throw new Error('page configuration entity ownership mismatch');
-        }
-
-        switch (msg.configType) {
-          case PageConfigs.CREATE_PAGE:
-            await this.pagesMqttService.create(
-              topic.tenantId,
-              topic.nvrId,
-              data,
-              metadata,
-            );
-            break;
-          case PageConfigs.UPDATE_PAGE:
-            await this.pagesMqttService.update(
-              topic.tenantId,
-              topic.nvrId,
-              data,
-              metadata,
-            );
-            break;
-          case PageConfigs.DELETE_PAGE:
-            await this.pagesMqttService.delete(
-              topic.tenantId,
-              topic.nvrId,
-              pageEntity!,
-              data,
-              metadata,
-            );
-            break;
-          default:
-            break;
-        }
-        const consumed = await this.queue.getAndDeleteRepeatableMsg(
-          topic.tenantId,
-          topic.nvrId,
-          msgId,
-        );
-        if (!consumed)
-          throw new Error('failed to consume processed page config');
-        if (msg.configType !== PageConfigs.DELETE_PAGE) {
-          const unlocked =
-            await this.pageRunningConfigService.doneAndUnLockConfig(
-              pageEntity!,
-              topic.tenantId,
-              msg.configType as PageConfigs,
-              msgId,
-            );
-          if (!unlocked) {
-            throw new Error('page configuration ownership changed');
-          }
+          break;
+        case PageConfigs.UPDATE_PAGE:
+          await this.pagesMqttService.update(
+            topic.tenantId,
+            topic.nvrId,
+            data,
+            metadata,
+          );
+          break;
+        case PageConfigs.DELETE_PAGE:
+          await this.pagesMqttService.delete(
+            topic.tenantId,
+            topic.nvrId,
+            pageEntity!,
+            data,
+            metadata,
+          );
+          break;
+        default:
+          break;
+      }
+      const consumed = await this.queue.getAndDeleteRepeatableMsg(
+        topic.tenantId,
+        topic.nvrId,
+        msgId,
+      );
+      if (!consumed) throw new Error('failed to consume processed page config');
+      if (msg.configType !== PageConfigs.DELETE_PAGE) {
+        const unlocked =
+          await this.pageRunningConfigService.doneAndUnLockConfig(
+            pageEntity!,
+            topic.tenantId,
+            msg.configType as PageConfigs,
+            msgId,
+          );
+        if (!unlocked) {
+          throw new Error('page configuration ownership changed');
         }
       }
     } catch (err) {
@@ -146,18 +156,11 @@ export class PageMqttController {
     }
   }
 
-  private parseTopic(topic: string): { tenantId: string; nvrId: string } {
-    const segments = topic.split('/');
-    if (
-      segments.length !== 5 ||
-      segments[2] !== 'page' ||
-      segments[3] !== 'config' ||
-      segments[4] !== 'sub' ||
-      !segments[0] ||
-      !segments[1]
-    ) {
-      throw new Error('invalid page config topic');
-    }
-    return { tenantId: segments[0], nvrId: segments[1] };
+  /**
+   * Parses the response topic with the shared parser, which validates the
+   * complete shape and UUID identity.
+   */
+  private parseTopic(topic: string): ParsedDeviceResponseTopic {
+    return parsePageConfigResponseTopic(topic);
   }
 }

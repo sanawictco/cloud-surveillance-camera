@@ -24,6 +24,11 @@ import { CameraEntity } from '../domain/camera/camera.entity';
 import { CameraSoftwareConfigs } from '../domain/camera/camera.type';
 import { NvrEntity } from '../domain/nvr/nvr.entity';
 import { NvrCloudSubOnFogMqttTopics, NvrConfigs } from '../domain/nvr/nvr.type';
+import {
+  parseNvrConfigResponseTopic,
+  videoDeviceConfigPubTopic,
+  type ParsedDeviceResponseTopic,
+} from '../shared/deviceMqttTopics';
 import { EntityTypes } from '../shared/valueObjects/entityTypes';
 
 const nvrConfigsArr: string[] = Object.values(NvrConfigs);
@@ -69,7 +74,15 @@ export class VideoDevicesConfigsMqttController {
         topic.nvrId,
         msgId,
       );
-      if (!pendingMsg) throw new Error('msg not found');
+      if (!pendingMsg) {
+        // Idempotent consumption: a duplicate or late response whose pending
+        // config was already consumed (by this handler or the expiry handler)
+        // must not re-run side effects or surface as an error.
+        this.serviceProvider.logger.debug(
+          `no pending device config for tenantId=${topic.tenantId} nvrId=${topic.nvrId} msgId=${msgId}`,
+        );
+        return;
+      }
       this.assertTopicOwnsQueuedEnvelope(topic, pendingMsg);
       this.assertResponseMatchesQueuedConfig(response, pendingMsg);
       // Read the NVR under the validated topic tenant. An unscoped read by ID
@@ -248,23 +261,20 @@ export class VideoDevicesConfigsMqttController {
     return cameraEntity;
   }
 
-  private parseTopic(topic: string): { tenantId: string; nvrId: string } {
-    const segments = topic.split('/');
-    if (
-      segments.length !== 5 ||
-      segments[2] !== 'videoDevice' ||
-      segments[3] !== 'Config' ||
-      segments[4] !== 'sub' ||
-      !segments[0] ||
-      !segments[1]
-    ) {
+  /**
+   * Parses the response topic with the shared parser, which validates the
+   * complete shape and UUID identity.
+   */
+  private parseTopic(topic: string): ParsedDeviceResponseTopic {
+    try {
+      return parseNvrConfigResponseTopic(topic);
+    } catch {
       throw new BadRequestException('invalid NVR config topic');
     }
-    return { tenantId: segments[0], nvrId: segments[1] };
   }
 
   private assertTopicOwnsQueuedEnvelope(
-    topic: { tenantId: string; nvrId: string },
+    topic: ParsedDeviceResponseTopic,
     queued: VideoDeviceConfigQueueMsgDto,
   ): void {
     const now = Date.now();
@@ -277,7 +287,7 @@ export class VideoDevicesConfigsMqttController {
       queued.metadata.expiresAt <= queued.metadata.issuedAt ||
       queued.metadata.expiresAt < now ||
       queued.metadata.topic !==
-        `${topic.tenantId}/${topic.nvrId}/videoDevice/Config/pub`
+        videoDeviceConfigPubTopic(topic.tenantId, topic.nvrId)
     ) {
       throw new BadRequestException('queued config topic identity mismatch');
     }
@@ -307,7 +317,7 @@ export class VideoDevicesConfigsMqttController {
   }
 
   private assertNvrOwnsTopic(
-    topic: { tenantId: string; nvrId: string },
+    topic: ParsedDeviceResponseTopic,
     nvr: NvrEntity | undefined,
   ): asserts nvr is NvrEntity {
     if (
@@ -329,7 +339,7 @@ export class VideoDevicesConfigsMqttController {
   }
 
   private assertCameraOwnsQueuedMessage(
-    topic: { tenantId: string; nvrId: string },
+    topic: ParsedDeviceResponseTopic,
     nvr: NvrEntity,
     camera: CameraEntity | undefined,
     queued: VideoDeviceConfigQueueMsgDto,

@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import AppConfig from 'configs/app.config';
 import { connect, MqttClient } from 'mqtt';
-import { CameraCloudSubOnFogMqttTopics } from 'src/modules/videoDevices/domain/camera/camera.type';
 import { NvrCloudSubOnFogMqttTopics } from 'src/modules/videoDevices/domain/nvr/nvr.type';
 import { ServiceProvider } from '../serviceProvider/serviceProvider.service';
 import {
@@ -70,11 +69,9 @@ export class MqttService
       this.serviceProvider.logger.warn('MQTT client is reconnecting');
     });
 
+    // Only response topics with a live @OnEvent handler are subscribed.
     const textPatterns = [
-      ...new Set([
-        ...Object.values(NvrCloudSubOnFogMqttTopics),
-        ...Object.values(CameraCloudSubOnFogMqttTopics),
-      ]),
+      ...new Set(Object.values(NvrCloudSubOnFogMqttTopics)),
     ];
     for (const pattern of textPatterns) {
       await this.subscribe(pattern);

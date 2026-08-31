@@ -229,10 +229,7 @@ export class VideoDevicesApiForFogCommunicationManagerService {
     });
     await this.nvrLiveSignalService.toConnected(nvrEntity);
     await this.mqttService.publish(
-      cloudRecoveryDataAckPubTopic(
-        nvrEntity.getProps().tenantId,
-        nvrEntity.id,
-      ),
+      cloudRecoveryDataAckPubTopic(nvrEntity.getProps().tenantId, nvrEntity.id),
       'cloud recovery finished',
     );
   }

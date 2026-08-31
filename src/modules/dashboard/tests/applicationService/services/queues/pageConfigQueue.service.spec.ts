@@ -16,7 +16,7 @@ function buildJob(overrides: Record<string, any> = {}) {
     nvrId: NVR_A,
     ...overrides,
     metadata: {
-      topic: `${TENANT_A}/${NVR_A}/page/config/pub`,
+      topic: `tenants/${TENANT_A}/nvrs/${NVR_A}/pages/to-fog`,
       entityId: PAGE_A,
       entityType: EntityTypes.PAGE,
       retryCount: 3,
@@ -27,7 +27,8 @@ function buildJob(overrides: Record<string, any> = {}) {
     },
   };
   return {
-    name: overrides.name ?? `t-${data.tenantId}-n-${data.nvrId}-m-${data.msgId}`,
+    name:
+      overrides.name ?? `t-${data.tenantId}-n-${data.nvrId}-m-${data.msgId}`,
     data,
     opts: { repeat: { count: 0 } },
     attemptsMade: 1,
@@ -83,8 +84,9 @@ describe('PageConfigQueueService worker', () => {
 
     await context.work(buildJob());
 
+    expect(context.mqttService.publish).toHaveBeenCalledTimes(1);
     expect(context.mqttService.publish).toHaveBeenCalledWith(
-      `${TENANT_A}/${NVR_A}/page/config/pub`,
+      `tenants/${TENANT_A}/nvrs/${NVR_A}/pages/to-fog`,
       '101',
     );
   });
@@ -106,7 +108,7 @@ describe('PageConfigQueueService worker', () => {
         buildJob({
           metadata: {
             entityType: EntityTypes.CAMERA,
-            topic: `${TENANT_A}/${NVR_A}/page/config/pub`,
+            topic: `tenants/${TENANT_A}/nvrs/${NVR_A}/pages/to-fog`,
           },
         }),
       ),

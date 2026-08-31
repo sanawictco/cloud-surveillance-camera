@@ -3,14 +3,7 @@ import {
   isValidDeviceMsgId,
 } from 'src/dddLib/utils/deviceMessageId';
 import { EntityTypes } from 'src/modules/videoDevices/shared/valueObjects/entityTypes';
-
-/**
- * Anchored UUID check. `Guard.isUUIDv4` is deliberately not reused here: its
- * regex is unanchored, so `"x<uuid>y"` passes. Tenant and NVR identity is used
- * to build the scoped queue key, so it must match the whole string.
- */
-const UUID_V4 =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+import { isUuidV4 } from './uuid';
 
 /**
  * The tenant-owned fields every device/page queue message must carry.
@@ -60,9 +53,9 @@ interface AssertTenantQueueMessageOptions {
    * message's own validated identity. The queued topic must equal it, so a
    * forged or stale topic cannot redirect a payload at another device.
    *
-   * Note: the legacy camera-data topic does not contain a tenant segment
-   * (topic-hierarchy normalization is Phase 5). Tenant binding for every queue
-   * therefore comes from the scoped job ID below, not from the topic alone.
+   * The topic carries the tenant in every queue's hierarchy, but tenant
+   * binding is not trusted from the topic alone: the scoped job ID below is
+   * rebuilt from the validated body and compared against the queue slot.
    */
   expectedTopic: (scope: {
     tenantId: string;
@@ -109,10 +102,10 @@ export function assertTenantQueueMessage(
   if (typeof msgId !== 'string' || !isValidDeviceMsgId(msgId)) {
     throw new TenantQueueMessageError('queue message ID is invalid');
   }
-  if (typeof tenantId !== 'string' || !UUID_V4.test(tenantId)) {
+  if (typeof tenantId !== 'string' || !isUuidV4(tenantId)) {
     throw new TenantQueueMessageError('queue message tenant is invalid');
   }
-  if (typeof nvrId !== 'string' || !UUID_V4.test(nvrId)) {
+  if (typeof nvrId !== 'string' || !isUuidV4(nvrId)) {
     throw new TenantQueueMessageError('queue message NVR is invalid');
   }
   if (!metadata || typeof metadata !== 'object') {
@@ -120,13 +113,12 @@ export function assertTenantQueueMessage(
   }
 
   const { topic, entityId, entityType, issuedAt, expiresAt } = metadata;
-  // `entityId` is interpolated into the derived publish topic (the camera-data
-  // topic contains the camera ID), so it must be a whole UUID. A non-UUID value
-  // such as `aaa/#` would otherwise inject MQTT topic separators and a wildcard
-  // into the address the payload is published to.
+  // `entityId` is resolved into tenant-scoped entity queries and identity
+  // checks, so it must be a whole UUID. A value such as `aaa/#` would
+  // otherwise carry MQTT topic-separator characters through the pipeline.
   if (
     typeof entityId !== 'string' ||
-    !UUID_V4.test(entityId) ||
+    !isUuidV4(entityId) ||
     typeof entityType !== 'string' ||
     !options.allowedEntityTypes.includes(entityType as EntityTypes)
   ) {
