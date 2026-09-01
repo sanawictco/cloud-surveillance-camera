@@ -4,9 +4,9 @@ import { TimeseriesQueryBase } from 'src/dddLib/applicationService';
 import { SYSTEM_LOG_REPOSITORY } from 'src/modules/systemLogs/infra/diToken/systemLog.diToken';
 import { SystemLogRepository } from 'src/modules/systemLogs/infra/repositories/systemLog.timeseriesRepository';
 import {
-  SYSTEM_LOG_SUPER_TABLE,
   assertSystemLogTenantId,
   systemLogSelectedColumns,
+  systemLogSuperTableName,
 } from 'src/modules/systemLogs/domain/systemLog.type';
 import { FindDataParams } from 'src/dddLib/infra/timeseriesRepository.base';
 import { TimeSeriesDbExtension } from 'src/dddLib/utils/timeSeriesDbExtension';
@@ -28,7 +28,8 @@ export class FindAllSystemLogsQueryHandler implements IQueryHandler<FindAllSyste
   ) {}
 
   async execute(query: FindAllSystemLogsQuery) {
-    query.superTableName = SYSTEM_LOG_SUPER_TABLE;
+    await this.systemLogRepo.ensureSuperTable(query.tenantId);
+    query.superTableName = systemLogSuperTableName(query.tenantId);
     query.selectedColumns = systemLogSelectedColumns;
     query.filter = `tenantId=${TimeSeriesDbExtension.quoteStringLiteral(query.tenantId)}`;
     const records = await this.systemLogRepo.findAll(query);

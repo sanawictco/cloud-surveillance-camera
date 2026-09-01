@@ -6,7 +6,6 @@ import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { BadRequestException, Inject } from '@nestjs/common';
 import {
   CreateSystemLogProps,
-  SYSTEM_LOG_SUPER_TABLE,
   SystemLogMessageProps,
   SystemLogRecordFormat,
   SystemLogSections,
@@ -58,13 +57,12 @@ export class CreateSystemLogCommandHandler implements ICommandHandler<CreateSyst
     const createdAt = command?.createdAt;
     const systemLog: SystemLogRecordFormat = [
       tenantId,
+      type,
       messageProps,
       section,
       entityId,
     ];
     await this.systemLogRepo.insert({
-      superTableName: SYSTEM_LOG_SUPER_TABLE,
-      subTableName: type,
       data: systemLog,
       createdAt,
     });

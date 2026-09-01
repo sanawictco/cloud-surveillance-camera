@@ -15,9 +15,9 @@ export class TDengineLifecycleService {
     private readonly tdengineService: TDengineService,
     private readonly timeseriesRepository: TimeseriesRepository,
   ) {
-    this.tdengineService.registerConnectionInitializer(() =>
-      this.timeseriesRepository.initSuperTables(),
-    );
+    // No boot-time connection initializers: system-log and actor-log
+    // supertables are per-tenant and are ensured on each tenant's first
+    // write by their repositories.
   }
 
   async healthCheck(): Promise<TDengineHealth> {

@@ -5,10 +5,10 @@ import { CountDataParams } from 'src/dddLib/infra/timeseriesRepository.base';
 import { SYSTEM_LOG_REPOSITORY } from 'src/modules/systemLogs/infra/diToken/systemLog.diToken';
 import { SystemLogRepository } from 'src/modules/systemLogs/infra/repositories/systemLog.timeseriesRepository';
 import {
-  SYSTEM_LOG_SUPER_TABLE,
   SystemLogTypes,
   assertSystemLogTenantId,
   assertSystemLogTypes,
+  systemLogSuperTableName,
 } from 'src/modules/systemLogs/domain/systemLog.type';
 import { TimeSeriesDbExtension } from 'src/dddLib/utils/timeSeriesDbExtension';
 
@@ -39,7 +39,8 @@ export class CountAllSystemLogsQueryHandler implements IQueryHandler<CountAllSys
   ) {}
 
   async execute(query: CountAllSystemLogsQuery) {
-    query.superTableName = SYSTEM_LOG_SUPER_TABLE;
+    await this.systemLogRepo.ensureSuperTable(query.tenantId);
+    query.superTableName = systemLogSuperTableName(query.tenantId);
     const typeFilters: string[] = [];
     if (query?.types.length) {
       for (const type of query.types) {

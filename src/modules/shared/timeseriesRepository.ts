@@ -16,12 +16,6 @@ import {
   TDENGINE_RESTFULL_OPTIONS as TDENGINE_REST_OPTIONS,
 } from 'src/extensions/tdengine/tdeinge.tokens';
 
-import {
-  SYSTEM_LOG_SUPER_TABLE,
-  SYSTEM_LOG_TENANT_ID_COLUMN_SIZE,
-  systemLogColumnNames,
-  systemLogColumnTypes,
-} from 'src/modules/systemLogs/domain/systemLog.type';
 const axios = require('axios');
 export const TDENGINE_CLIENT = TDENGINE_EXECUTOR;
 export const TDENGINE_RESTFULL_OPTIONS = TDENGINE_REST_OPTIONS;
@@ -43,26 +37,6 @@ export class TimeseriesRepository {
     @Inject(TDENGINE_RESTFULL_OPTIONS)
     protected readonly tdengineRestOptions: TdengineRestOptions,
   ) {}
-  async initSuperTables(): Promise<void> {
-    // Actor-log supertables are NOT created here: they are per-tenant
-    // (actor_log_t_<tenant>) and are ensured once per process by
-    // ActorLogRepository on each tenant's first write.
-    await this.tdengineClient.exec(
-      TimeSeriesDbExtension.createSuperTableQuery({
-        superTableName: SYSTEM_LOG_SUPER_TABLE,
-        columnNames: systemLogColumnNames,
-        columnDataTypes: systemLogColumnTypes,
-        tags: [
-          {
-            name: 'tenantId',
-            dataType: `VARCHAR(${SYSTEM_LOG_TENANT_ID_COLUMN_SIZE})`,
-          },
-          { name: 'groupId', dataType: 'VARCHAR(15)' },
-        ],
-      }),
-    );
-  }
-
   async restHealthCheck(): Promise<boolean> {
     try {
       const response = await axios({

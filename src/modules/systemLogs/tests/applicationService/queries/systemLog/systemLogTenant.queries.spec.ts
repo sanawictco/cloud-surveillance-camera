@@ -7,16 +7,18 @@ import {
   FindAllPaginatedSystemLogsQueryHandler,
 } from '../../../../applicationService/queries/systemLog/findAllPaginatedSystemLogs.queryHandler';
 import {
-  SYSTEM_LOG_SUPER_TABLE,
   SystemLogTypes,
   systemLogSelectedColumns,
+  systemLogSuperTableName,
 } from '../../../../domain/systemLog.type';
 
 const tenantId = '11111111-1111-4111-8111-111111111111';
+const tenantStableName = systemLogSuperTableName(tenantId);
 
 describe('System log tenant queries', () => {
   it('scopes paginated records and their implicit count to one tenant', async () => {
     const repository = {
+      ensureSuperTable: jest.fn().mockResolvedValue(undefined),
       findAllPaginated: jest.fn().mockResolvedValue({
         totalDocs: 0,
         page: 1,
@@ -37,9 +39,10 @@ describe('System log tenant queries', () => {
       }),
     );
 
+    expect(repository.ensureSuperTable).toHaveBeenCalledWith(tenantId);
     expect(repository.findAllPaginated).toHaveBeenCalledWith(
       expect.objectContaining({
-        superTableName: SYSTEM_LOG_SUPER_TABLE,
+        superTableName: tenantStableName,
         selectedColumns: systemLogSelectedColumns,
         filter: `tenantId='${tenantId}' AND (groupId='warning' OR groupId='error')`,
       }),
@@ -47,7 +50,10 @@ describe('System log tenant queries', () => {
   });
 
   it('scopes explicit counts to one tenant', async () => {
-    const repository = { count: jest.fn().mockResolvedValue(2) };
+    const repository = {
+      ensureSuperTable: jest.fn().mockResolvedValue(undefined),
+      count: jest.fn().mockResolvedValue(2),
+    };
     const handler = new CountAllSystemLogsQueryHandler(repository as never);
 
     await expect(
@@ -58,9 +64,10 @@ describe('System log tenant queries', () => {
         }),
       ),
     ).resolves.toBe(2);
+    expect(repository.ensureSuperTable).toHaveBeenCalledWith(tenantId);
     expect(repository.count).toHaveBeenCalledWith(
       expect.objectContaining({
-        superTableName: SYSTEM_LOG_SUPER_TABLE,
+        superTableName: tenantStableName,
         filter: `tenantId='${tenantId}' AND (groupId='information')`,
       }),
     );

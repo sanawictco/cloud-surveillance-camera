@@ -10,7 +10,7 @@ jest.mock('configs/app.config', () => ({
 }));
 
 describe('TimeseriesRepository', () => {
-  it('initializes the tenant-tagged system log supertable', async () => {
+  it('performs no schema DDL at boot — tenant supertables are ensured by repositories on first write', async () => {
     const tdengineClient = {
       exec: jest.fn().mockResolvedValue(undefined),
     };
@@ -19,35 +19,9 @@ describe('TimeseriesRepository', () => {
       token: 'token',
     });
 
-    await repository.initSuperTables();
-
-    expect(tdengineClient.exec).toHaveBeenCalledWith(
-      expect.stringContaining('CREATE STABLE IF NOT EXISTS systemLogDetailV2'),
-    );
-    expect(tdengineClient.exec).toHaveBeenCalledWith(
-      expect.stringContaining(
-        'TAGS (tenantId VARCHAR(36),groupId VARCHAR(15))',
-      ),
-    );
-  });
-
-  it('creates no actor log supertable at boot', async () => {
-    const tdengineClient = {
-      exec: jest.fn().mockResolvedValue(undefined),
-    };
-    const repository = new TimeseriesRepository(tdengineClient, {
-      restUrl: 'http://tdengine:6041',
-      token: 'token',
-    });
-
-    await repository.initSuperTables();
-
-    // Actor-log supertables are per-tenant (actor_log_t_<tenant>) and are
-    // ensured by ActorLogRepository on each tenant's first write instead.
-    expect(
-      tdengineClient.exec.mock.calls.some(([sql]: [string]) =>
-        sql.includes('actor_log'),
-      ),
-    ).toBe(false);
+    // Constructing the shared base must not create any table; system-log and
+    // actor-log supertables are per-tenant and are ensured by their
+    // repositories on each tenant's first write.
+    expect(tdengineClient.exec).not.toHaveBeenCalled();
   });
 });

@@ -48,9 +48,9 @@ describe('CreateSystemLogCommandHandler', () => {
     expect(tenantAccess.tenantExists).toHaveBeenCalledWith(tenantId);
     expect(repository.insert).toHaveBeenCalledWith(
       expect.objectContaining({
-        subTableName: SystemLogTypes.WARNING,
         data: [
           tenantId,
+          SystemLogTypes.WARNING,
           { key: 'device.update.failed' },
           SystemLogSections.VIDEO_DEVICES_CONFIG,
           'device-id',

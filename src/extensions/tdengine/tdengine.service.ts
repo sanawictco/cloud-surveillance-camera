@@ -33,7 +33,8 @@ export class TDengineService
   private _isConnected = false;
   private client: any = null;
   // True only while a (re)connect attempt is running. Used to stop the
-  // reconnect-on-error wrapper from re-entering itself during initSuperTables.
+  // reconnect-on-error wrapper from re-entering itself while connection
+  // initializers run.
   private _connecting = false;
   // Single-flight handle: concurrent reconnects collapse onto one attempt so a
   // burst of queries against a dropped socket can't open a storm of connections.
@@ -115,7 +116,8 @@ export class TDengineService
    * run registered idempotent schema initializers. Sets `_isConnected` on success;
    * throws on failure so the caller (startup retry loop or lazy reconnect)
    * decides what to do. `_connecting` is held for the whole attempt so the
-   * reconnect-on-error wrapper does not re-enter while initSuperTables runs.
+   * reconnect-on-error wrapper does not re-enter while connection initializers
+   * run.
    */
   private async _connectOnce(): Promise<void> {
     this._connecting = true;

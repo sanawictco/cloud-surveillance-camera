@@ -52,12 +52,11 @@ export class SystemLogNotifyStatus {
 
 export type SystemLogRecordFormat = [
   string,
+  SystemLogTypes,
   SystemLogMessageProps,
   SystemLogSections,
   string,
 ];
-
-export const SYSTEM_LOG_SUPER_TABLE = 'systemLogDetailV2';
 
 export const SYSTEM_LOG_MESSAGE_KEYS_COLUMN_SIZE = 200;
 export const SYSTEM_LOG_MESSAGE_PARAMS_COLUMN_SIZE = 500;
@@ -96,13 +95,29 @@ export function assertSystemLogTypes(types: SystemLogTypes[]): void {
   }
 }
 
+/**
+ * System-log topology (decision 2026-08-31): one supertable per tenant and
+ * one child table per (tenant, severity), mirroring actor logs. Tenant
+ * identity is the supertable, so per-tenant backup, deletion (`DROP STABLE`),
+ * and provisioning are single-table operations. Names are always derived
+ * server-side from validated UUIDs; clients never provide table names.
+ */
+function tenantTableSuffix(id: string): string {
+  return id.replaceAll('-', '').toLowerCase();
+}
+
+export function systemLogSuperTableName(tenantId: string): string {
+  assertSystemLogTenantId(tenantId);
+  return `system_log_t_${tenantTableSuffix(tenantId)}`;
+}
+
 export function systemLogSubTableName(
   tenantId: string,
   type: SystemLogTypes,
 ): string {
   assertSystemLogTenantId(tenantId);
   assertSystemLogTypes([type]);
-  return `system_log_t_${tenantId.replaceAll('-', '').toLowerCase()}_${type}`;
+  return `system_log_t_${tenantTableSuffix(tenantId)}_${type}`;
 }
 
 export type SystemLogLanguageKeys = {

@@ -924,14 +924,14 @@ For normal logs and reports, create one child table per tenant under each supert
 Example:
 
 ```text
-system_log_detail_v2
-  -> system_log_t_<tenant-a>
-  -> system_log_t_<tenant-b>
+system_log_t_<tenant-a> (one supertable per tenant)
+  -> system_log_t_<tenant-a>_error
+  -> system_log_t_<tenant-a>_warning
+  -> system_log_t_<tenant-a>_information
 
-actor_log (one supertable per tenant)
-  tenant-a stable: actor_log_t_<tenant-a>
-    -> actor_log_t_<tenant-a>_<actor-1>
-    -> actor_log_t_<tenant-a>_<actor-2>
+actor_log_t_<tenant-a> (one supertable per tenant)
+  -> actor_log_t_<tenant-a>_<actor-1>
+  -> actor_log_t_<tenant-a>_<actor-2>
 
 daily_report_v1
   -> daily_report_t_<tenant-a>
@@ -939,17 +939,18 @@ daily_report_v1
 ```
 
 Decision 2026-08-31: supertable names carry no version suffix. Actor logs
-use one supertable per tenant (`actor_log_t_<tenant>`) with one child table
-per (tenant, actor) and tags `(tenantId, actorId)`: tenant identity is the
-supertable, so per-tenant backup, deletion (`DROP STABLE`), and provisioning
-are single-table operations, per-user reports tag-prune to an exact child
-table, and a member's history is removable with one `DROP TABLE`. The tenant
-tag is still present on every child table (invariant 12) and all reads run
-against the tenant's own supertable with a tenant predicate. System logs keep
-the tenant-plus-severity child topology. Development has no legacy data to
-preserve; a dev TDengine still holding tables of the old shape must be
-dropped or recreated, because `CREATE STABLE IF NOT EXISTS` cannot upgrade an
-existing supertable.
+and system logs use one supertable per tenant (`actor_log_t_<tenant>`,
+`system_log_t_<tenant>`) with child tables per (tenant, actor) and
+(tenant, severity) respectively and tags `(tenantId, ...)` on every child:
+tenant identity is the supertable, so per-tenant backup, deletion
+(`DROP STABLE`), and provisioning are single-table operations, per-actor
+and per-severity reports tag-prune to an exact child table, and a member's
+or a severity's history is removable with one `DROP TABLE`. The tenant tag
+is still present on every child table (invariant 12) and all reads run
+against the tenant's own supertable with a tenant predicate. Development
+has no legacy data to preserve; a dev TDengine still holding tables of the
+old shape must be dropped or recreated, because
+`CREATE STABLE IF NOT EXISTS` cannot upgrade an existing supertable.
 
 This is appropriate for:
 
@@ -1945,10 +1946,10 @@ isolation suites remain open before the completion gate can close.
 - [ ] Verify deployed TDengine row identity and same-timestamp behavior. (Requires a live TDengine session; the process-local allocator below is the selected mitigation for the single-instance deployment in the meantime.)
 - [x] Select and unit-test a per-child monotonic millisecond allocator for the current single-instance deployment.
 - [ ] Create detail and summary databases with configured retention.
-- [x] Create tenant-tagged v2 system-log supertable.
+- [x] Create tenant-tagged system-log supertables. (One supertable per tenant — `system_log_t_<tenant>` with `(tenantId, groupId)` tags; no version suffix, decision 2026-08-31.)
 - [x] Create tenant-tagged actor-log supertable. (One supertable per tenant — `actor_log_t_<tenant>` with `(tenantId, actorId)` tags; no version suffix, decision 2026-08-31.)
-- [x] Create deterministic tenant-plus-severity system-log child tables as the collision-risk-reducing transitional topology.
-- [x] Create one child table per tenant under each log supertable. (Actor logs: one child per (tenant, actor) under the tenant's supertable; system logs keep the tenant-plus-severity topology by decision.)
+- [x] Create deterministic per-(tenant, severity) system-log child tables under each tenant's own supertable.
+- [x] Create one child table per tenant under each log supertable. (Actor logs: one child per (tenant, actor) under the tenant's supertable; system logs: one child per (tenant, severity) under the tenant's supertable, decision 2026-08-31.)
 - [ ] Create one child table per tenant under each summary supertable.
 - [x] Replace raw filters with typed query contracts. (Actor-log queries take no caller filters or table names at all; system-log queries take typed fields only. The shared `FindDataParams.filter` remains as an infra-internal detail — no application caller passes a raw filter.)
 - [x] Validate or bind every value and identifier. (All filter literals now pass the central `TimeSeriesDbExtension.quoteStringLiteral` escaper; identifiers are server-derived validated UUIDs. Remaining hardening: allowlist order-by columns in the shared repository.)
@@ -1967,10 +1968,16 @@ Implemented on 2026-08-27:
 - `tenantId` is required and UUID-validated by every system-log create, read,
   count, and cleanup contract.
 - Creation checks that the tenant exists before writing.
-- New records are written only to `systemLogDetailV2`, tagged by `tenantId` and
-  severity. Child table names are derived only from the validated tenant UUID
-  and enum severity.
-- Reads, pagination totals, and cleanup include the tenant tag predicate.
+- New records are written to the tenant's own supertable
+  (`system_log_t_<tenant>`, tags `tenantId` + `groupId`), ensured once per
+  process on the tenant's first write (mirroring `ActorLogRepository`), into
+  a child table per (tenant, severity) (`system_log_t_<tenant>_<severity>`)
+  created implicitly by `INSERT ... USING`. Child names are derived only from
+  the validated tenant UUID and enum severity; severity travels inside the
+  record tuple and callers never supply table names.
+- Reads, pagination totals, and cleanup query the tenant's own supertable and
+  still include the tenant tag predicate and severity filters as
+  defense-in-depth.
 - Cleanup operates only on deterministic child tables for the requested tenant.
 - Writes allocate strictly increasing timestamps per tenant/severity child in
   the current process, preventing same-millisecond overwrite while the service
@@ -1987,17 +1994,19 @@ Implemented on 2026-08-27:
   the `GET /system-logs` HTTP read share the same visibility rule (see the
   Phase 1 Revision Note).
 
-The temporary child topology is one table per tenant and severity. This keeps
-the previous severity partition and avoids combining concurrent severities in
-one timestamp-keyed child. The process-local monotonic allocator covers the
-documented single-instance deployment. Before multiple application replicas,
-replace it with a distributed monotonic allocator, nanosecond timestamps, or a
-verified TDengine composite-key solution.
+The child topology is one table per tenant and severity, under the tenant's
+own supertable. This keeps the severity partition and avoids combining
+concurrent severities in one timestamp-keyed child. The process-local
+monotonic allocator covers the documented single-instance deployment. Before
+multiple application replicas, replace it with a distributed monotonic
+allocator, nanosecond timestamps, or a verified TDengine composite-key
+solution. Boot-time supertable creation is gone: no stable exists before its
+tenant's first write.
 
-Legacy unscoped rows remain untouched in `systemLogSuperTable`. Normal tenant
-APIs do not read that table, because assigning or exposing those rows without a
-proven tenant would violate isolation. Backfill and reconciliation remain open
-Phase 6 work.
+Legacy unscoped rows remain untouched in the legacy `systemLogSuperTable`
+v1 stable. Normal tenant APIs do not read that table, because assigning or
+exposing those rows without a proven tenant would violate isolation. Backfill
+and reconciliation remain open Phase 6 work.
 
 ### Partial Actor-Log V2 Implementation
 
