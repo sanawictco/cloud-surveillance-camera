@@ -19,8 +19,7 @@ import {
 import { CameraModel } from '../videoDevices/infra/camera/camera.schema';
 import { NvrModel } from '../videoDevices/infra/nvr/nvr.schema';
 import { selectMongoBackupMembers } from './fogBackupArchive';
-const BACKUP_ROOT =
-  process.env.FOG_BACKUP_ROOT ?? '/cloud_shared_backups';
+import { BACKUP_ROOT } from './fogBackupRoot';
 const RESTORE_TIMEOUT_MS = 10 * 60 * 1000;
 const RESTORE_LOCK_TTL_SECONDS = 60 * 60;
 const MAX_EXTRACTED_MONGO_FILE_SIZE = 256 * 1024 * 1024;
@@ -298,7 +297,12 @@ export class FogCommunicationManagerService implements OnApplicationBootstrap {
       stderr += chunk.toString();
     });
     const completed = new Promise<void>((resolve, reject) => {
-      child.on('error', reject);
+      child.on('error', (error) => {
+        // Without this the 10-minute kill timer keeps the event loop alive
+        // after a spawn failure.
+        clearTimeout(timeout);
+        reject(error);
+      });
       child.on('close', (code) => {
         clearTimeout(timeout);
         if (code === 0) resolve();

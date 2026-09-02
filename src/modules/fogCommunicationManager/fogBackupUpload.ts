@@ -2,9 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { diskStorage } from 'multer';
 import { mkdir } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-
-const BACKUP_ROOT =
-  process.env.FOG_BACKUP_ROOT ?? '/cloud_shared_backups';
+import { BACKUP_ROOT } from './fogBackupRoot';
 
 export const fogBackupStorage = diskStorage({
   destination: (_request, _file, callback) => {

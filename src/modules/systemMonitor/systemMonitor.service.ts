@@ -22,20 +22,33 @@ export class SystemMonitorService {
   ) {}
   // This service can be expanded with methods to monitor system health, performance, etc.
   async getHealthStatus(): Promise<HealthResponseDto> {
-    if (
-      (await this.checkEmqxConnection()) &&
-      (await this._checkMongoDBConnection()) &&
-      (await this.cacheService.healthCheck()) &&
-      (await this._checkTDengineConnection())
-    )
-      return {
-        status: 'healthy',
+    // Checks stay sequential and short-circuiting on purpose: once one
+    // dependency is down the service is unhealthy regardless, and probing the
+    // rest only adds load to an already-degraded system.
+    const checks: Array<[string, () => Promise<boolean>]> = [
+      ['emqx', () => this.checkEmqxConnection()],
+      ['mongo', () => this._checkMongoDBConnection()],
+      ['cache', () => this.cacheService.healthCheck()],
+      ['tdengine', () => this._checkTDengineConnection()],
+    ];
+
+    for (const [name, check] of checks) {
+      if (await check()) continue;
+      // A check that returns false without throwing logs nothing of its own,
+      // so an outage could previously be completely silent. Name the first
+      // failing dependency in both the log and the response.
+      this.serviceProvider.logger.error(`health check failed: ${name}`);
+      throw new ServiceUnavailableException({
+        status: 'unhealthy',
         timestamp: new Date().toLocaleString(),
-      };
-    throw new ServiceUnavailableException({
-      status: 'unhealthy',
+        failedCheck: name,
+      });
+    }
+
+    return {
+      status: 'healthy',
       timestamp: new Date().toLocaleString(),
-    });
+    };
   }
   private async _checkMongoDBConnection(): Promise<boolean> {
     try {

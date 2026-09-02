@@ -225,4 +225,37 @@ describe('SystemMonitorService', () => {
       });
     });
   });
+
+  describe('failing dependency identification', () => {
+    it.each([
+      ['emqx', () => serviceProvider.httpService.get.mockRejectedValue(new Error('down'))],
+      ['mongo', () => { connection.readyState = 0; }],
+      ['cache', () => cacheService.healthCheck.mockResolvedValue(false)],
+      ['tdengine', () => tdengineService.healthCheck.mockResolvedValue({ status: 'error' })],
+    ])('names %s in the 503 body and the log', async (name, breakIt) => {
+      breakIt();
+
+      // Before this, the 503 carried only status+timestamp, so an operator
+      // could not tell which dependency was down without manual triage.
+      await expect(service.getHealthStatus()).rejects.toThrow(
+        expect.objectContaining({
+          response: expect.objectContaining({
+            status: 'unhealthy',
+            failedCheck: name,
+          }),
+        }),
+      );
+      expect(serviceProvider.logger.error).toHaveBeenCalledWith(
+        `health check failed: ${name}`,
+      );
+    });
+
+    it('keeps the healthy response shape unchanged', async () => {
+      // Probes parse this body; it must stay exactly {status, timestamp}.
+      await expect(service.getHealthStatus()).resolves.toEqual({
+        status: 'healthy',
+        timestamp: expect.any(String),
+      });
+    });
+  });
 });

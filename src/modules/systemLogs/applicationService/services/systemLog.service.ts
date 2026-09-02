@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { OrderStates } from 'src/dddLib/applicationService';
 import { SanawApiNotificationService } from 'src/extensions/sanawApi/services/sanawApiNotification.service';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
@@ -34,7 +34,16 @@ export class SystemLogService {
 
   async findAll(query: GetAllSystemLogsRequestDto) {
     const tenantId = UserInfoService.requireTenantId();
-    let types: SystemLogTypes[] = JSON.parse(query.types ?? '[]');
+    let types: SystemLogTypes[];
+    try {
+      types = JSON.parse(query.types ?? '[]');
+    } catch {
+      // Client-supplied JSON: a parse failure is a bad request, not a crash.
+      throw new BadRequestException('types must be a JSON array');
+    }
+    if (!Array.isArray(types)) {
+      throw new BadRequestException('types must be a JSON array');
+    }
     const page = query.page || 1;
     const limit = query.limit || 10;
     if (types.length === 0) {
@@ -77,7 +86,7 @@ export class SystemLogService {
     } else if (lang === LanguageCode.KU) {
       sections = kurdiSystemLogSections;
     } else {
-      throw new Error('unSupported Language');
+      throw new BadRequestException('unSupported Language');
     }
     return { dictionary: { ...dictionary, ...sections } };
   }
@@ -154,13 +163,32 @@ export class SystemLogService {
           case NotificationLevel.INFORMATION:
             notificationLevel = NotificationLevel.INFORMATION;
             break;
+          default:
+            // SystemLogTypes and NotificationLevel carry the same values today,
+            // so this is unreachable; it exists so a new log type can never
+            // send `undefined` as the level.
+            this.serviceProvider.logger.error(
+              `no notification level for system log type ${level}; sms skipped`,
+            );
+            continue;
         }
-        setTimeout(async () => {
-          await this.sanawApiNotificationService.sms({
-            level: notificationLevel,
-            message,
-            userId: smsNotifier.userId,
-          });
+        setTimeout(() => {
+          // Deliberately not awaited: notification delivery must not block the
+          // system-log write. The catch is required — an unhandled rejection
+          // here reaches process.on('unhandledRejection') in main.ts, which
+          // performs an emergency shutdown of the whole service.
+          void this.sanawApiNotificationService
+            .sms({
+              level: notificationLevel,
+              message,
+              userId: smsNotifier.userId,
+            })
+            .catch((error: unknown) => {
+              this.serviceProvider.logger.error(
+                `failed to send system log sms to user ${smsNotifier.userId}`,
+                error instanceof Error ? error.stack : String(error),
+              );
+            });
           //TODO update systemLogNofityReport of the systemLog
         }, 0);
       }

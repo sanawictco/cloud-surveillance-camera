@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import { LanguageCode } from 'src/extensions/translation/languageCode.enum';
 import { englishReportFields } from 'src/extensions/translation/languages/englishValues';
@@ -29,7 +29,7 @@ export class ActorLogsService {
     } else if (lang === LanguageCode.KU) {
       otherKeys = kurdiReportFields;
     } else {
-      throw new Error('unSupported Language');
+      throw new BadRequestException('unSupported Language');
     }
     return { dictionary: { ...dictionary, ...otherKeys } };
   }

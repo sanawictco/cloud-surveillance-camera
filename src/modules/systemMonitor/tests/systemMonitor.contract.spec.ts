@@ -8,7 +8,7 @@
  *
  * Scenario: System is unhealthy
  *   WHEN a client sends GET /system-monitor/health and one or more infrastructure connections are down
- *   THEN the system throws a ServiceUnavailableException with { status: 'healthy', timestamp }
+ *   THEN the system throws a ServiceUnavailableException with { status: 'unhealthy', timestamp }
  */
 import { Test, TestingModule } from '@nestjs/testing';
 import { ServiceUnavailableException } from '@nestjs/common';
