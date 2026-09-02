@@ -5,7 +5,6 @@ import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.enti
 import { FindCameraByIdForTenantQuery } from '../../queries/camera/findCameraById.queryHandler';
 import {
   FindCameraByNameForTenantQuery,
-  FindCameraByNameQuery,
 } from '../../queries/camera/findCameraByName.queryHandler';
 
 @Injectable()
@@ -71,13 +70,13 @@ export class CameraValidator {
   async checkAvoidCameraDuplicationUpdate(
     name: string,
     id: string,
-    tenantId?: string,
+    tenantId: string,
   ): Promise<boolean> {
-    const query = tenantId
-      ? new FindCameraByNameForTenantQuery(tenantId, name)
-      : new FindCameraByNameQuery(name);
+    // Uniqueness is per tenant, as for NVR names.
     const cameraEntity: CameraEntity =
-      await this.serviceProvider.queryBus.execute(query);
+      await this.serviceProvider.queryBus.execute(
+        new FindCameraByNameForTenantQuery(tenantId, name),
+      );
     if (cameraEntity && cameraEntity.id !== id)
       throw new BadRequestException(
         this.serviceProvider.translatorService.translateByName(

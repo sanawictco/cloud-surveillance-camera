@@ -9,14 +9,39 @@ export class CameraActorLogService {
 
   async update(_props: {
     cameraEntity: CameraEntity;
-    actorId?: string;
+    actorId: string;
     updateCameraProps: {
       currentOrOldName: string;
       updatedProps: UpdateCameraRequestDto;
     };
-  }) {}
+  }) {
+    const { cameraEntity, updateCameraProps } = _props;
+    await this.actorLogApiService.registerActorLog({
+      tenantId: cameraEntity.getProps().tenantId,
+      actorId: _props.actorId,
+      messageProps: {
+        key: LanguageKeys.camera.actorLog.nameUpdated,
+        params: [
+          updateCameraProps.currentOrOldName,
+          cameraEntity.getProps().serialNumber,
+          updateCameraProps.updatedProps.name,
+        ],
+      },
+    });
+  }
 
-  async create(_props: { cameraEntity: CameraEntity; actorId?: string }) {}
+  async create(_props: { cameraEntity: CameraEntity; actorId: string }) {
+    const { cameraEntity, actorId } = _props;
+    const { name, serialNumber } = cameraEntity.getProps();
+    await this.actorLogApiService.registerActorLog({
+      tenantId: cameraEntity.getProps().tenantId,
+      actorId,
+      messageProps: {
+        key: LanguageKeys.camera.actorLog.created,
+        params: [name, serialNumber],
+      },
+    });
+  }
 
   async delete(props: { cameraEntity: CameraEntity; actorId?: string }) {
     const { cameraEntity, actorId } = props;
@@ -31,7 +56,7 @@ export class CameraActorLogService {
     });
   }
 
-  async active(props: { cameraEntity: CameraEntity; actorId?: string }) {
+  async active(props: { cameraEntity: CameraEntity; actorId: string }) {
     const { cameraEntity, actorId } = props;
     const { name } = cameraEntity.getProps();
     await this.actorLogApiService.registerActorLog({
@@ -43,7 +68,7 @@ export class CameraActorLogService {
       },
     });
   }
-  async inactive(props: { cameraEntity: CameraEntity; actorId?: string }) {
+  async inactive(props: { cameraEntity: CameraEntity; actorId: string }) {
     const { cameraEntity, actorId } = props;
     const { name } = cameraEntity.getProps();
     await this.actorLogApiService.registerActorLog({

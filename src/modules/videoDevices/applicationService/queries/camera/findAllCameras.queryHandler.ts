@@ -5,6 +5,8 @@ import { CAMERA_REPOSITORY } from 'src/modules/videoDevices/infra/camera/camera.
 import { CameraRepository } from 'src/modules/videoDevices/infra/camera/camera.repository';
 import { LiveSignalStatuses } from 'src/modules/videoDevices/shared/valueObjects/liveSignalStatus.vo';
 
+// Full filter shape for a camera lookup; every query derives its own scope
+// from this so the tenant clause can only come from the query, not a caller.
 interface CameraQueryFilter {
   tenantId: string;
   name: string | RegExp;
@@ -17,8 +19,6 @@ interface CameraQueryFilter {
 // The tenant scope is supplied by the query itself, never by a caller filter.
 type CameraTenantQueryFilter = Omit<CameraQueryFilter, 'tenantId'>;
 
-export class FindAllCamerasQuery extends QueryBase<CameraQueryFilter> {}
-
 export class FindAllCamerasForTenantQuery extends QueryBase<CameraTenantQueryFilter> {
   constructor(
     public readonly tenantId: string,
@@ -28,19 +28,6 @@ export class FindAllCamerasForTenantQuery extends QueryBase<CameraTenantQueryFil
     if (!tenantId) throw new Error('tenantId is required');
   }
 }
-@QueryHandler(FindAllCamerasQuery)
-export class FindAllCamerasQueryHandler implements IQueryHandler<FindAllCamerasQuery> {
-  constructor(
-    @Inject(CAMERA_REPOSITORY)
-    protected readonly cameraRepo: CameraRepository,
-  ) {}
-
-  async execute(query: FindAllCamerasQuery) {
-    const records = await this.cameraRepo.findAll(query);
-    return records;
-  }
-}
-
 @QueryHandler(FindAllCamerasForTenantQuery)
 export class FindAllCamerasForTenantQueryHandler implements IQueryHandler<FindAllCamerasForTenantQuery> {
   constructor(

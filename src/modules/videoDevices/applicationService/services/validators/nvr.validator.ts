@@ -10,7 +10,6 @@ import { FindNvrByIdForTenantQuery } from '../../queries/nvr/findNvrById.queryHa
 import { FindNvrBySerialNumberQuery } from '../../queries/nvr/findNvrBySerialNumber.queryHandler';
 import {
   FindNvrByNameForTenantQuery,
-  FindNvrByNameQuery,
 } from '../../queries/nvr/findNvrByName.queryHandler';
 import {
   AutoRegisterBatchConfig,
@@ -183,13 +182,13 @@ export class NvrValidator {
 
   async checkAvoidNvrDuplicationCreate(
     name: string,
-    tenantId?: string,
+    tenantId: string,
   ): Promise<boolean> {
-    const query = tenantId
-      ? new FindNvrByNameForTenantQuery(tenantId, name)
-      : new FindNvrByNameQuery(name);
-    const nvrEntity: NvrEntity =
-      await this.serviceProvider.queryBus.execute(query);
+    // Uniqueness is per tenant: an unscoped lookup would reject a name simply
+    // because a different tenant already uses it.
+    const nvrEntity: NvrEntity = await this.serviceProvider.queryBus.execute(
+      new FindNvrByNameForTenantQuery(tenantId, name),
+    );
     if (nvrEntity)
       throw new BadRequestException(
         this.serviceProvider.translatorService.translateByName(
@@ -203,13 +202,11 @@ export class NvrValidator {
   async checkAvoidNvrDuplicationUpdate(
     name: string,
     id: string,
-    tenantId?: string,
+    tenantId: string,
   ): Promise<boolean> {
-    const query = tenantId
-      ? new FindNvrByNameForTenantQuery(tenantId, name)
-      : new FindNvrByNameQuery(name);
-    const nvrEntity: NvrEntity =
-      await this.serviceProvider.queryBus.execute(query);
+    const nvrEntity: NvrEntity = await this.serviceProvider.queryBus.execute(
+      new FindNvrByNameForTenantQuery(tenantId, name),
+    );
     if (nvrEntity && nvrEntity.id !== id)
       throw new BadRequestException(
         this.serviceProvider.translatorService.translateByName(

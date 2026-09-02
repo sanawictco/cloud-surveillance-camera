@@ -1,5 +1,7 @@
 import { ConflictException } from '@nestjs/common';
-import { writeFile } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { FogCommunicationManagerService } from '../fogCommunicationManager.service';
 import { pageCacheKey } from '../../dashboard/infra/schemas/page.schema';
 
@@ -8,7 +10,7 @@ describe('FogCommunicationManagerService restore', () => {
   const nvrId = '22222222-2222-4222-8222-222222222222';
   const serialNumber = 'NVR00001';
   const accessToken = '1'.repeat(32);
-  const uploadPath = '/tmp/opencode/fog-restore-upload.tar.zst';
+  let uploadPath: string;
 
   function buildService() {
     const fogApi = {
@@ -44,6 +46,10 @@ describe('FogCommunicationManagerService restore', () => {
   }
 
   beforeEach(async () => {
+    // A per-run directory under the OS temp dir: a hard-coded absolute path
+    // makes these tests fail on any machine that does not happen to have it.
+    const dir = await mkdtemp(join(tmpdir(), 'fog-restore-'));
+    uploadPath = join(dir, 'fog-restore-upload.tar.zst');
     await writeFile(uploadPath, 'archive');
   });
 

@@ -24,16 +24,13 @@ import { RestoreNvrsToCacheCommandHandler } from './applicationService/commands/
 import { UpdateNvrCommandHandler } from './applicationService/commands/nvr/updateNvr.command';
 import {
   FindAllCamerasForTenantQueryHandler,
-  FindAllCamerasQueryHandler,
 } from './applicationService/queries/camera/findAllCameras.queryHandler';
 import { FindAllDeletedCamerasByDeletedSerialNumbersQueryHandler } from './applicationService/queries/camera/findAllDeletedCamerasByDeletedSerialNumbers.queryHandler';
 import {
   FindCameraByIdForTenantQueryHandler,
-  FindCameraByIdQueryHandler,
 } from './applicationService/queries/camera/findCameraById.queryHandler';
 import {
   FindCameraByNameForTenantQueryHandler,
-  FindCameraByNameQueryHandler,
 } from './applicationService/queries/camera/findCameraByName.queryHandler';
 import { FindCameraByNameAndNvrIdQueryHandler } from './applicationService/queries/camera/findCameraByNameAndNvrId.queryHandler';
 import {
@@ -46,11 +43,9 @@ import {
 } from './applicationService/queries/nvr/findAllNvrs.queryHandler';
 import {
   FindNvrByIdForTenantQueryHandler,
-  FindNvrByIdQueryHandler,
 } from './applicationService/queries/nvr/findNvrById.queryHandler';
 import {
   FindNvrByNameForTenantQueryHandler,
-  FindNvrByNameQueryHandler,
 } from './applicationService/queries/nvr/findNvrByName.queryHandler';
 import { FindNvrBySerialNumberQueryHandler } from './applicationService/queries/nvr/findNvrBySerialNumber.queryHandler';
 import { CameraActorLogService } from './applicationService/services/actorLogs/cameraActorLog.service';
@@ -112,18 +107,13 @@ const queryHandlers: Provider[] = [
   ...[
     FindAllNvrsQueryHandler,
     FindAllNvrsForTenantQueryHandler,
-    FindNvrByIdQueryHandler,
     FindNvrByIdForTenantQueryHandler,
-    FindNvrByNameQueryHandler,
     FindNvrByNameForTenantQueryHandler,
     FindNvrBySerialNumberQueryHandler,
   ],
   ...[
-    FindAllCamerasQueryHandler,
     FindAllCamerasForTenantQueryHandler,
-    FindCameraByIdQueryHandler,
     FindCameraByIdForTenantQueryHandler,
-    FindCameraByNameQueryHandler,
     FindCameraByNameForTenantQueryHandler,
     FindCameraByNameAndNvrIdQueryHandler,
     FindCameraBySerialNumberQueryHandler,

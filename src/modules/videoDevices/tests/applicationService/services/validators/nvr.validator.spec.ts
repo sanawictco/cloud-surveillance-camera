@@ -1,4 +1,6 @@
+import { BadRequestException } from '@nestjs/common';
 import { NvrValidator } from '../../../../applicationService/services/validators/nvr.validator';
+import { FindNvrByNameForTenantQuery } from '../../../../applicationService/queries/nvr/findNvrByName.queryHandler';
 import { CameraEntity } from '../../../../domain/camera/camera.entity';
 import { NvrEntity } from '../../../../domain/nvr/nvr.entity';
 
@@ -80,6 +82,56 @@ describe('NvrValidator auto-register', () => {
       expect.objectContaining({
         filter: { nvrId: nvr.id, isDeleted: { $ne: true } },
       }),
+    );
+  });
+});
+
+describe('NvrValidator name duplication', () => {
+  const tenantId = '11111111-1111-4111-8111-111111111111';
+
+  function buildValidator(existing?: unknown) {
+    const serviceProvider = {
+      queryBus: { execute: jest.fn().mockResolvedValue(existing) },
+      translatorService: { translateByName: jest.fn(() => 'duplicated') },
+      userInfoService: { getProps: jest.fn(() => ({ lang: 'en' })) },
+    };
+    const validator = new NvrValidator(serviceProvider as never, {} as never);
+    return { validator, serviceProvider };
+  }
+
+  it('scopes the create check to the caller tenant', async () => {
+    const { validator, serviceProvider } = buildValidator(undefined);
+
+    await expect(
+      validator.checkAvoidNvrDuplicationCreate('Lobby NVR', tenantId),
+    ).resolves.toBe(true);
+
+    // Names are unique per tenant: an unscoped query would reject a name that
+    // is only taken in some other tenant, and leak that it is taken.
+    const dispatched = serviceProvider.queryBus.execute.mock.calls[0]![0];
+    expect(dispatched).toBeInstanceOf(FindNvrByNameForTenantQuery);
+    expect(dispatched).toEqual(
+      expect.objectContaining({ tenantId, name: 'Lobby NVR' }),
+    );
+  });
+
+  it('rejects a name already used inside the same tenant', async () => {
+    const { validator } = buildValidator({ id: 'other-nvr' });
+
+    await expect(
+      validator.checkAvoidNvrDuplicationCreate('Lobby NVR', tenantId),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('lets an NVR keep its own name on update', async () => {
+    const { validator, serviceProvider } = buildValidator({ id: 'nvr-1' });
+
+    await expect(
+      validator.checkAvoidNvrDuplicationUpdate('Lobby NVR', 'nvr-1', tenantId),
+    ).resolves.toBe(true);
+
+    expect(serviceProvider.queryBus.execute.mock.calls[0]![0]).toBeInstanceOf(
+      FindNvrByNameForTenantQuery,
     );
   });
 });
