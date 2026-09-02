@@ -11,7 +11,10 @@ import { NvrLanguage } from '../../../domain/nvr/valueObjects/NvrLanguage.vo';
 import { NvrPassword } from '../../../domain/nvr/valueObjects/nvrPassword.vo';
 import { MaxCameras } from '../../../domain/nvr/valueObjects/maxCameras.vo';
 import { IsActive } from '../../../shared/valueObjects/isActive.vo';
-import { LiveSignalStatus } from '../../../shared/valueObjects/liveSignalStatus.vo';
+import {
+  LiveSignalStatus,
+  LiveSignalStatuses,
+} from '../../../shared/valueObjects/liveSignalStatus.vo';
 import { SerialNumber } from '../../../shared/valueObjects/serialNumber.vo';
 
 const cameraTenantId = 'de10d17b-2ee1-4ac0-868d-e76b2f3ad3c7';
@@ -85,18 +88,41 @@ describe('CameraEntity tenant ownership', () => {
     camera.softDelete();
 
     camera.update({
-      tenantId: '11705ad5-9e70-4930-8680-7cc593687049',
       nvrId: '22222222-2222-4222-8222-222222222222',
       isDeleted: false,
     });
 
     expect(camera.getProps()).toEqual(
       expect.objectContaining({
-        tenantId: '11705ad5-9e70-4930-8680-7cc593687049',
         nvrId: '22222222-2222-4222-8222-222222222222',
         isDeleted: false,
       }),
     );
+  });
+
+  it('never moves a camera to another tenant through update', () => {
+    const camera = createCamera();
+
+    // UpdateCameraProps deliberately has no tenantId, so even a caller that
+    // forces one through cannot rewrite the owner recorded on the aggregate.
+    camera.update({
+      tenantId: '11705ad5-9e70-4930-8680-7cc593687049',
+      nvrId: '22222222-2222-4222-8222-222222222222',
+    } as never);
+
+    expect(camera.getProps().tenantId).toBe(cameraTenantId);
+  });
+
+  it('persists a live signal status change through update', () => {
+    const camera = createCamera();
+    camera.active();
+
+    camera.update({ liveSignalStatus: LiveSignalStatuses.DIS_CONNECTED });
+
+    expect(camera.getProps().liveSignalStatus).toBe(
+      LiveSignalStatuses.DIS_CONNECTED,
+    );
+    expect(camera.isDisconnected()).toBe(true);
   });
 
   it('accepts an NVR from the same tenant', () => {

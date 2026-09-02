@@ -108,6 +108,14 @@ export class SmsNotifierRepository {
     );
   }
 
+  /**
+   * Removes the subscription a user holds in one tenant. Used when a member is
+   * hard-deleted, where there is no entity to load first.
+   */
+  async deleteByUser(tenantId: string, userId: string): Promise<void> {
+    await this.smsNotifierModel.deleteOne({ tenantId, userId });
+  }
+
   async delete(entity: SmsNotifierEntity): Promise<void> {
     await this.smsNotifierModel.deleteOne({
       tenantId: entity.getProps().tenantId,

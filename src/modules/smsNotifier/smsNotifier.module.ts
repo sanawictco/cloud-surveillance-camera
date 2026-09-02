@@ -4,6 +4,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { SanawApiModule } from 'src/extensions/sanawApi/sanawApi.module';
 import { ActorLogModule } from '../actorLogs/actorLog.module';
 import { EmployeeApiForSystemLogsService } from './applicatoinService/apiForAnotherServices/employeeApiForSystemLogs.service';
+import { SmsNotifierApiForTenantAccessService } from './applicatoinService/apiForAnotherServices/smsNotifierApiForTenantAccess.service';
 import { CreateSmsNotifierCommandHandler } from './applicatoinService/commands/smsNotifier/createSmsNotifier.command';
 import { DeleteSmsNotifierCommandHandler } from './applicatoinService/commands/smsNotifier/deleteSmsNotifier.command';
 import { UpdateSmsNotifierCommandHandler } from './applicatoinService/commands/smsNotifier/updateSmsNotifier.command';
@@ -53,8 +54,12 @@ const queryHandlers: Provider[] = [
     EmployeesActorLogService,
     SmsNotifierService,
     EmployeeApiForSystemLogsService,
+    SmsNotifierApiForTenantAccessService,
   ],
   controllers: [SmsNotifierController],
-  exports: [EmployeeApiForSystemLogsService],
+  exports: [
+    EmployeeApiForSystemLogsService,
+    SmsNotifierApiForTenantAccessService,
+  ],
 })
 export class SmsNotifierModule {}

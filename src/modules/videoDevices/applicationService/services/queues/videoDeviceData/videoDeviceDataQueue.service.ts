@@ -155,15 +155,19 @@ export class VideoDeviceDataQueueService implements OnModuleInit {
     this.serviceProvider.logger.debug(
       `expired videoDeviceData tenantId=${scope.tenantId} nvrId=${scope.nvrId} msgId=${scope.msgId}`,
     );
-    const nvrEntity: NvrEntity | undefined =
-      await this.serviceProvider.queryBus.execute(
+    // Both reads are tenant-scoped and independent, so run them together.
+    const [nvrEntity, cameraEntity]: [
+      NvrEntity | undefined,
+      CameraEntity | undefined,
+    ] = await Promise.all([
+      this.serviceProvider.queryBus.execute(
         new FindNvrByIdForTenantQuery(scope.tenantId, scope.nvrId),
-      );
-    if (!nvrEntity) return; // NVR removed while the command was in flight
-    const cameraEntity: CameraEntity | undefined =
-      await this.serviceProvider.queryBus.execute(
+      ),
+      this.serviceProvider.queryBus.execute(
         new FindCameraByIdForTenantQuery(scope.tenantId, scope.entityId),
-      );
+      ),
+    ]);
+    if (!nvrEntity) return; // NVR removed while the command was in flight
     if (!cameraEntity) return;
     if (cameraEntity.getProps().nvrId !== scope.nvrId) {
       throw new Error('queued camera command identity mismatch');

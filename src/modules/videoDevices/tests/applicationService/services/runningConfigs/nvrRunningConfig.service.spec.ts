@@ -41,7 +41,7 @@ describe('NvrRunningConfigService', () => {
       serviceProvider as never,
       commandBus as never,
     );
-    return { service, nvr, queue, commandBus };
+    return { service, nvr, queue, commandBus, serviceProvider };
   }
 
   it('clears a stale search claim before admitting register', async () => {
@@ -93,5 +93,19 @@ describe('NvrRunningConfigService', () => {
       context.nvr.id,
       '202',
     );
+  });
+
+  it('stops cleanly when the NVR is deleted during the re-fetch', async () => {
+    const context = buildService();
+    // A concurrent delete wins the race, so the tenant-scoped re-fetch inside
+    // stopAndRemoveAllRunningConfigs resolves to undefined.
+    context.serviceProvider.queryBus.execute.mockResolvedValue(undefined);
+
+    await expect(
+      context.service.stopAndRemoveAllRunningConfigs(context.nvr),
+    ).resolves.toBeUndefined();
+
+    expect(context.queue.getAndDeleteRepeatableMsg).not.toHaveBeenCalled();
+    expect(context.commandBus.execute).not.toHaveBeenCalled();
   });
 });

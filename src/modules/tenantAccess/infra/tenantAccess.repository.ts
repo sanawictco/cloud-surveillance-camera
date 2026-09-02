@@ -1,56 +1,41 @@
 import { Injectable } from '@nestjs/common';
-import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { Connection, Model } from 'mongoose';
-import { TenantStatuses } from 'src/modules/tenants/domain/valueObjects/tenantStatus.vo';
-import { TenantModel } from 'src/modules/tenants/infra/tenant.schema';
+import { SmsNotifierApiForTenantAccessService } from 'src/modules/smsNotifier/applicatoinService/apiForAnotherServices/smsNotifierApiForTenantAccess.service';
+import {
+  TenantAccessView,
+  TenantsApiForTenantAccessService,
+} from 'src/modules/tenants/applicationService/apiForAnotherServices/tenantsApiForTenantAccess.service';
 
-export interface TenantAccessRecord {
-  id: string;
-  ownerId: string;
-  name: string;
-  slug: string;
-  status: TenantStatuses;
-}
+export type TenantAccessRecord = TenantAccessView;
 
+/**
+ * Reads tenant ownership/status and clears a removed member's SMS
+ * subscription. Both live in other modules, so both go through that module's
+ * *ApiFor<Consumer>Service facade rather than its schema or collection.
+ */
 @Injectable()
 export class TenantAccessRepository {
   constructor(
-    @InjectModel(TenantModel.name)
-    private readonly tenantModel: Model<TenantModel>,
-    @InjectConnection() private readonly connection: Connection,
+    private readonly tenantsApi: TenantsApiForTenantAccessService,
+    private readonly smsNotifierApi: SmsNotifierApiForTenantAccessService,
   ) {}
 
-  async findTenant(tenantId: string): Promise<TenantAccessRecord | undefined> {
-    const tenant = await this.tenantModel
-      .findOne({ id: tenantId })
-      .lean<TenantModel>()
-      .exec();
-    return tenant ?? undefined;
+  findTenant(tenantId: string): Promise<TenantAccessRecord | undefined> {
+    return this.tenantsApi.findTenant(tenantId);
   }
 
   findTenants(tenantIds: string[]): Promise<TenantAccessRecord[]> {
-    return this.tenantModel
-      .find({ id: { $in: tenantIds } })
-      .lean<TenantModel[]>()
-      .exec();
+    return this.tenantsApi.findTenants(tenantIds);
   }
 
-  async tenantExists(tenantId: string): Promise<boolean> {
-    return Boolean(await this.tenantModel.exists({ id: tenantId }));
+  tenantExists(tenantId: string): Promise<boolean> {
+    return this.tenantsApi.tenantExists(tenantId);
   }
 
-  async findAllTenantIds(): Promise<string[]> {
-    const tenants = await this.tenantModel
-      .find()
-      .select({ id: 1 })
-      .lean<Array<{ id: string }>>()
-      .exec();
-    return tenants.map((tenant) => tenant.id);
+  findAllTenantIds(): Promise<string[]> {
+    return this.tenantsApi.findAllTenantIds();
   }
 
-  async deleteSmsNotifier(tenantId: string, userId: string): Promise<void> {
-    await this.connection
-      .collection('smsNotifier')
-      .deleteOne({ tenantId, userId });
+  deleteSmsNotifier(tenantId: string, userId: string): Promise<void> {
+    return this.smsNotifierApi.deleteForUser(tenantId, userId);
   }
 }

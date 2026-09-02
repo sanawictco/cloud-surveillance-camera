@@ -67,7 +67,7 @@ export class VideoDevicesApiForDashboardService extends VideoDevicesApiBaseServi
 
   async checkNvrIsExistsAndActiveAndConnected(
     nvrId: string,
-    tenantId?: string,
+    tenantId: string,
   ): Promise<NvrEntity> {
     const nvrEntity: NvrEntity = await this.nvrValidator.checkExistsNvrWithId(
       nvrId,

@@ -15,11 +15,15 @@ describe('MutateNvrRunningConfigCommandHandler', () => {
 
     await expect(
       handler.execute(
-        new MutateNvrRunningConfigCommand('nvr-id', {
-          operation: 'claimProvisioning',
-          configType: NvrConfigs.SEARCH,
-          msgId: 'search-msg',
-        }),
+        new MutateNvrRunningConfigCommand(
+          'nvr-id',
+          {
+            operation: 'claimProvisioning',
+            configType: NvrConfigs.SEARCH,
+            msgId: 'search-msg',
+          },
+          'tenant-a',
+        ),
       ),
     ).resolves.toBe(true);
 
@@ -27,6 +31,7 @@ describe('MutateNvrRunningConfigCommandHandler', () => {
       'nvr-id',
       NvrConfigs.SEARCH,
       'search-msg',
+      'tenant-a',
     );
   });
 
@@ -40,11 +45,15 @@ describe('MutateNvrRunningConfigCommandHandler', () => {
 
     await expect(
       handler.execute(
-        new MutateNvrRunningConfigCommand('nvr-id', {
-          operation: 'unsetIfMatches',
-          configType: NvrConfigs.REGISTER,
-          msgId: 'register-msg',
-        }),
+        new MutateNvrRunningConfigCommand(
+          'nvr-id',
+          {
+            operation: 'unsetIfMatches',
+            configType: NvrConfigs.REGISTER,
+            msgId: 'register-msg',
+          },
+          'tenant-a',
+        ),
       ),
     ).resolves.toBe(true);
 
@@ -52,6 +61,47 @@ describe('MutateNvrRunningConfigCommandHandler', () => {
       'nvr-id',
       NvrConfigs.REGISTER,
       'register-msg',
+      'tenant-a',
+    );
+  });
+
+  it('always forwards the tenant scope to the repository', async () => {
+    const repository = {
+      setRunningConfig: jest.fn().mockResolvedValue(true),
+      resetRunningConfigs: jest.fn().mockResolvedValue(true),
+    };
+    const handler = new MutateNvrRunningConfigCommandHandler(
+      repository as never,
+    );
+
+    await handler.execute(
+      new MutateNvrRunningConfigCommand(
+        'nvr-id',
+        {
+          operation: 'set',
+          configType: NvrConfigs.SEARCH,
+          msgId: 'search-msg',
+        },
+        'tenant-a',
+      ),
+    );
+    await handler.execute(
+      new MutateNvrRunningConfigCommand(
+        'nvr-id',
+        { operation: 'reset' },
+        'tenant-a',
+      ),
+    );
+
+    expect(repository.setRunningConfig).toHaveBeenCalledWith(
+      'nvr-id',
+      NvrConfigs.SEARCH,
+      'search-msg',
+      'tenant-a',
+    );
+    expect(repository.resetRunningConfigs).toHaveBeenCalledWith(
+      'nvr-id',
+      'tenant-a',
     );
   });
 });

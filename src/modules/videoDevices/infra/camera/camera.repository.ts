@@ -41,18 +41,18 @@ export class CameraRepository
     }
   }
 
+  // Tenant scope is mandatory: a running-config mutation must never be able to
+  // reach another tenant's camera by bare id.
   async unsetRunningConfigIfMatches(
     cameraId: string,
     configType: string,
     msgId: string,
-    tenantId?: string,
+    tenantId: string,
   ): Promise<boolean> {
     const path = `runningConfigs.${configType}`;
     const record = await this.cameraModel
       .findOneAndUpdate(
-        tenantId
-          ? { $and: [{ tenantId }, { id: cameraId }, { [path]: msgId }] }
-          : { id: cameraId, [path]: msgId },
+        { $and: [{ tenantId }, { id: cameraId }, { [path]: msgId }] },
         {
           $unset: { [path]: '' },
           $currentDate: { updatedAt: true },

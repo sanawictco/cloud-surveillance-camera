@@ -7,8 +7,8 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { isUUID } from 'class-validator';
 import { RequestContextService } from 'src/dddLib/utils/appRequestContext';
+import { isUuidV4 } from 'src/modules/shared/uuid';
 import { TenantAccessService } from '../applicationService/tenantAccess.service';
 
 @Injectable()
@@ -24,7 +24,7 @@ export class ActiveTenantGuard implements CanActivate {
     if (Array.isArray(tenantHeader) || !tenantHeader) {
       throw new BadRequestException('X-Tenant-Id header is required');
     }
-    if (!isUUID(tenantHeader, '4')) {
+    if (!isUuidV4(tenantHeader)) {
       throw new BadRequestException('X-Tenant-Id header must be a UUID');
     }
 

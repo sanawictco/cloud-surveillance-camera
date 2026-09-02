@@ -18,6 +18,7 @@ import {
   FindEmployeeForUserQuery,
   FindEmployeesForTenantQuery,
   FindMyTenantsQuery,
+  FindTenantOwnerIdQuery,
   IsTenantOwnerQuery,
   ResolveActiveTenantAccessQuery,
   TenantExistsQuery,
@@ -72,6 +73,14 @@ export class TenantAccessService {
 
   async isTenantOwner(tenantId: string, userId: string): Promise<boolean> {
     return this.queryBus.execute(new IsTenantOwnerQuery(tenantId, userId));
+  }
+
+  /**
+   * The owner is a property of the tenant, so callers rendering many employees
+   * resolve it once here instead of calling isTenantOwner per employee.
+   */
+  async findTenantOwnerId(tenantId: string): Promise<string | undefined> {
+    return this.queryBus.execute(new FindTenantOwnerIdQuery(tenantId));
   }
 
   async tenantExists(tenantId: string): Promise<boolean> {

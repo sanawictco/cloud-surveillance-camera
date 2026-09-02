@@ -16,7 +16,11 @@ export class UpdateCameraCommand
   extends Command
   implements Partial<UpdateCameraProps>
 {
-  readonly tenantId?: string;
+  /**
+   * Tenant scope for the write, never a field to update: a camera cannot move
+   * between tenants, so this is only ever checked against the stored owner.
+   */
+  readonly tenantId: string;
   readonly name?: string;
   readonly nvrId?: string;
   readonly isDeleted?: boolean;
@@ -29,6 +33,7 @@ export class UpdateCameraCommand
     this.name = props.name;
     this.nvrId = props.nvrId;
     this.isDeleted = props.isDeleted;
+    this.liveSignalStatus = props.liveSignalStatus;
     this.runningConfigs = props.runningConfigs;
   }
 }
@@ -45,7 +50,6 @@ export class UpdateCameraCommandHandler implements ICommandHandler<UpdateCameraC
     const cameraEntity: CameraEntity | undefined =
       await this.cameraRepo.findById(command.id);
     const updatedObj = {
-      tenantId: command.tenantId,
       name: command.name,
       nvrId: command.nvrId,
       isDeleted: command.isDeleted,
@@ -53,10 +57,9 @@ export class UpdateCameraCommandHandler implements ICommandHandler<UpdateCameraC
       runningConfigs: command.runningConfigs,
     };
     if (!cameraEntity) throw new Error('entity not exists');
-    if (
-      command.tenantId &&
-      cameraEntity.getProps().tenantId !== command.tenantId
-    ) {
+    // Tenant scope is mandatory: the caller must prove which tenant it is
+    // writing on behalf of before the camera is mutated.
+    if (cameraEntity.getProps().tenantId !== command.tenantId) {
       throw new Error('entity not exists');
     }
     const recoveredFromTrash =
@@ -64,6 +67,7 @@ export class UpdateCameraCommandHandler implements ICommandHandler<UpdateCameraC
     cameraEntity.update(updatedObj);
     await this.cameraRepo.update(cameraEntity);
     const actorId = command.actorProps?.actorId;
+    if (!actorId) throw new Error('actorId does not exist');
     await this.processDependencies({
       cameraEntity,
       updatedObj,
@@ -75,7 +79,7 @@ export class UpdateCameraCommandHandler implements ICommandHandler<UpdateCameraC
 
   private async processDependencies(props: {
     cameraEntity: CameraEntity;
-    actorId?: string;
+    actorId: string;
     updatedObj: any;
     recoveredFromTrash: boolean;
   }) {

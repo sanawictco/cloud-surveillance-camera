@@ -17,6 +17,7 @@ import { OnlyIdParamRequestDto } from 'src/modules/shared/dtos/onlyIdParam.reque
 import { ActiveTenantGuard } from 'src/modules/tenantAccess/guards/activeTenant.guard';
 import {
   RequireEmployeeRoles,
+  RequireTenantOwner,
   EmployeeRolesGuard,
 } from 'src/modules/tenantAccess/guards/employeeRoles.guard';
 import { EmployeeRoles } from 'src/extensions/sanawApi/dtos/employees/employeeRoles.enum';
@@ -42,12 +43,14 @@ export class EmployeeController {
   }
 
   @Post('/')
+  @RequireTenantOwner()
   @HttpCode(HttpStatus.OK)
   add(@Body() body: AddEmployeeRequestDto) {
     return this.employeeService.add(body);
   }
 
   @Put('/:id')
+  @RequireTenantOwner()
   @HttpCode(HttpStatus.OK)
   updateRoles(
     @Param() params: OnlyIdParamRequestDto,

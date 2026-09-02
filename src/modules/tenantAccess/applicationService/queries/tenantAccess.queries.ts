@@ -157,6 +157,22 @@ export class IsTenantOwnerQueryHandler implements IQueryHandler<IsTenantOwnerQue
   }
 }
 
+export class FindTenantOwnerIdQuery {
+  constructor(public readonly tenantId: string) {}
+}
+
+@QueryHandler(FindTenantOwnerIdQuery)
+export class FindTenantOwnerIdQueryHandler implements IQueryHandler<FindTenantOwnerIdQuery> {
+  constructor(private readonly tenantAccessRepository: TenantAccessRepository) {}
+
+  async execute(
+    query: FindTenantOwnerIdQuery,
+  ): Promise<string | undefined> {
+    const tenant = await this.tenantAccessRepository.findTenant(query.tenantId);
+    return tenant?.ownerId;
+  }
+}
+
 export class TenantExistsQuery {
   constructor(public readonly tenantId: string) {}
 }
@@ -197,6 +213,7 @@ export const tenantAccessQueryHandlers = [
   FindEmployeeForUserQueryHandler,
   FindActiveEmployeeForUserQueryHandler,
   IsTenantOwnerQueryHandler,
+  FindTenantOwnerIdQueryHandler,
   TenantExistsQueryHandler,
   FindAllActiveEmployeesAsSystemQueryHandler,
 ];

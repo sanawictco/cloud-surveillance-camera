@@ -6,10 +6,6 @@ import {
   EmployeeModel,
   EmployeeSchema,
 } from 'src/modules/tenantAccess/infra/schemas/employee.schema';
-import {
-  TenantModel,
-  TenantSchema,
-} from 'src/modules/tenants/infra/tenant.schema';
 import { EmployeeAccessHttpService } from './applicationService/employeeAccess.http.service';
 import { TenantAccessService } from './applicationService/tenantAccess.service';
 import { ActiveTenantGuard } from './guards/activeTenant.guard';
@@ -21,17 +17,21 @@ import { tenantAccessCommandHandlers } from './applicationService/commands/tenan
 import { tenantAccessQueryHandlers } from './applicationService/queries/tenantAccess.queries';
 import { TenantAccessRepository } from './infra/tenantAccess.repository';
 import { ActorLogModule } from 'src/modules/actorLogs/actorLog.module';
+import { SmsNotifierModule } from 'src/modules/smsNotifier/smsNotifier.module';
+import { TenantsModule } from 'src/modules/tenants/tenants.module';
 
 @Global()
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: EmployeeModel.name, schema: EmployeeSchema },
-      { name: TenantModel.name, schema: TenantSchema },
     ]),
     CqrsModule,
     SanawApiModule,
     ActorLogModule,
+    // Producers of the tenant and SMS-subscription data this module reads.
+    TenantsModule,
+    SmsNotifierModule,
   ],
   providers: [
     EmployeeRepository,

@@ -9,7 +9,7 @@ export class UnsetCameraRunningConfigCommand extends Command {
     id: string,
     public readonly configType: string,
     public readonly msgId: string,
-    public readonly tenantId?: string,
+    public readonly tenantId: string,
   ) {
     super({ id });
   }
@@ -26,13 +26,6 @@ export class UnsetCameraRunningConfigCommandHandler implements ICommandHandler<
   ) {}
 
   execute(command: UnsetCameraRunningConfigCommand): Promise<boolean> {
-    if (!command.tenantId) {
-      return this.cameraRepository.unsetRunningConfigIfMatches(
-        command.id,
-        command.configType,
-        command.msgId,
-      );
-    }
     return this.cameraRepository.unsetRunningConfigIfMatches(
       command.id,
       command.configType,

@@ -99,12 +99,17 @@ export class CameraRunningConfigAndCommandService {
       );
     }
     configType = configType.replace('_receive', '_send');
-    cameraEntity = await this.serviceProvider.queryBus.execute(
-      new FindCameraByIdForTenantQuery(
-        cameraEntity.getProps().tenantId,
-        cameraEntity.id,
-      ),
-    );
+    const refreshed: CameraEntity | undefined =
+      await this.serviceProvider.queryBus.execute(
+        new FindCameraByIdForTenantQuery(
+          cameraEntity.getProps().tenantId,
+          cameraEntity.id,
+        ),
+      );
+    // The camera can be deleted between the caller's read and this re-fetch;
+    // there is then nothing left to unlock.
+    if (!refreshed) return false;
+    cameraEntity = refreshed;
     let { runningConfigs } = cameraEntity.getProps();
     if (configType === 'all') runningConfigs = RunningConfigs.init().unpack();
     else delete runningConfigs[configType];
@@ -123,12 +128,16 @@ export class CameraRunningConfigAndCommandService {
     existingRunningConfigs?: Record<string, string>,
   ): Promise<void> {
     if (!existingRunningConfigs) {
-      cameraEntity = await this.serviceProvider.queryBus.execute(
-        new FindCameraByIdForTenantQuery(
-          cameraEntity.getProps().tenantId,
-          cameraEntity.id,
-        ),
-      );
+      const refreshed: CameraEntity | undefined =
+        await this.serviceProvider.queryBus.execute(
+          new FindCameraByIdForTenantQuery(
+            cameraEntity.getProps().tenantId,
+            cameraEntity.id,
+          ),
+        );
+      // Deleted between the caller's read and this re-fetch: nothing to stop.
+      if (!refreshed) return;
+      cameraEntity = refreshed;
     }
     const runningConfigs =
       existingRunningConfigs ?? cameraEntity.getProps().runningConfigs;
@@ -159,12 +168,16 @@ export class CameraRunningConfigAndCommandService {
     cameraEntity: CameraEntity,
     configType: string,
   ): Promise<boolean> {
-    cameraEntity = await this.serviceProvider.queryBus.execute(
-      new FindCameraByIdForTenantQuery(
-        cameraEntity.getProps().tenantId,
-        cameraEntity.id,
-      ),
-    );
+    const refreshed: CameraEntity | undefined =
+      await this.serviceProvider.queryBus.execute(
+        new FindCameraByIdForTenantQuery(
+          cameraEntity.getProps().tenantId,
+          cameraEntity.id,
+        ),
+      );
+    // A deleted camera has no running config.
+    if (!refreshed) return false;
+    cameraEntity = refreshed;
     const { runningConfigs } = cameraEntity.getProps();
     if (runningConfigs[configType]) return true;
     return false;
@@ -178,12 +191,22 @@ export class CameraRunningConfigAndCommandService {
     this.serviceProvider.logger.debug(
       `lock camera config cameraId=${cameraEntity.id} configType=${configType} msgId=${msgId}`,
     );
-    cameraEntity = await this.serviceProvider.queryBus.execute(
-      new FindCameraByIdForTenantQuery(
-        cameraEntity.getProps().tenantId,
-        cameraEntity.id,
-      ),
-    );
+    const refreshed: CameraEntity | undefined =
+      await this.serviceProvider.queryBus.execute(
+        new FindCameraByIdForTenantQuery(
+          cameraEntity.getProps().tenantId,
+          cameraEntity.id,
+        ),
+      );
+    // Deleted between enqueueing the message and locking it: there is no
+    // record left to write the lock onto.
+    if (!refreshed) {
+      this.serviceProvider.logger.warn(
+        `skip lock for deleted camera cameraId=${cameraEntity.id} configType=${configType} msgId=${msgId}`,
+      );
+      return;
+    }
+    cameraEntity = refreshed;
     const { runningConfigs } = cameraEntity.getProps();
     runningConfigs[configType] = msgId;
     await this.serviceProvider.commandBus.execute(

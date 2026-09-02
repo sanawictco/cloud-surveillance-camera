@@ -14,13 +14,8 @@ interface CameraQueryFilter {
   isDeleted: boolean | { $ne: boolean };
 }
 
-interface CameraTenantQueryFilter {
-  name: string | RegExp;
-  isActive: boolean;
-  nvrId: string;
-  liveSignalStatus: LiveSignalStatuses;
-  isDeleted: boolean | { $ne: boolean };
-}
+// The tenant scope is supplied by the query itself, never by a caller filter.
+type CameraTenantQueryFilter = Omit<CameraQueryFilter, 'tenantId'>;
 
 export class FindAllCamerasQuery extends QueryBase<CameraQueryFilter> {}
 

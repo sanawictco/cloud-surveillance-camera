@@ -72,7 +72,9 @@ export interface CreateCameraProps {
 }
 
 export class UpdateCameraProps {
-  tenantId?: string;
+  // tenantId is intentionally absent: CameraValueObjects declares it readonly
+  // and a camera never moves between tenants. Callers pass a tenantId to
+  // UpdateCameraCommand as a scope check, not as a field to write.
   name?: string;
   nvrId?: string;
   isDeleted?: boolean;

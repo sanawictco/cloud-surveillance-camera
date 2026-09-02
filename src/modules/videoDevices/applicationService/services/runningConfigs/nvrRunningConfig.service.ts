@@ -110,12 +110,17 @@ export class NvrRunningConfigService {
   }
 
   async stopAndRemoveAllRunningConfigs(nvrEntity: NvrEntity): Promise<void> {
-    nvrEntity = await this.serviceProvider.queryBus.execute(
-      new FindNvrByIdForTenantQuery(
-        nvrEntity.getProps().tenantId,
-        nvrEntity.id,
-      ),
-    );
+    const refreshed: NvrEntity | undefined =
+      await this.serviceProvider.queryBus.execute(
+        new FindNvrByIdForTenantQuery(
+          nvrEntity.getProps().tenantId,
+          nvrEntity.id,
+        ),
+      );
+    // The NVR can be deleted between the caller's read and this re-fetch;
+    // there is then nothing left to stop.
+    if (!refreshed) return;
+    nvrEntity = refreshed;
     const { runningConfigs } = nvrEntity.getProps();
     for (const msgId of Object.values(runningConfigs)) {
       if (isValidDeviceMsgId(msgId)) {
@@ -142,12 +147,16 @@ export class NvrRunningConfigService {
     nvrEntity: NvrEntity,
     configType: string,
   ): Promise<boolean> {
-    nvrEntity = await this.serviceProvider.queryBus.execute(
-      new FindNvrByIdForTenantQuery(
-        nvrEntity.getProps().tenantId,
-        nvrEntity.id,
-      ),
-    );
+    const refreshed: NvrEntity | undefined =
+      await this.serviceProvider.queryBus.execute(
+        new FindNvrByIdForTenantQuery(
+          nvrEntity.getProps().tenantId,
+          nvrEntity.id,
+        ),
+      );
+    // A deleted NVR has no running config.
+    if (!refreshed) return false;
+    nvrEntity = refreshed;
     const { runningConfigs } = nvrEntity.getProps();
     const msgId = runningConfigs[configType];
     if (!msgId) return false;

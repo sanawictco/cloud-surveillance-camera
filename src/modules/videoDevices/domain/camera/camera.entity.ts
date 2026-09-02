@@ -110,10 +110,6 @@ export class CameraEntity extends AggregateRoot<
 
   update(updateCameraProps: UpdateCameraProps) {
     const updateCameraValueObjects: Partial<CameraValueObjects> = {
-      tenantId: this.createValueObjectIfDefined(
-        updateCameraProps.tenantId,
-        BusinessId,
-      ),
       name: this.createValueObjectIfDefined(updateCameraProps.name, Name),
       nvrId: this.createValueObjectIfDefined(
         updateCameraProps.nvrId,
@@ -122,6 +118,10 @@ export class CameraEntity extends AggregateRoot<
       isDeleted: this.createValueObjectIfDefined(
         updateCameraProps.isDeleted,
         IsDeleted,
+      ),
+      liveSignalStatus: this.createValueObjectIfDefined(
+        updateCameraProps.liveSignalStatus,
+        LiveSignalStatus,
       ),
       runningConfigs: this.createValueObjectIfDefined(
         updateCameraProps.runningConfigs,

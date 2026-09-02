@@ -73,7 +73,7 @@ export class NvrRepository extends ParentRepository<
     nvrId: string,
     configType: string,
     msgId: string,
-    tenantId?: string,
+    tenantId: string,
   ): Promise<boolean> {
     return this.updateRunningConfig(
       this.buildRunningConfigFilter(nvrId, tenantId),
@@ -81,10 +81,7 @@ export class NvrRepository extends ParentRepository<
     );
   }
 
-  async resetRunningConfigs(
-    nvrId: string,
-    tenantId?: string,
-  ): Promise<boolean> {
+  async resetRunningConfigs(nvrId: string, tenantId: string): Promise<boolean> {
     return this.updateRunningConfig(
       this.buildRunningConfigFilter(nvrId, tenantId),
       { $set: { runningConfigs: RunningConfigs.init().unpack() } },
@@ -95,21 +92,19 @@ export class NvrRepository extends ParentRepository<
     nvrId: string,
     configType: ProvisioningConfig,
     msgId: string,
-    tenantId?: string,
+    tenantId: string,
   ): Promise<boolean> {
     const availabilityFilter = {
       [`runningConfigs.${NvrConfigs.SEARCH}`]: { $exists: false },
       [`runningConfigs.${NvrConfigs.REGISTER}`]: { $exists: false },
     };
     return this.updateRunningConfig(
-      tenantId
-        ? {
-            $and: [
-              this.buildRunningConfigFilter(nvrId, tenantId),
-              availabilityFilter,
-            ],
-          }
-        : { id: nvrId, ...availabilityFilter },
+      {
+        $and: [
+          this.buildRunningConfigFilter(nvrId, tenantId),
+          availabilityFilter,
+        ],
+      },
       { $set: { [`runningConfigs.${configType}`]: msgId } },
     );
   }
@@ -118,18 +113,16 @@ export class NvrRepository extends ParentRepository<
     nvrId: string,
     configType: string,
     msgId: string,
-    tenantId?: string,
+    tenantId: string,
   ): Promise<boolean> {
     const path = `runningConfigs.${configType}`;
     return this.updateRunningConfig(
-      tenantId
-        ? {
-            $and: [
-              this.buildRunningConfigFilter(nvrId, tenantId),
-              { [path]: msgId },
-            ],
-          }
-        : { id: nvrId, [path]: msgId },
+      {
+        $and: [
+          this.buildRunningConfigFilter(nvrId, tenantId),
+          { [path]: msgId },
+        ],
+      },
       { $unset: { [path]: '' } },
     );
   }
@@ -150,11 +143,12 @@ export class NvrRepository extends ParentRepository<
     return true;
   }
 
+  // Tenant scope is mandatory: a running-config mutation must never be able to
+  // reach another tenant's NVR by bare id.
   private buildRunningConfigFilter(
     nvrId: string,
-    tenantId?: string,
+    tenantId: string,
   ): Record<string, unknown> {
-    if (!tenantId) return { id: nvrId };
     return { $and: [{ tenantId }, { id: nvrId }] };
   }
 }

@@ -143,16 +143,20 @@ export class RecoverTenantEmployeeCommand extends SoftDeleteTenantEmployeeComman
 
 @CommandHandler(RecoverTenantEmployeeCommand)
 export class RecoverTenantEmployeeCommandHandler implements ICommandHandler<RecoverTenantEmployeeCommand> {
-  constructor(private readonly employeeRepository: EmployeeRepository) {}
+  constructor(
+    private readonly employeeRepository: EmployeeRepository,
+    private readonly tenantAccessRepository: TenantAccessRepository,
+  ) {}
 
   async execute(
     command: RecoverTenantEmployeeCommand,
   ): Promise<EmployeeRecord> {
-    const employee = await this.employeeRepository.findByIdForTenant(
+    await requireMutableEmployee(
+      this.employeeRepository,
+      this.tenantAccessRepository,
       command.tenantId,
       command.employeeId,
     );
-    if (!employee) throw new BadRequestException('employee does not exist');
     const recovered = await this.employeeRepository.setDeleted(
       command.tenantId,
       command.employeeId,

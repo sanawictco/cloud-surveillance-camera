@@ -6,10 +6,7 @@ import { AutoRegisterRequestDto } from 'src/modules/videoDevices/contracts/nvr/h
 import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
 import { NvrEntity } from 'src/modules/videoDevices/domain/nvr/nvr.entity';
 import { FindAllCamerasForTenantQuery } from '../../queries/camera/findAllCameras.queryHandler';
-import {
-  FindNvrByIdForTenantQuery,
-  FindNvrByIdQuery,
-} from '../../queries/nvr/findNvrById.queryHandler';
+import { FindNvrByIdForTenantQuery } from '../../queries/nvr/findNvrById.queryHandler';
 import { FindNvrBySerialNumberQuery } from '../../queries/nvr/findNvrBySerialNumber.queryHandler';
 import {
   FindNvrByNameForTenantQuery,
@@ -133,13 +130,11 @@ export class NvrValidator {
 
   async checkExistsNvrWithId(
     id: string,
-    tenantId?: string,
+    tenantId: string,
   ): Promise<NvrEntity> {
-    const query = tenantId
-      ? new FindNvrByIdForTenantQuery(tenantId, id)
-      : new FindNvrByIdQuery(id);
-    const nvrEntity: NvrEntity =
-      await this.serviceProvider.queryBus.execute(query);
+    const nvrEntity: NvrEntity = await this.serviceProvider.queryBus.execute(
+      new FindNvrByIdForTenantQuery(tenantId, id),
+    );
     if (!nvrEntity) throw new BadRequestException('the nvr not exist');
     return nvrEntity;
   }

@@ -1,5 +1,6 @@
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { Inject } from '@nestjs/common';
+import { buildTenantFilter } from 'src/modules/shared/tenantFilter';
 import { NVR_REPOSITORY } from '../../../infra/nvr/nvr.diToken';
 import { NvrRepository } from '../../../infra/nvr/nvr.repository';
 
@@ -38,8 +39,8 @@ export class FindNvrByIdForTenantQueryHandler implements IQueryHandler<FindNvrBy
   ) {}
 
   execute(query: FindNvrByIdForTenantQuery) {
-    return this.nvrRepo.findOne({
-      $and: [{ tenantId: query.tenantId }, { id: query.id }],
-    });
+    return this.nvrRepo.findOne(
+      buildTenantFilter(query.tenantId, { id: query.id }),
+    );
   }
 }

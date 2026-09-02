@@ -19,7 +19,7 @@ import { TENANT_REPOSITORY } from './infra/tenant.diToken';
 import { TenantMapper } from './infra/tenant.mapper';
 import { TenantRepository } from './infra/tenant.repository';
 import { TenantModel, TenantSchema } from './infra/tenant.schema';
-import { TenantAccessModule } from '../tenantAccess/tenantAccess.module';
+import { TenantsApiForTenantAccessService } from './applicationService/apiForAnotherServices/tenantsApiForTenantAccess.service';
 
 const commandHandlers: Provider[] = [
   CreateTenantCommandHandler,
@@ -45,7 +45,6 @@ const queryHandlers: Provider[] = [
     SanawApiModule,
     CachingModule,
     forwardRef(() => ActorLogModule),
-    TenantAccessModule,
   ],
   providers: [
     TenantActorLogService,
@@ -54,7 +53,9 @@ const queryHandlers: Provider[] = [
     TenantMapper,
     { provide: TENANT_REPOSITORY, useClass: TenantRepository },
     TenantInitService,
+    TenantsApiForTenantAccessService,
   ],
   controllers: [],
+  exports: [TenantsApiForTenantAccessService],
 })
 export class TenantsModule {}

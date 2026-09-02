@@ -44,12 +44,16 @@ export class HardDeleteCameraCommandHandler implements ICommandHandler<HardDelet
   }
 
   private async _processDependencies(cameraEntity: CameraEntity) {
-    await this.systemLogApiService.deleteSystemLogs(
-      cameraEntity.getProps().tenantId,
-      cameraEntity.id,
-    );
-    await this.cameraActorLogService.hardDelete({
-      cameraEntity,
-    });
+    // Independent cleanups on two different log stores; neither reads the
+    // other's result, so there is no ordering requirement between them.
+    await Promise.all([
+      this.systemLogApiService.deleteSystemLogs(
+        cameraEntity.getProps().tenantId,
+        cameraEntity.id,
+      ),
+      this.cameraActorLogService.hardDelete({
+        cameraEntity,
+      }),
+    ]);
   }
 }

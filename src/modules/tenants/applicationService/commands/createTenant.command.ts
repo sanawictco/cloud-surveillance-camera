@@ -1,4 +1,4 @@
-import { Inject } from '@nestjs/common';
+import { Inject, Logger } from '@nestjs/common';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import {
   Command,
@@ -31,6 +31,8 @@ export class CreateTenantCommand extends Command implements CreateTenantProps {
 
 @CommandHandler(CreateTenantCommand)
 export class CreateTenantCommandHandler implements ICommandHandler<CreateTenantCommand> {
+  private readonly logger = new Logger(CreateTenantCommandHandler.name);
+
   constructor(
     @Inject(TENANT_REPOSITORY)
     protected readonly tenantRepo: TenantRepository,
@@ -46,10 +48,31 @@ export class CreateTenantCommandHandler implements ICommandHandler<CreateTenantC
       defaultTimezone: command.defaultTimezone,
     });
     await this.tenantRepo.insert(tenant);
-    await this.tenantAccessService.createOwnerEmployee(
-      tenant.id,
-      command.ownerId,
-    );
+    try {
+      await this.tenantAccessService.createOwnerEmployee(
+        tenant.id,
+        command.ownerId,
+      );
+    } catch (error) {
+      // A tenant without its owner employee is unreachable: ActiveTenantGuard
+      // resolves access from the employee record and there is no self-service
+      // way to create the first one. Roll the tenant back so the caller can
+      // retry instead of being left with a permanently locked-out tenant.
+      await this.rollbackTenant(tenant);
+      throw error;
+    }
     return tenant.id;
+  }
+
+  private async rollbackTenant(tenant: TenantEntity): Promise<void> {
+    try {
+      await this.tenantRepo.delete(tenant);
+    } catch (rollbackError) {
+      // Never mask the original failure; surface the orphan for operators.
+      this.logger.error(
+        `failed to roll back tenant ${tenant.id} after owner-employee creation failed; tenant is orphaned and has no employees`,
+        (rollbackError as Error)?.stack,
+      );
+    }
   }
 }

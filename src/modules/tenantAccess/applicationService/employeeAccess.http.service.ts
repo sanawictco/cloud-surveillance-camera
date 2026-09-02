@@ -136,13 +136,20 @@ export class EmployeeAccessHttpService {
   ): Promise<EmployeeResponseDto[]> {
     if (employees.length === 0) return [];
     const userIds = [...new Set(employees.map((employee) => employee.userId))];
-    const result = await this.sanawApiEmployeeService.findAll(userIds);
+    // Ownership is a property of the tenant, so read it once for the whole
+    // page rather than re-reading the tenant for every employee row.
+    const [result, ownerId] = await Promise.all([
+      this.sanawApiEmployeeService.findAll(userIds),
+      this.tenantAccessService.findTenantOwnerId(tenantId),
+    ]);
     const identities = new Map(result.data.map((user) => [user.userId, user]));
     const response: EmployeeResponseDto[] = [];
     for (const employee of employees) {
       const identity = identities.get(employee.userId);
       if (!identity) continue;
-      response.push(await this.toResponse(tenantId, employee, identity));
+      response.push(
+        this.buildResponse(employee, identity, employee.userId === ownerId),
+      );
     }
     return response;
   }
@@ -156,6 +163,14 @@ export class EmployeeAccessHttpService {
       tenantId,
       employee.userId,
     );
+    return this.buildResponse(employee, identity, isOwner);
+  }
+
+  private buildResponse(
+    employee: EmployeeModel,
+    identity: SanawApiEmployeeDto,
+    isOwner: boolean,
+  ): EmployeeResponseDto {
     return new EmployeeResponseDto(
       employee.id,
       employee.tenantId,

@@ -18,6 +18,7 @@ describe('UnsetCameraRunningConfigCommandHandler', () => {
           'camera-id',
           'update',
           'update-msg',
+          'tenant-a',
         ),
       ),
     ).resolves.toBe(true);
@@ -26,6 +27,7 @@ describe('UnsetCameraRunningConfigCommandHandler', () => {
       'camera-id',
       'update',
       'update-msg',
+      'tenant-a',
     );
   });
 });

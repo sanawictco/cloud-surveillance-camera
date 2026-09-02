@@ -2,10 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import { LanguageKeys } from 'src/extensions/translation/languageKeys.base';
 import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
-import {
-  FindCameraByIdForTenantQuery,
-  FindCameraByIdQuery,
-} from '../../queries/camera/findCameraById.queryHandler';
+import { FindCameraByIdForTenantQuery } from '../../queries/camera/findCameraById.queryHandler';
 import {
   FindCameraByNameForTenantQuery,
   FindCameraByNameQuery,
@@ -35,13 +32,12 @@ export class CameraValidator {
 
   async checkExistsCameraWihtId(
     id: string,
-    tenantId?: string,
+    tenantId: string,
   ): Promise<CameraEntity> {
-    const query = tenantId
-      ? new FindCameraByIdForTenantQuery(tenantId, id)
-      : new FindCameraByIdQuery(id);
     const cameraEntity: CameraEntity =
-      await this.serviceProvider.queryBus.execute(query);
+      await this.serviceProvider.queryBus.execute(
+        new FindCameraByIdForTenantQuery(tenantId, id),
+      );
     if (!cameraEntity)
       throw new BadRequestException(
         this.serviceProvider.translatorService.translateByName(
