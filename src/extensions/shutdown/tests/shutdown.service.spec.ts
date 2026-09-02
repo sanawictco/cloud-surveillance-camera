@@ -1,4 +1,4 @@
-import { ShutdownOrchestratorService } from './shutdown.service';
+import { ShutdownOrchestratorService } from '../shutdown.service';
 
 describe('ShutdownOrchestratorService', () => {
   it('runs handlers in infrastructure-safe priority order', async () => {

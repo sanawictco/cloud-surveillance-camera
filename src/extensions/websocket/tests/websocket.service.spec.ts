@@ -1,8 +1,8 @@
 import { Socket } from 'socket.io';
 import { LanguageCode } from '../../translation/languageCode.enum';
-import { WebsocketService } from '../../websocket/websocket.service';
+import { WebsocketService } from '../websocket.service';
 import { EmployeeRoles } from '../../sanawApi/dtos/employees/employeeRoles.enum';
-import { WsClientCachedModel } from '../../websocket/websocketClientCachedModel';
+import { WsClientCachedModel } from '../websocketClientCachedModel';
 
 jest.mock('configs/app.config', () => ({
   __esModule: true,

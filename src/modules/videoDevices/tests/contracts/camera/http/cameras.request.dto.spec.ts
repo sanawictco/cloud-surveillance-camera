@@ -1,6 +1,6 @@
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
-import { CameraIdsRequestDto } from '../../../contracts/camera/http/cameras.request.dto';
+import { CameraIdsRequestDto } from '../../../../contracts/camera/http/cameras.request.dto';
 
 const firstCameraId = '11111111-1111-4111-8111-111111111111';
 const secondCameraId = '22222222-2222-4222-8222-222222222222';

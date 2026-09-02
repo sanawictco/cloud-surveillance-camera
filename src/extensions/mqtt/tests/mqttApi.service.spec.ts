@@ -13,7 +13,7 @@ jest.mock('configs/app.config', () => ({
 }));
 
 import axios from 'axios';
-import { MqttApiService } from './mqttApi.service';
+import { MqttApiService } from '../mqttApi.service';
 
 const NVR_SERIAL = 'NVR00001';
 const TENANT_A = '11111111-1111-4111-8111-111111111111';

@@ -1,7 +1,7 @@
 import { UnauthorizedException } from '@nestjs/common';
 import axios from 'axios';
 import type { ExecutionContext } from '@nestjs/common';
-import { HttpAccessTokenGuard } from '../httpAccessToken.guard';
+import { HttpAccessTokenGuard } from '../../auth/httpAccessToken.guard';
 
 jest.mock('axios');
 jest.mock('configs/app.config', () => ({

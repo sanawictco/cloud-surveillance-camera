@@ -1,4 +1,4 @@
-import { BusinessId } from '../businessId.vo';
+import { BusinessId } from '../../core/businessId.vo';
 
 describe('BusinessId', () => {
   it('rejects an empty business ID', () => {

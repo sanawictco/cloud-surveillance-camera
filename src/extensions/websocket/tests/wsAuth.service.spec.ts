@@ -1,5 +1,5 @@
 import { LanguageCode } from '../../translation/languageCode.enum';
-import { WsAuthService } from '../../websocket/wsAuth.service';
+import { WsAuthService } from '../wsAuth.service';
 
 jest.mock('jsonwebtoken', () => ({ decode: jest.fn() }));
 jest.mock('configs/app.config', () => ({

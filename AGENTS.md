@@ -6,7 +6,7 @@ NestJS 11 backend for Sanaw's cloud surveillance platform. Uses CQRS (`@nestjs/c
 
 - `npm install` — install (runs husky via `prepare`).
 - `npm run start:dev` — dev watch mode. **Runs `sudo kill -9` on any running nest process first**; use `npm start` if that's undesirable.
-- `npm run test` — unit tests (`*.spec.ts` under `src/`, jest `rootDir: src`). Currently almost no unit tests exist.
+- `npm run test` — unit tests (`*.spec.ts` under `src/**/tests/`, jest `rootDir: src`). See "Test layout" for where a test file goes.
 - `npm run test:e2e` — uses `test/jest-e2e.json` (separate config, `rootDir: test`, `*.e2e-spec.ts`).
 - Single test: `npm run test -- path/to/file.spec.ts`.
 - `npm run lint` — eslint **with `--fix`** (mutates files). ESLint flat config is NOT used — config is legacy `.eslintrc.js`.
@@ -21,6 +21,27 @@ NestJS 11 backend for Sanaw's cloud surveillance platform. Uses CQRS (`@nestjs/c
 - **Note:** `.env.test` sets `NODE_ENV=production` inside the file — don't rely on it reflecting real test values; keys listed there exist but many values are blank.
 - External services expected when running the full app: MongoDB (:27017), Redis (:6379), EMQX/MQTT broker (:1883 + REST API :18083), TDengine, Keycloak. There is **no docker-compose in this repo** — infra must be provided externally. Tests must not implicitly require these unless they already do.
 - `AppModule` connects to TDengine at boot via a top-level provider factory — providers/mocks for `TDENGINE_CLIENT` / `TDENGINE_RESTFULL_OPTIONS`/`TimeseriesRepository` are needed to boot the app in tests.
+
+## Test layout
+
+**One rule: a test lives under the nearest area's `tests/` root, at a path that mirrors the production file it covers.** Never colocate a `*.spec.ts` beside production code.
+
+| Level | Location | Suffix | Config |
+|---|---|---|---|
+| Unit | `src/modules/<module>/tests/**` · `src/extensions/<extension>/tests/**` · `src/dddLib/tests/**`, `src/utilities/tests/**` | `*.spec.ts` | default `jest` block in `package.json` (`rootDir: src`) |
+| Integration | `test/integration/**` (Testcontainers; none yet) | `*.int-spec.ts` | `test/jest-integration.json` (not created yet) |
+| E2E | `test/**` | `*.e2e-spec.ts` | `test/jest-e2e.json` |
+| Support | `test/support/**` (harness, factories, mocks) | — | — |
+
+- **Mirroring:** `src/modules/videoDevices/applicationService/commands/nvr/updateNvr.command.ts` → `src/modules/videoDevices/tests/applicationService/commands/nvr/updateNvr.command.spec.ts`.
+- **Where the `tests/` segment goes — the area root.** An *area* is one self-contained unit: a module (`src/modules/<module>/`), **an individual extension** (`src/extensions/<extension>/`), or a standalone library (`src/dddLib/`, `src/utilities/`). The `tests/` dir sits directly inside that unit, and everything below it mirrors the source path:
+  - `src/extensions/caching/cache.service.ts` → `src/extensions/caching/tests/cache.service.spec.ts` (**not** `src/extensions/tests/caching/…` — there is no `src/extensions/tests/`).
+  - `src/extensions/sanawApi/services/sanawApiVideoDevice.service.ts` → `src/extensions/sanawApi/tests/services/sanawApiVideoDevice.service.spec.ts`.
+  - `src/dddLib/core/businessId.vo.ts` → `src/dddLib/tests/core/businessId.vo.spec.ts` — `dddLib` and `utilities` are each **one** area (their subfolders are layers, not units), so they get a single `tests/` root at the top.
+- **Filename:** `<source basename>.spec.ts`. When one source file needs several test files, add a facet: `<source basename>.<facet>.spec.ts` (e.g. `fogCommunicationManager.service.restore.spec.ts`, `actorLog.timeseriesRepository.dropByActor.spec.ts`, `tenantAccess.commands.hardDeleteTenantEmployee.spec.ts` — that last source file holds several handlers).
+- **Cross-cutting tests** (one invariant asserted across sibling sources — tenant scoping, credential redaction) sit in the **deepest shared mirrored directory** under a descriptive group name: `tests/applicationService/queries/pageTenant.queries.spec.ts`, `tests/domain/deviceCredentials.vo.spec.ts`. Don't split these into per-source files; the grouping is the point.
+- Naming inside a file: `describe('<unit under test>')`, `it('rejects <X> when <Y>')` — behavior first.
+- Full standard (mocking policy, Testcontainers harness, coverage ratcheting): the shared Sanaw `testing` skill.
 
 ## Architecture
 
@@ -89,7 +110,6 @@ src/modules/<name>/
 | `translation` | i18n for user-facing strings (Arabic/English/Farsi/Kurdish) | via `serviceProvider` | — | per-recipient `lang` |
 | `userInfo` | AsyncLocalStorage request-context accessor | `@Global` | — | **the tenant-propagation backbone** — `requireTenantId()` |
 | `messanger` *(sic — real typo, keep as-is; do not rename)* | SMS/voice/email/Telegram dispatch | — | — | **stub** — all four methods just `console.log(body)`, not wired to any real provider (kavenegar/Telegram) despite them being expected external deps |
-| `tests` | Stray `*.spec.ts` files (scheduler, websocket) — not a real extension, an outlier vs. the rest of the repo's colocated-spec convention | — | — | — |
 
 Three logically separate Redis "databases" share one instance: cache (`db 2`), BullMQ (`db 1`, `AppConfig().redis.db`), and an unallocated default (`db 0`) — deliberate, so a cache flush never touches queue data.
 
@@ -135,7 +155,7 @@ Central rule (quoted from the plan doc): *"Employee roles determine what an acto
 - tsconfig has **`noImplicitAny: false`** and `strictNullChecks: true` — don't enable stricter flags repo-wide; follow existing style.
 - `typeRoots: ["./types"]` — custom global type declarations live in `types/`.
 - Absolute-ish imports from project root work via `baseUrl: "./"` (e.g. `configs/app.config`).
-- Known typos preserved as real paths/names: `src/extensions/messanger`, `cacheing.module.ts`, `smsNotifier`'s `applicatoinService/` folder — match imports to the actual filenames, don't "fix" them casually.
+- Known typos preserved as real paths/names: `src/extensions/messanger`, `cacheing.module.ts` — match imports to the actual filenames, don't "fix" them casually. (`smsNotifier`'s `applicatoinService/` folder **was** renamed to `applicationService/` — that one is done.)
 - Dates use `jalali-moment` (Persian calendar); timezone `TZ=Asia/Tehran` in env files.
 - `app.module.ts`'s "registration order = shutdown order" comment is misleading — the real order comes from `ShutdownOrchestratorService`'s static priority table (see "Boot & shutdown order").
 - `messanger` extension is a stub (all four send methods just `console.log`) — before trusting that notifications actually go out, check whether `smsNotifier`/`systemLogs`' fog-notification path routes through it or implements its own integration.

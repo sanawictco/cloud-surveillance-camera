@@ -9,7 +9,7 @@ import { farsiSystemLogSections } from 'src/extensions/translation/languages/far
 import { kurdiSystemLogSections } from 'src/extensions/translation/languages/kurdiValues';
 import { DictionarySections } from 'src/extensions/translation/translator.base';
 import { WebsocketService } from 'src/extensions/websocket/websocket.service';
-import { EmployeeApiForSystemLogsService } from 'src/modules/smsNotifier/applicatoinService/apiForAnotherServices/employeeApiForSystemLogs.service';
+import { EmployeeApiForSystemLogsService } from 'src/modules/smsNotifier/applicationService/apiForAnotherServices/employeeApiForSystemLogs.service';
 import { NotificationLevel } from '../../contracts/fogNotification/notificationLevel.enum';
 import { CreateAndSendSystemLogWsResponseDto } from '../../contracts/systemLog/createAndSendSystemLog.wsResponse.dto';
 import {

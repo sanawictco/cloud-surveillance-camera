@@ -1,8 +1,8 @@
-import { FindAllSmsNotifiersForTenantQuery } from '../../../../applicatoinService/queries/smsNotifier/findAllSmsNotifiers.queryHandler';
+import { FindAllSmsNotifiersForTenantQuery } from '../../../../applicationService/queries/smsNotifier/findAllSmsNotifiers.queryHandler';
 import {
   FindSmsNotifierByUserIdForTenantQuery,
   FindSmsNotifierByUserIdForTenantQueryHandler,
-} from '../../../../applicatoinService/queries/smsNotifier/findSmsNotifierByUserId.queryHandler';
+} from '../../../../applicationService/queries/smsNotifier/findSmsNotifierByUserId.queryHandler';
 
 describe('SMS notifier tenant queries', () => {
   it('includes tenant in list filters', () => {

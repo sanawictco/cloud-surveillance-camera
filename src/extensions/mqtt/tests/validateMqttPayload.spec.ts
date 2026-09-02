@@ -1,5 +1,5 @@
 import { IsNotEmpty, IsString } from 'class-validator';
-import { validateMqttPayload } from './validateMqttPayload';
+import { validateMqttPayload } from '../validateMqttPayload';
 
 class TestPayload {
   @IsString()

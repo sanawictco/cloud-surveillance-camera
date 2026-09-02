@@ -8,7 +8,7 @@ jest.mock(
     EmployeeAccessHttpService: class {},
   }),
 );
-import { TrashService } from '../applicationService/services/trash.service';
+import { TrashService } from '../../../applicationService/services/trash.service';
 
 describe('Trash contract: List soft-deleted items', () => {
   const cameras = [{ id: 'camera-1' }];

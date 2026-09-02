@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { SmsNotifierApiForTenantAccessService } from 'src/modules/smsNotifier/applicatoinService/apiForAnotherServices/smsNotifierApiForTenantAccess.service';
+import { SmsNotifierApiForTenantAccessService } from 'src/modules/smsNotifier/applicationService/apiForAnotherServices/smsNotifierApiForTenantAccess.service';
 import {
   TenantAccessView,
   TenantsApiForTenantAccessService,

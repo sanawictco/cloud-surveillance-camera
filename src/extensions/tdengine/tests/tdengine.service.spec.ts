@@ -1,4 +1,4 @@
-import { TDengineService } from './tdengine.service';
+import { TDengineService } from '../tdengine.service';
 
 jest.mock('configs/app.config', () => ({
   __esModule: true,

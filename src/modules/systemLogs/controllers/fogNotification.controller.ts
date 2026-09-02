@@ -10,7 +10,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { timingSafeEqual } from 'node:crypto';
 import { SanawApiNotificationService } from 'src/extensions/sanawApi/services/sanawApiNotification.service';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
-import { EmployeeApiForSystemLogsService } from 'src/modules/smsNotifier/applicatoinService/apiForAnotherServices/employeeApiForSystemLogs.service';
+import { EmployeeApiForSystemLogsService } from 'src/modules/smsNotifier/applicationService/apiForAnotherServices/employeeApiForSystemLogs.service';
 import { EmployeeModel } from 'src/modules/tenantAccess/infra/schemas/employee.schema';
 import { FogEmailRequestDto } from '../contracts/fogNotification/fogEmail.request.dto';
 import { FogSmsRequestDto } from '../contracts/fogNotification/fogSms.request.dto';

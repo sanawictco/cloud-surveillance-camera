@@ -13,7 +13,7 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UpdateSmsNotifierRequestDto } from '../contracts/smsNotifier/updateSmsNotifier.request.dto';
 import { CreateSmsNotifierRequestDto } from '../contracts/smsNotifier/createSmsNotifier.request.dto';
-import { SmsNotifierService } from '../applicatoinService/services/smsNotifier.service';
+import { SmsNotifierService } from '../applicationService/services/smsNotifier.service';
 import { OnlyIdParamRequestDto } from 'src/modules/shared/dtos/onlyIdParam.request.dto';
 import { ActiveTenantGuard } from 'src/modules/tenantAccess/guards/activeTenant.guard';
 import {

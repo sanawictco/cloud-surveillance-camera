@@ -1,7 +1,7 @@
-import { Password } from '../../../domain/camera/valueObjects/password.vo';
-import { Username } from '../../../domain/camera/valueObjects/username.vo';
-import { AccessToken } from '../../../domain/nvr/valueObjects/accessToken.vo';
-import { NvrPassword } from '../../../domain/nvr/valueObjects/nvrPassword.vo';
+import { Password } from '../../domain/camera/valueObjects/password.vo';
+import { Username } from '../../domain/camera/valueObjects/username.vo';
+import { AccessToken } from '../../domain/nvr/valueObjects/accessToken.vo';
+import { NvrPassword } from '../../domain/nvr/valueObjects/nvrPassword.vo';
 
 describe('Device credential value objects', () => {
   it.each([

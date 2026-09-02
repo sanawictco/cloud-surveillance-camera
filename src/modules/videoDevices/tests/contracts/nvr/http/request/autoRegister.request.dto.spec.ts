@@ -1,6 +1,6 @@
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
-import { AutoRegisterRequestDto } from '../../../contracts/nvr/http/request/autoRegister.request.dto';
+import { AutoRegisterRequestDto } from '../../../../../contracts/nvr/http/request/autoRegister.request.dto';
 
 describe('AutoRegisterRequestDto', () => {
   it('accepts uppercase camera serial numbers', () => {
