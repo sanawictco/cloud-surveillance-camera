@@ -11,7 +11,7 @@ import {
   ActorLogTypes,
   assertActorLogTenantId,
   assertActorLogTypes,
-  actorLogColumnNames,
+  actorLogSelectedColumns,
   actorLogSuperTableName,
 } from '../../domain/actorLog.type';
 
@@ -33,7 +33,7 @@ export class FindAllPaginatedActorLogsQuery extends PaginatedTimeseriesQueryBase
     assertActorLogIds(props.actorIds);
     super({
       superTableName: actorLogSuperTableName(props.tenantId),
-      selectedColumns: actorLogColumnNames,
+      selectedColumns: actorLogSelectedColumns,
       page: props.page,
       limit: props.limit,
       timeRangeInUnix:

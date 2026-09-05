@@ -35,13 +35,7 @@ describe('FogCommunicationManagerService restore', () => {
       cache as never,
     );
     const file = { path: uploadPath } as Express.Multer.File;
-    const nvr = {
-      id: nvrId,
-      tenantId,
-      serialNumber,
-      accessToken,
-      cloudIsRecovering: false,
-    };
+    const nvr = { id: nvrId, tenantId, serialNumber, accessToken, cloudIsRecovering: false };
     return { service, fogApi, cache, file, nvr };
   }
 
@@ -117,5 +111,110 @@ describe('FogCommunicationManagerService restore', () => {
       `fog-restore:${tenantId}:${nvrId}`,
       'lock-token',
     );
+  });
+
+  it('restores the TDengine backup when the archive includes one, before completing recovery', async () => {
+    const context = buildService();
+    const restoreTimeSeriesDump = jest
+      .spyOn(context.service, 'restoreTimeSeriesDump')
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(context.service as never, 'extractArchiveMember')
+      .mockResolvedValue(0 as never);
+    jest
+      .spyOn(context.service as never, 'extractTdengineTree')
+      .mockResolvedValue('/fake/tdengine/taosdump.1' as never);
+    jest
+      .spyOn(context.service as never, 'runCommand')
+      .mockResolvedValueOnce(
+        'backups/mongo/cameras.json\nbackups/tdengine/taosdump.1/dbs.sql\n',
+      )
+      .mockImplementationOnce(
+        async (_command: string, _args: string[], env: NodeJS.ProcessEnv) => {
+          await writeFile(
+            env.MONGO_RESTORE_RESULT_FILE!,
+            JSON.stringify({
+              completed: true,
+              nvrIds: [nvrId],
+              cameraIds: [],
+              pageIds: [],
+            }),
+          );
+          return '';
+        },
+      );
+
+    await context.service.restoreFogBackupToCloud(context.nvr, context.file);
+
+    expect(restoreTimeSeriesDump).toHaveBeenCalledWith(
+      expect.stringContaining('tdengine'),
+      nvrId,
+    );
+    expect(context.fogApi.completeFogCloudRecovery).toHaveBeenCalledWith(serialNumber);
+    // The TDengine restore must run before the ack — never ack on a half-imported backup.
+    const restoreCallOrder = restoreTimeSeriesDump.mock.invocationCallOrder[0]!;
+    const ackCallOrder = context.fogApi.completeFogCloudRecovery.mock.invocationCallOrder[0]!;
+    expect(restoreCallOrder).toBeLessThan(ackCallOrder);
+  });
+
+  it('does not ack when the TDengine restore fails, and resets recovery instead', async () => {
+    const context = buildService();
+    jest
+      .spyOn(context.service, 'restoreTimeSeriesDump')
+      .mockRejectedValue(new Error('bad statement'));
+    jest
+      .spyOn(context.service as never, 'extractArchiveMember')
+      .mockResolvedValue(0 as never);
+    jest
+      .spyOn(context.service as never, 'extractTdengineTree')
+      .mockResolvedValue('/fake/tdengine/taosdump.1' as never);
+    jest
+      .spyOn(context.service as never, 'runCommand')
+      .mockResolvedValueOnce(
+        'backups/mongo/cameras.json\nbackups/tdengine/taosdump.1/dbs.sql\n',
+      )
+      .mockImplementationOnce(
+        async (_command: string, _args: string[], env: NodeJS.ProcessEnv) => {
+          await writeFile(
+            env.MONGO_RESTORE_RESULT_FILE!,
+            JSON.stringify({ completed: true, nvrIds: [nvrId], cameraIds: [], pageIds: [] }),
+          );
+          return '';
+        },
+      );
+
+    await expect(
+      context.service.restoreFogBackupToCloud(context.nvr, context.file),
+    ).rejects.toThrow('bad statement');
+
+    expect(context.fogApi.completeFogCloudRecovery).not.toHaveBeenCalled();
+    expect(context.fogApi.resetFogCloudRecovery).toHaveBeenCalledWith(tenantId, nvrId);
+  });
+
+  it('skips the TDengine restore entirely when the archive has no TDengine backup', async () => {
+    const context = buildService();
+    const restoreTimeSeriesDump = jest
+      .spyOn(context.service, 'restoreTimeSeriesDump')
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(context.service as never, 'extractArchiveMember')
+      .mockResolvedValue(0 as never);
+    jest
+      .spyOn(context.service as never, 'runCommand')
+      .mockResolvedValueOnce('backups/mongo/cameras.json\n')
+      .mockImplementationOnce(
+        async (_command: string, _args: string[], env: NodeJS.ProcessEnv) => {
+          await writeFile(
+            env.MONGO_RESTORE_RESULT_FILE!,
+            JSON.stringify({ completed: true, nvrIds: [nvrId], cameraIds: [], pageIds: [] }),
+          );
+          return '';
+        },
+      );
+
+    await context.service.restoreFogBackupToCloud(context.nvr, context.file);
+
+    expect(restoreTimeSeriesDump).not.toHaveBeenCalled();
+    expect(context.fogApi.completeFogCloudRecovery).toHaveBeenCalledWith(serialNumber);
   });
 });

@@ -120,6 +120,10 @@ export class TimeseriesRepository {
     return rowCount;
   }
 
+  /**
+   * POSTs `query` verbatim to TDengine's REST endpoint as `root` — this is
+   * arbitrary-SQL execution, not a query builder.
+   */
   private async restQuery(query: string) {
     try {
       const response = await axios({

@@ -100,9 +100,7 @@ async function writeJsonLines(filePath, documents) {
 async function createSurveillanceFogArchive(root, cameraDocuments) {
   const producerRoot = path.join(root, 'fog_shared_backups');
   const mongoDirectory = path.join(producerRoot, 'mongo');
-  const tdengineDirectory = path.join(producerRoot, 'tdengine');
   await fsp.mkdir(mongoDirectory, { recursive: true });
-  await fsp.mkdir(tdengineDirectory, { recursive: true });
 
   await writeJsonLines(path.join(mongoDirectory, 'nvrs.json'), [
     {
@@ -140,7 +138,20 @@ async function createSurveillanceFogArchive(root, cameraDocuments) {
     path.join(mongoDirectory, 'cameraNetworkBindings.json'),
     [{ tenantId, nvrId, macAddress: 'AA:BB:CC:DD:EE:FF' }],
   );
-  await fsp.writeFile(path.join(tdengineDirectory, 'dbs.sql'), 'ignored');
+  // This archive deliberately carries only its mongo half.
+  //
+  // The TDengine half is now restored with `taosdump -i`, which needs a real
+  // taosdump output tree (avro data files), not the hand-written INSERT text
+  // this fixture used to contain for the old SQL-parsing restore. Producing a
+  // real tree here would not help: cloud's restore talks to TDengine over the
+  // NATIVE protocol, and that does not survive host port-mapping (the server
+  // advertises its own FQDN), so the import step cannot run from the host at
+  // all. Inside the deployment, on the docker network, it works.
+  //
+  // So this harness covers what it can genuinely cover from a dev machine --
+  // the HTTP upload, auth, archive handling, mongo restore, cache eviction and
+  // ack. The TDengine round trip is proven separately, against a real server,
+  // by test/qualification/fog-cloud-roundtrip.js.
 
   const archive = path.join(root, 'backups.tar.zst');
   run('tar', [
@@ -151,7 +162,6 @@ async function createSurveillanceFogArchive(root, cameraDocuments) {
     '-C',
     root,
     'fog_shared_backups/mongo',
-    'fog_shared_backups/tdengine',
   ]);
   return archive;
 }

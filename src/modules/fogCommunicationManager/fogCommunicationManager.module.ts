@@ -8,6 +8,9 @@ import { FogCommunicationManagerController } from './fogCommunicationManager.con
 import { FogCommunicationManagerService } from './fogCommunicationManager.service';
 import { MulterModule } from '@nestjs/platform-express';
 import { FogBackupAuthGuard } from './fogBackupAuth.guard';
+import { ActorLogModule } from '../actorLogs/actorLog.module';
+import { SystemLogModule } from '../systemLogs/systemLog.module';
+import { TDengineModule } from 'src/extensions/tdengine/tdengine.module';
 @Module({
   imports: [
     MulterModule.register({
@@ -18,6 +21,9 @@ import { FogBackupAuthGuard } from './fogBackupAuth.guard';
     CqrsModule,
     MqttModule,
     WsModule,
+    ActorLogModule,
+    SystemLogModule,
+    TDengineModule,
   ],
 
   providers: [FogCommunicationManagerService, FogBackupAuthGuard],

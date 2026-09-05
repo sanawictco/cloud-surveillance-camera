@@ -53,8 +53,12 @@ export class ActorLogRepository
    * Creates the tenant's own supertable once per process when its first actor
    * event is written. Tenant provisioning therefore needs no separate step;
    * `CREATE STABLE IF NOT EXISTS` keeps repeated boots cheap.
+   *
+   * Public so the fog-backup TDengine restore path can guarantee the stable
+   * exists before writing into it — mirrors SystemLogRepository's own
+   * ensureSuperTable, public for the identical reason.
    */
-  private async ensureSuperTable(tenantId: string): Promise<void> {
+  async ensureSuperTable(tenantId: string): Promise<void> {
     const superTableName = actorLogSuperTableName(tenantId);
     if (this.ensuredStables.has(superTableName)) return;
     await this.tdengineClient.exec(
@@ -123,7 +127,6 @@ export class ActorLogRepository
     const values = TimeSeriesDbExtension.getValuesInsertFormat([
       createdAt,
       actorType,
-      actorId,
       messageProps.key,
       messageParams,
     ]);

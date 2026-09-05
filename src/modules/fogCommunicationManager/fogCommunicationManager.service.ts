@@ -7,9 +7,10 @@ import {
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
-import { mkdir, readFile, rm } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
+import AppConfig from 'configs/app.config';
 import { CacheService } from 'src/extensions/caching/cache.service';
 import { pageCacheKey } from '../dashboard/infra/schemas/page.schema';
 import {
@@ -23,6 +24,31 @@ import { BACKUP_ROOT } from './fogBackupRoot';
 const RESTORE_TIMEOUT_MS = 10 * 60 * 1000;
 const RESTORE_LOCK_TTL_SECONDS = 60 * 60;
 const MAX_EXTRACTED_MONGO_FILE_SIZE = 256 * 1024 * 1024;
+/**
+ * Shared across the WHOLE tdengine/ tree in one extraction, not reset per
+ * file (see extractTdengineTree). This is the same 256 MiB bound that was the
+ * genuine per-backup cap before Task 4 turned tdengine into a directory tree;
+ * restoring it as a whole-tree total closes the N x 256 MiB hole a per-file
+ * budget would otherwise leave. A real taosdump tree for two supertables is a
+ * handful of files (dbs.sql plus a few avro/schema files per vgroup), so this
+ * leaves enormous headroom for any legitimate restore.
+ */
+const MAX_EXTRACTED_TDENGINE_TREE_BYTES = 256 * 1024 * 1024;
+/** How often extractTdengineTree polls total on-disk size against the budget
+ * while the single tar process is running. */
+const TDENGINE_EXTRACTION_POLL_MS = 50;
+/**
+ * dbs.sql is DDL text only (a handful of CREATE DATABASE/CREATE STABLE
+ * lines); real output is at most a few KB even for dozens of stables. Capped
+ * so an implausibly large dbs.sql is never pulled whole into a JS string —
+ * basic robustness, not a security boundary (fog is a trusted device in this
+ * system).
+ */
+const MAX_DBS_SQL_BYTES = 1024 * 1024;
+// Leading character must be alphanumeric so a name can never look like a
+// flag (e.g. `-e`) once interpolated into the `-W <name>=<dbName>` argv
+// position — a malformed name should fail loudly, not mangle the argv.
+const SAFE_DB_NAME = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 
 interface FogRestoreResult {
   completed: boolean;
@@ -64,7 +90,9 @@ export class FogCommunicationManagerService implements OnApplicationBootstrap {
       const restoreId = randomUUID();
       const stagingRoot = join(BACKUP_ROOT, `restore-${restoreId}`);
       const mongoDirectory = join(stagingRoot, 'mongo');
+      const tdengineDirectory = join(stagingRoot, 'tdengine');
       const resultFile = join(stagingRoot, 'result.json');
+      let tdengineDumpDir: string | undefined;
 
       try {
         await mkdir(mongoDirectory, { recursive: true });
@@ -76,11 +104,20 @@ export class FogCommunicationManagerService implements OnApplicationBootstrap {
         ]);
         const members = selectMongoBackupMembers(listing);
         for (const [collection, member] of Object.entries(members)) {
-          if (!member) continue;
+          if (!member || collection === 'tdengine') continue;
           await this.extractArchiveMember(
             file.path,
             member,
             join(mongoDirectory, `${collection}.json`),
+          );
+        }
+        if (members.tdengine) {
+          await mkdir(tdengineDirectory, { recursive: true });
+          tdengineDumpDir = await this.extractTdengineTree(
+            file.path,
+            members.tdengine,
+            tdengineDirectory,
+            nvr.id,
           );
         }
 
@@ -108,6 +145,9 @@ export class FogCommunicationManagerService implements OnApplicationBootstrap {
             nvr.id,
             true,
           );
+          if (members.tdengine) {
+            await this.restoreTimeSeriesDump(tdengineDumpDir!, nvr.id);
+          }
           await this.evictRestoredRecords(nvr.tenantId, result);
           await this.videoDevicesApiForFogCommunicationManagerService.completeFogCloudRecovery(
             nvr.serialNumber,
@@ -133,6 +173,89 @@ export class FogCommunicationManagerService implements OnApplicationBootstrap {
     } finally {
       await rm(file.path, { force: true });
     }
+  }
+
+  /**
+   * Fog is a trusted device in this system: it backs up with taosdump and
+   * cloud restores with taosdump — there is no per-tenant filtering or
+   * staging to do. Fog and cloud derive IDENTICAL supertable names from the
+   * same tenant id (`actor_log_t_<suffix>` / `system_log_t_<suffix>`), so a
+   * plain `-i` import with `-W` renaming fog's database onto cloud's lands
+   * every row in exactly the right table by construction.
+   */
+  async restoreTimeSeriesDump(dumpDir: string, nvrId: string): Promise<void> {
+    const sourceDb = await this.readDumpSourceDatabase(dumpDir, nvrId);
+    await this.runCommand('taosdump', [
+      ...this.tdengineArgs(),
+      '-e',
+      '-i',
+      dumpDir,
+      '-W',
+      `${sourceDb}=${AppConfig().timeseriesDb.dbName}`,
+      // taosdump unconditionally writes dump_result.txt into its current
+      // working directory; in production that's /app, which the
+      // unprivileged node user cannot write to. dumpDir sits under
+      // BACKUP_ROOT (/cloud_shared_backups), which is chown node:node — same
+      // fix Task 3 applied on the fog side.
+      '-r',
+      join(dumpDir, 'dump_result.txt'),
+    ]);
+  }
+
+  private tdengineArgs(): string[] {
+    return [
+      '-h', process.env.TIME_SERIES_DB_HOST ?? 'tdengine-cloud',
+      '-P', process.env.TIME_SERIES_DB_NATIVE_PORT ?? '6030',
+      '-u', process.env.TIME_SERIES_DB_USER ?? 'root',
+      `-p${process.env.TIME_SERIES_DB_PASSWORD ?? ''}`,
+    ];
+  }
+
+  /**
+   * Reads the source database name out of the dump's `taosdump.<n>/dbs.sql`
+   * (its `CREATE DATABASE` line) so `-W` can rename it onto cloud's own
+   * database. This is basic robustness, not a security boundary — fog is
+   * trusted here — so the only check is SAFE_DB_NAME: a malformed/absent
+   * name must fail loudly rather than mangle the taosdump argv.
+   */
+  private async readDumpSourceDatabase(
+    dumpDir: string,
+    nvrId: string,
+  ): Promise<string> {
+    const entries = await readdir(dumpDir, { withFileTypes: true });
+    const inner = entries.find(
+      (entry) => entry.isDirectory() && entry.name.startsWith('taosdump.'),
+    );
+    if (!inner) {
+      throw new BadRequestException(
+        `Fog TDengine dump is missing its taosdump.<n> directory (nvr ${nvrId})`,
+      );
+    }
+    const dbsSqlPath = join(dumpDir, inner.name, 'dbs.sql');
+    let size: number;
+    try {
+      size = (await stat(dbsSqlPath)).size;
+    } catch {
+      throw new BadRequestException(
+        `Fog TDengine dump has an unreadable dbs.sql (nvr ${nvrId})`,
+      );
+    }
+    if (size > MAX_DBS_SQL_BYTES) {
+      throw new BadRequestException(
+        `Fog TDengine dump's dbs.sql is implausibly large (nvr ${nvrId})`,
+      );
+    }
+    const content = await readFile(dbsSqlPath, 'utf8');
+    const match = /CREATE DATABASE IF NOT EXISTS\s+`?([^`\s;]+)`?/i.exec(
+      content,
+    );
+    const name = match?.[1];
+    if (!name || !SAFE_DB_NAME.test(name)) {
+      throw new BadRequestException(
+        `Fog TDengine dump does not declare a usable database name (nvr ${nvrId})`,
+      );
+    }
+    return name;
   }
 
   private mongoRestoreEnv(scope: {
@@ -276,20 +399,31 @@ export class FogCommunicationManagerService implements OnApplicationBootstrap {
     });
   }
 
+  /**
+   * Extracts one Mongo archive member, killing the child process the instant
+   * more than `maxBytes` has streamed out. Returns the number of bytes
+   * actually written. The tdengine/ tree is extracted separately, in one
+   * shared invocation — see extractTdengineTree — precisely so it does NOT
+   * pay the cost of one of these spawns (and one full archive decompression
+   * pass) per member.
+   */
   private async extractArchiveMember(
     archive: string,
     member: string,
     destination: string,
-  ): Promise<void> {
+    maxBytes: number = MAX_EXTRACTED_MONGO_FILE_SIZE,
+  ): Promise<number> {
     const child = spawn('tar', ['-I', 'zstd', '-xOf', archive, '--', member], {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stderr = '';
     let extractedBytes = 0;
+    let budgetExceeded = false;
     const timeout = setTimeout(() => child.kill('SIGKILL'), RESTORE_TIMEOUT_MS);
     child.stdout.on('data', (chunk: Buffer) => {
       extractedBytes += chunk.length;
-      if (extractedBytes > MAX_EXTRACTED_MONGO_FILE_SIZE) {
+      if (extractedBytes > maxBytes) {
+        budgetExceeded = true;
         child.kill('SIGKILL');
       }
     });
@@ -309,9 +443,172 @@ export class FogCommunicationManagerService implements OnApplicationBootstrap {
         else reject(new Error(`tar extraction failed: ${stderr || code}`));
       });
     });
-    await Promise.all([
-      pipeline(child.stdout, createWriteStream(destination, { flags: 'wx' })),
-      completed,
-    ]);
+    try {
+      await Promise.all([
+        pipeline(child.stdout, createWriteStream(destination, { flags: 'wx' })),
+        completed,
+      ]);
+    } catch (error) {
+      // A kill triggered by the byte cap surfaces as a generic stream/exit
+      // error from tar or the write pipeline; report the real cause instead.
+      if (budgetExceeded) {
+        throw new BadRequestException(
+          `Fog backup member exceeds the extraction size budget: ${member}`,
+        );
+      }
+      throw error;
+    }
+    if (budgetExceeded) {
+      throw new BadRequestException(
+        `Fog backup member exceeds the extraction size budget: ${member}`,
+      );
+    }
+    return extractedBytes;
+  }
+
+  /**
+   * Extracts the WHOLE fog backup's tdengine/ tree in a single
+   * `tar -I zstd -x` invocation, however many members it contains. A
+   * per-member loop (the previous design) forces GNU tar to decompress from
+   * the start of the archive for every single call, even the first member —
+   * measured at ~9 CPU-minutes for an archive tuned to sit just under the
+   * upload cap, and a large member count made that multiply. One invocation
+   * means the archive is decompressed exactly once regardless of member
+   * count, and RESTORE_TIMEOUT_MS's existing per-spawn kill timer is now
+   * also the aggregate deadline for the whole tree, since there is only one
+   * spawn.
+   *
+   * Because tar is given the explicit member list, every byte it writes
+   * under `scratchDirectory` belongs to this tree (nothing else can land
+   * there) — so the shared byte budget can be enforced by polling the
+   * directory's total on-disk size rather than needing per-file streaming
+   * hooks. Polling is real-time defense for a slow/large extraction; the
+   * final check after the process exits is what makes small/fast
+   * extractions (as in tests) deterministic regardless of poll timing.
+   *
+   * Returns the resolved directory that actually holds the dump (the
+   * "tdengine" segment of the members' shared path, which may sit under an
+   * arbitrary prefix — see selectMongoBackupMembers).
+   */
+  private async extractTdengineTree(
+    archive: string,
+    members: string[],
+    scratchDirectory: string,
+    nvrId: string,
+    budget: number = MAX_EXTRACTED_TDENGINE_TREE_BYTES,
+  ): Promise<string> {
+    const rootSegments = this.tdengineRootSegments(members, nvrId);
+    await mkdir(scratchDirectory, { recursive: true });
+
+    const child = spawn(
+      'tar',
+      ['-I', 'zstd', '-x', '-f', archive, '-C', scratchDirectory, '--', ...members],
+      { stdio: ['ignore', 'ignore', 'pipe'] },
+    );
+    let stderr = '';
+    let budgetExceeded = false;
+    let settled = false;
+    const timeout = setTimeout(() => child.kill('SIGKILL'), RESTORE_TIMEOUT_MS);
+    const poll = setInterval(() => {
+      void this.directorySize(scratchDirectory).then((size) => {
+        if (!budgetExceeded && size > budget) {
+          budgetExceeded = true;
+          child.kill('SIGKILL');
+        }
+      });
+    }, TDENGINE_EXTRACTION_POLL_MS);
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        child.on('error', (error) => {
+          if (settled) return;
+          settled = true;
+          reject(error);
+        });
+        child.on('close', (code) => {
+          if (settled) return;
+          settled = true;
+          if (code === 0) resolve();
+          else reject(new Error(`tar extraction failed: ${stderr || code}`));
+        });
+      });
+    } catch (error) {
+      if (!budgetExceeded) throw error;
+      // fall through: report the budget as the cause below, not tar's exit.
+    } finally {
+      clearTimeout(timeout);
+      clearInterval(poll);
+    }
+
+    // Authoritative regardless of whether any poll fired — covers the common
+    // case in a small/fast extraction where the process exits before the
+    // first poll interval elapses.
+    const finalSize = await this.directorySize(scratchDirectory);
+    if (budgetExceeded || finalSize > budget) {
+      throw new BadRequestException(
+        `Fog TDengine backup exceeds the total extraction size budget (nvr ${nvrId})`,
+      );
+    }
+    return join(scratchDirectory, ...rootSegments);
+  }
+
+  /**
+   * Every selected tdengine member's path must agree on where the "tdengine"
+   * segment sits (see selectMongoBackupMembers, which tolerates an arbitrary
+   * prefix before it). Using a plain substring search here (`indexOf('tdengine/')`)
+   * would disagree with the segment-based check the selector uses — a path
+   * like `x/mytdengine/y/tdengine/z` would resolve differently in each place.
+   * Requiring every member to share the exact same prefix keeps this
+   * deterministic and matches the selector's own segment semantics.
+   */
+  private tdengineRootSegments(members: string[], nvrId: string): string[] {
+    let root: string[] | undefined;
+    for (const member of members) {
+      const segments = member.split('/').filter(Boolean);
+      const tdengineIndex = segments.indexOf('tdengine');
+      if (tdengineIndex < 0) {
+        throw new BadRequestException(
+          `Fog backup TDengine member has an invalid path (nvr ${nvrId})`,
+        );
+      }
+      const candidate = segments.slice(0, tdengineIndex + 1);
+      if (!root) {
+        root = candidate;
+      } else if (candidate.join('/') !== root.join('/')) {
+        throw new BadRequestException(
+          `Fog backup TDengine tree has inconsistent root paths (nvr ${nvrId})`,
+        );
+      }
+    }
+    // members.tdengine is only ever set (see selectMongoBackupMembers) when
+    // it has at least one entry, so root is always defined by this point.
+    return root!;
+  }
+
+  /** Recursively sums the size of every regular file under `dir`. */
+  private async directorySize(dir: string): Promise<number> {
+    let entries;
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return 0; // not created yet, or already cleaned up
+    }
+    let total = 0;
+    for (const entry of entries) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        total += await this.directorySize(full);
+      } else if (entry.isFile()) {
+        try {
+          total += (await stat(full)).size;
+        } catch {
+          // Transient: tar may still be writing or have just removed it.
+        }
+      }
+    }
+    return total;
   }
 }

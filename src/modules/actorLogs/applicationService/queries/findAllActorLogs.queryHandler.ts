@@ -10,7 +10,7 @@ import {
   ActorLogTypes,
   assertActorLogTenantId,
   assertActorLogTypes,
-  actorLogColumnNames,
+  actorLogSelectedColumns,
   actorLogSuperTableName,
 } from '../../domain/actorLog.type';
 
@@ -47,7 +47,7 @@ export class FindAllActorLogsQueryHandler implements IQueryHandler<FindAllActorL
   async execute(query: FindAllActorLogsQuery) {
     return await this.actorLogRepo.findAll({
       superTableName: actorLogSuperTableName(query.tenantId),
-      selectedColumns: actorLogColumnNames,
+      selectedColumns: actorLogSelectedColumns,
       timeRangeInUnix:
         query.from !== undefined && query.to !== undefined
           ? { start: query.from, end: query.to }

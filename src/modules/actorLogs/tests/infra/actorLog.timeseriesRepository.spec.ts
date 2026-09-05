@@ -41,7 +41,7 @@ describe('ActorLogRepository.insert', () => {
     );
     expect(ddl).toBe(
       'CREATE STABLE IF NOT EXISTS actor_log_t_11111111111141118111111111111111 ' +
-        '(createdAt TIMESTAMP,actorLogType VARCHAR(20),actorId NCHAR(36),' +
+        '(createdAt TIMESTAMP,actorLogType VARCHAR(20),' +
         'messageKey VARCHAR(200),messageParams VARCHAR(500)) ' +
         'TAGS (tenantId VARCHAR(36),actorId NCHAR(36));',
     );

@@ -1,12 +1,13 @@
 import { BadRequestException } from '@nestjs/common';
 
-export interface MongoBackupMembers {
+export interface FogBackupMembers {
   nvrs?: string;
   cameras?: string;
   pages?: string;
+  tdengine?: string[];
 }
 
-const ALLOWED_MONGO_FILES: Record<string, keyof MongoBackupMembers> = {
+const ALLOWED_MONGO_FILES: Record<string, 'nvrs' | 'cameras' | 'pages'> = {
   'nvrs.json': 'nvrs',
   'gateways.json': 'nvrs',
   'cameras.json': 'cameras',
@@ -17,8 +18,8 @@ const IGNORED_LOCAL_MONGO_FILES = new Set([
   'cameraNetworkBindings.json',
 ]);
 
-export function selectMongoBackupMembers(listing: string): MongoBackupMembers {
-  const selected: MongoBackupMembers = {};
+export function selectMongoBackupMembers(listing: string): FogBackupMembers {
+  const selected: FogBackupMembers = {};
 
   for (const rawName of listing.split('\n')) {
     const name = rawName.trim();
@@ -54,7 +55,17 @@ export function selectMongoBackupMembers(listing: string): MongoBackupMembers {
       continue;
     }
 
-    if (segments.includes('tdengine')) continue;
+    const tdengineIndex = segments.indexOf('tdengine');
+    if (tdengineIndex >= 0) {
+      // taosdump emits a directory tree, not one file. Depth is not fixed, so
+      // the guards are the traversal/absolute-path check already applied
+      // above and the extracted-byte cap enforced (as a running total across
+      // the whole tree) during extraction.
+      if (segments.length <= tdengineIndex + 1) continue;
+      (selected.tdengine ??= []).push(name);
+      continue;
+    }
+
     throw new BadRequestException(`Fog backup entry is not allowed: ${name}`);
   }
 

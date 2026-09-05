@@ -32,10 +32,18 @@ export const ACTOR_LOG_MESSAGE_KEY_COLUMN_SIZE = 200;
 export const ACTOR_LOG_ACTOR_LOG_TYPE_COLUMN_SIZE = 20;
 export const ACTOR_LOG_MESSAGE_PARAMS_COLUMN_SIZE = 500;
 
+/**
+ * `actorId` is NOT in this list: it is a TAG on the stable (see
+ * ensureSuperTable), not a stored column. TDengine rejects a stable whose tag
+ * name duplicates a column name ("Duplicated column names", verified against
+ * the live TDengine 3.3.6.3 this service runs) — the same constraint that
+ * already keeps systemLog's severity tag-only (`groupId`, see
+ * systemLogSelectedColumns). Reads that need actorId must select the tag
+ * explicitly; see actorLogSelectedColumns.
+ */
 export const actorLogColumnNames: string[] = [
   'createdAt',
   'actorLogType',
-  'actorId',
   'messageKey',
   'messageParams',
 ];
@@ -43,10 +51,12 @@ export const actorLogColumnNames: string[] = [
 export const actorLogColumnTypes: string[] = [
   'TIMESTAMP',
   `VARCHAR(${ACTOR_LOG_ACTOR_LOG_TYPE_COLUMN_SIZE})`,
-  `NCHAR(${ACTOR_LOG_ACTOR_ID_COLUMN_SIZE})`,
   `VARCHAR(${ACTOR_LOG_MESSAGE_KEY_COLUMN_SIZE})`,
   `VARCHAR(${ACTOR_LOG_MESSAGE_PARAMS_COLUMN_SIZE})`,
 ];
+
+/** Actor id lives only as a tag — select it explicitly alongside columns. */
+export const actorLogSelectedColumns = [...actorLogColumnNames, 'actorId'];
 
 export function assertActorLogTenantId(tenantId: string): void {
   if (!isUUID(tenantId, '4')) throw new Error('tenantId must be a UUID v4');
