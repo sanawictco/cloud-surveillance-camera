@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { SanawApiVideoDeviceService } from 'src/extensions/sanawApi/services/sanawApiVideoDevice.service';
 import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.service';
 import { WebsocketService } from 'src/extensions/websocket/websocket.service';
@@ -33,6 +33,7 @@ import { DeleteNvrWsResponseDto } from 'src/modules/videoDevices/contracts/nvr/w
 import { AutoRegisterBatchConfig } from 'src/modules/videoDevices/contracts/nvr/dtos/autoSearchDevices.dto';
 import { UserInfoService } from 'src/extensions/userInfo/userInfo.service';
 import { FindAllNvrsForTenantQuery } from '../../queries/nvr/findAllNvrs.queryHandler';
+import { CameraValidator } from '../validators/camera.validator';
 
 @Injectable()
 export class NvrsHttpService {
@@ -45,6 +46,7 @@ export class NvrsHttpService {
     private readonly NvrRunningConfigService: NvrRunningConfigService,
     private readonly nvrValidator: NvrValidator,
     private readonly dashboardApiforVideoDevicesService: DashboardApiForVideoDevicesService,
+    private readonly cameraValidator: CameraValidator,
   ) {}
   async find(): Promise<NvrResponseDto[]> {
     const tenantId = UserInfoService.requireTenantId();
@@ -286,5 +288,91 @@ export class NvrsHttpService {
       cameras: this.cameraMapper.toResponseAll(dependentCameras),
       pages: dependentPages,
     };
+  }
+
+  async softDeleteCameras(
+    nvrId: AggregateID,
+    cameraIds: AggregateID[],
+  ): Promise<string> {
+    const tenantId = UserInfoService.requireTenantId();
+    const nvrEntity: NvrEntity = await this.nvrValidator.checkExistsNvrWithId(
+      nvrId,
+      tenantId,
+    );
+
+    for (const cameraId of cameraIds) {
+      const cameraEntity = await this.cameraValidator.checkExistsCameraWithId(
+        cameraId,
+        tenantId,
+      );
+      this.cameraValidator.checkCameraShoudNotBeSoftDeleted(cameraEntity);
+      if (cameraEntity.getProps().nvrId !== nvrEntity.id) {
+        throw new BadRequestException('camera is not connected to the nvr');
+      }
+    }
+    return await this.NvrRunningConfigService.runConfigIfNotDuplicated(
+      nvrEntity,
+      NvrConfigs.SOFT_DELETE_MULTI_CAMERAS,
+      cameraIds,
+    );
+  }
+
+  async activateCameras(
+    nvrId: AggregateID,
+    cameraIds: AggregateID[],
+  ): Promise<string> {
+    const tenantId = UserInfoService.requireTenantId();
+    const nvrEntity = await this.nvrValidator.checkExistsNvrWithId(
+      nvrId,
+      tenantId,
+    );
+    await this.nvrValidator.checkNvrShouldBeActiveAndHasConnectedStatus(
+      nvrEntity,
+    );
+    for (const cameraId of cameraIds) {
+      const cameraEntity: CameraEntity =
+        await this.cameraValidator.checkExistsCameraWithId(cameraId, tenantId);
+      this.cameraValidator.checkCameraShoudNotBeSoftDeleted(cameraEntity);
+      await this.cameraValidator.checkCanCameraBeActive(cameraEntity);
+      if (cameraEntity.getProps().nvrId !== nvrEntity.id) {
+        throw new BadRequestException('camera is not connected to the nvr');
+      }
+    }
+
+    return await this.NvrRunningConfigService.runConfigIfNotDuplicated(
+      nvrEntity,
+      NvrConfigs.ACTIVE_MULTI_CAMERAS,
+      cameraIds,
+    );
+  }
+
+  async inactivateCameras(
+    nvrId: AggregateID,
+    cameraIds: AggregateID[],
+  ): Promise<string> {
+    const tenantId = UserInfoService.requireTenantId();
+    const nvrEntity = await this.nvrValidator.checkExistsNvrWithId(
+      nvrId,
+      tenantId,
+    );
+    await this.nvrValidator.checkNvrShouldBeActiveAndHasConnectedStatus(
+      nvrEntity,
+    );
+    for (const cameraId of cameraIds) {
+      const cameraEntity: CameraEntity =
+        await this.cameraValidator.checkExistsCameraWithId(cameraId, tenantId);
+      this.cameraValidator.checkCameraShoudNotBeSoftDeleted(cameraEntity);
+      await this.cameraValidator.checkCameraShouldBeActiveAndHasConnectedStatus(
+        cameraEntity,
+      );
+      if (cameraEntity.getProps().nvrId !== nvrEntity.id) {
+        throw new BadRequestException('camera is not connected to the nvr');
+      }
+    }
+    return await this.NvrRunningConfigService.runConfigIfNotDuplicated(
+      nvrEntity,
+      NvrConfigs.IN_ACTIVE_MULTI_CAMERAS,
+      cameraIds,
+    );
   }
 }

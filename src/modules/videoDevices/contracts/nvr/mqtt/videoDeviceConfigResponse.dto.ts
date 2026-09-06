@@ -3,9 +3,11 @@ import {
   ArrayUnique,
   IsArray,
   IsMACAddress,
+  IsUUID,
   Length,
   Matches,
 } from 'class-validator';
+import { AggregateID } from 'src/dddLib/core';
 import { IsDeviceMsgId } from 'src/dddLib/utils/isDeviceMsgId.validator';
 
 export class NvrSearchMqttResponseDto {
@@ -39,7 +41,46 @@ export class NvrRegisterMqttResponseDto {
   @ArrayUnique()
   @Length(8, 8, { each: true })
   @Matches(/^[A-Z0-9]{8}$/, { each: true })
-  unRegisteredCameraSerialNumbers!: string[];
+  failedRegisteredCameraSerialNumbers!: string[];
+
+  @IsArray()
+  @ArrayMaxSize(100)
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
+  failedDeletedCameraSerialNumbers!: AggregateID[];
+}
+
+export class NvrActiveMultiCamerasMqttResponseDto {
+  @IsDeviceMsgId()
+  msgId!: string;
+
+  @IsArray()
+  @ArrayMaxSize(100)
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
+  failedActivatedCameraIds!: AggregateID[];
+}
+
+export class NvrInactiveMultiCamerasMqttResponseDto {
+  @IsDeviceMsgId()
+  msgId!: string;
+
+  @IsArray()
+  @ArrayMaxSize(100)
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
+  failedInactivatedCameraIds!: AggregateID[];
+}
+
+export class NvrSoftDeleteMultiCamerasMqttResponseDto {
+  @IsDeviceMsgId()
+  msgId!: string;
+
+  @IsArray()
+  @ArrayMaxSize(100)
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
+  failedDeletedCameraIds!: AggregateID[];
 }
 
 export class NvrLifecycleMqttResponseDto {

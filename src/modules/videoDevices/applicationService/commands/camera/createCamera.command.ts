@@ -78,16 +78,17 @@ export class CreateCameraCommandHandler implements ICommandHandler<CreateCameraC
       hasAudio: command.hasAudio,
       nvrId: command.nvrId,
     });
+    const actorId = command.actorProps?.actorId;
+    if (!actorId) throw new Error('actorId is required');
     camera.assertTenantMatches(nvr);
     await this.cameraRepo.insert(camera);
-    const actorId = command.actorProps?.actorId;
     await this.processDependencies(camera, actorId);
     return camera.id;
   }
 
   private async processDependencies(
     cameraEntity: CameraEntity,
-    actorId?: string,
+    actorId: string,
   ) {
     await this.cameraActorLogService.create({
       cameraEntity,

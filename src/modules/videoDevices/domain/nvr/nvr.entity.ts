@@ -247,6 +247,11 @@ export class NvrEntity extends AggregateRoot<NvrValueObjects, NvrProps> {
         data = { configType: NvrConfigs.CLOUD_IS_RECOVERING };
         break;
 
+      case NvrConfigs.SOFT_DELETE_MULTI_CAMERAS:
+      case NvrConfigs.ACTIVE_MULTI_CAMERAS:
+      case NvrConfigs.IN_ACTIVE_MULTI_CAMERAS:
+        data = { cameraIds: body };
+        break;
       default:
         throw new NotFoundException(`${configType} config is not exist`);
     }

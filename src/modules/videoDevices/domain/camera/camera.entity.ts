@@ -198,7 +198,7 @@ export class CameraEntity extends AggregateRoot<
       cameraData: cameraDataPubTopic(tenantId, nvrId),
     });
   }
-  generateFogSoftwareConfig(
+  generateFogConfig(
     nvrEntity: NvrEntity,
     configType: CameraSoftwareConfigs,
     body?: UpdateCameraProps,

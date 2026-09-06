@@ -15,10 +15,13 @@ import { VideoDeviceConfigQueueService } from '../applicationService/services/qu
 import { CameraRunningConfigAndCommandService } from '../applicationService/services/runningConfigs/cameraRunningConfigAndCommand.service';
 import { NvrRunningConfigService } from '../applicationService/services/runningConfigs/nvrRunningConfig.service';
 import {
+  NvrActiveMultiCamerasMqttResponseDto,
+  NvrInactiveMultiCamerasMqttResponseDto,
   NvrLifecycleMqttResponseDto,
   NvrLiveSignalMqttResponseDto,
   NvrRegisterMqttResponseDto,
   NvrSearchMqttResponseDto,
+  NvrSoftDeleteMultiCamerasMqttResponseDto,
 } from '../contracts/nvr/mqtt/videoDeviceConfigResponse.dto';
 import { CameraEntity } from '../domain/camera/camera.entity';
 import { CameraSoftwareConfigs } from '../domain/camera/camera.type';
@@ -377,7 +380,7 @@ export class VideoDevicesConfigsMqttController {
         payload: validateMqttPayload(NvrSearchMqttResponseDto, raw),
       };
     }
-    if (Object.hasOwn(raw, 'unRegisteredCameraSerialNumbers')) {
+    if (Object.hasOwn(raw, 'failedRegisteredCameraSerialNumbers')) {
       return {
         kind: FogResponseKind.REGISTER,
         payload: validateMqttPayload(NvrRegisterMqttResponseDto, raw),
@@ -387,6 +390,30 @@ export class VideoDevicesConfigsMqttController {
       return {
         kind: FogResponseKind.LIVE_SIGNAL,
         payload: validateMqttPayload(NvrLiveSignalMqttResponseDto, raw),
+      };
+    }
+    if (Object.hasOwn(raw, 'failedActivatedCameraIds')) {
+      return {
+        kind: FogResponseKind.LIFECYCLE,
+        payload: validateMqttPayload(NvrActiveMultiCamerasMqttResponseDto, raw),
+      };
+    }
+    if (Object.hasOwn(raw, 'failedInactivatedCameraIds')) {
+      return {
+        kind: FogResponseKind.LIFECYCLE,
+        payload: validateMqttPayload(
+          NvrInactiveMultiCamerasMqttResponseDto,
+          raw,
+        ),
+      };
+    }
+    if (Object.hasOwn(raw, 'failedDeletedCameraIds')) {
+      return {
+        kind: FogResponseKind.LIFECYCLE,
+        payload: validateMqttPayload(
+          NvrSoftDeleteMultiCamerasMqttResponseDto,
+          raw,
+        ),
       };
     }
     return {

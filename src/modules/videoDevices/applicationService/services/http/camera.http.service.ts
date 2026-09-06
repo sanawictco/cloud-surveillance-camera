@@ -37,7 +37,7 @@ export class CamerasHttpService {
 
   async findOne(id: AggregateID): Promise<CameraResponseDto> {
     const tenantId = UserInfoService.requireTenantId();
-    const cameraEntity = await this.cameraValidator.checkExistsCameraWihtId(
+    const cameraEntity = await this.cameraValidator.checkExistsCameraWithId(
       id,
       tenantId,
     );
@@ -46,7 +46,7 @@ export class CamerasHttpService {
 
   async update(id: AggregateID, body: UpdateCameraRequestDto): Promise<string> {
     const tenantId = UserInfoService.requireTenantId();
-    const cameraEntity = await this.cameraValidator.checkExistsCameraWihtId(
+    const cameraEntity = await this.cameraValidator.checkExistsCameraWithId(
       id,
       tenantId,
     );
@@ -79,7 +79,7 @@ export class CamerasHttpService {
   async hardDeleteCameras(ids: AggregateID[]) {
     const tenantId = UserInfoService.requireTenantId();
     for (const id of ids) {
-      const cameraEntity = await this.cameraValidator.checkExistsCameraWihtId(
+      const cameraEntity = await this.cameraValidator.checkExistsCameraWithId(
         id,
         tenantId,
       );

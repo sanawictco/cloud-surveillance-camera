@@ -3,9 +3,7 @@ import { ServiceProvider } from 'src/extensions/serviceProvider/serviceProvider.
 import { LanguageKeys } from 'src/extensions/translation/languageKeys.base';
 import { CameraEntity } from 'src/modules/videoDevices/domain/camera/camera.entity';
 import { FindCameraByIdForTenantQuery } from '../../queries/camera/findCameraById.queryHandler';
-import {
-  FindCameraByNameForTenantQuery,
-} from '../../queries/camera/findCameraByName.queryHandler';
+import { FindCameraByNameForTenantQuery } from '../../queries/camera/findCameraByName.queryHandler';
 
 @Injectable()
 export class CameraValidator {
@@ -29,7 +27,7 @@ export class CameraValidator {
       );
   }
 
-  async checkExistsCameraWihtId(
+  async checkExistsCameraWithId(
     id: string,
     tenantId: string,
   ): Promise<CameraEntity> {

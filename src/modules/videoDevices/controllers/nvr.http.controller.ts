@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -27,6 +28,7 @@ import {
   EmployeeRolesGuard,
 } from 'src/modules/tenantAccess/guards/employeeRoles.guard';
 import { EmployeeRoles } from 'src/extensions/sanawApi/dtos/employees/employeeRoles.enum';
+import { CameraIdsRequestDto } from '../contracts/camera/http/cameras.request.dto';
 
 @ApiBearerAuth(SWAGGER_AUTH_TOKEN)
 @ApiTags('/video-devices/nvrs')
@@ -96,5 +98,32 @@ export class NvrHttpController {
   @HttpCode(HttpStatus.ACCEPTED)
   autoRegister(@Body() body: AutoRegisterRequestDto): Promise<string> {
     return this.nvrsHttpService.autoRegister(body);
+  }
+
+  @Patch('/:id/cameras/active')
+  @HttpCode(HttpStatus.ACCEPTED)
+  activeateEndDevices(
+    @Param() params: OnlyIdParamRequestDto,
+    @Body() body: CameraIdsRequestDto,
+  ): Promise<string> {
+    return this.nvrsHttpService.activateCameras(params.id, body.cameraIds);
+  }
+
+  @Patch('/:id/cameras/inactive')
+  @HttpCode(HttpStatus.ACCEPTED)
+  inactivateCameras(
+    @Param() params: OnlyIdParamRequestDto,
+    @Body() body: CameraIdsRequestDto,
+  ): Promise<string> {
+    return this.nvrsHttpService.inactivateCameras(params.id, body.cameraIds);
+  }
+
+  @Delete('/:id/cameras/soft-delete')
+  @HttpCode(HttpStatus.ACCEPTED)
+  softDeleteCameras(
+    @Param() params: OnlyIdParamRequestDto,
+    @Query() query: CameraIdsRequestDto,
+  ): Promise<string> {
+    return this.nvrsHttpService.softDeleteCameras(params.id, query.cameraIds);
   }
 }

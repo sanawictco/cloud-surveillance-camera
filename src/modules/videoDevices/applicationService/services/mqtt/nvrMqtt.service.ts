@@ -318,13 +318,15 @@ export class NvrMqttService {
       batch.addedCameras.map((camera) => camera.serialNumber),
     );
     if (
-      payload.unRegisteredCameraSerialNumbers.some(
+      payload.failedRegisteredCameraSerialNumbers.some(
         (serialNumber) => !selectedAdditions.has(serialNumber),
       )
     ) {
       throw new BadRequestException('Fog registration result is not selected');
     }
-    const failedAdditions = new Set(payload.unRegisteredCameraSerialNumbers);
+    const failedAdditions = new Set(
+      payload.failedRegisteredCameraSerialNumbers,
+    );
     const successfulAdditions = batch.addedCameras.filter(
       (camera) => !failedAdditions.has(camera.serialNumber),
     );
@@ -453,7 +455,7 @@ export class NvrMqttService {
           addedCameras,
           deletedCameras: batch.deletedCameras,
           unRegisteredCameraSerialNumbers: [
-            ...payload.unRegisteredCameraSerialNumbers,
+            ...payload.failedRegisteredCameraSerialNumbers,
           ],
         },
         metadata: {

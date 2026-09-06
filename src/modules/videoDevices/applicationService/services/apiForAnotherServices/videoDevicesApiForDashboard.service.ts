@@ -27,7 +27,7 @@ export class VideoDevicesApiForDashboardService extends VideoDevicesApiBaseServi
     data: number[],
   ): Promise<string> {
     const cameraEntity: CameraEntity =
-      await this.cameraValidator.checkExistsCameraWihtId(id, tenantId);
+      await this.cameraValidator.checkExistsCameraWithId(id, tenantId);
     await this.cameraValidator.checkCameraShouldBeActiveAndHasConnectedStatus(
       cameraEntity,
     );
@@ -49,7 +49,7 @@ export class VideoDevicesApiForDashboardService extends VideoDevicesApiBaseServi
     data: number[],
   ): Promise<string> {
     const cameraEntity: CameraEntity =
-      await this.cameraValidator.checkExistsCameraWihtId(id, tenantId);
+      await this.cameraValidator.checkExistsCameraWithId(id, tenantId);
     await this.cameraValidator.checkCameraShouldBeActiveAndHasConnectedStatus(
       cameraEntity,
     );

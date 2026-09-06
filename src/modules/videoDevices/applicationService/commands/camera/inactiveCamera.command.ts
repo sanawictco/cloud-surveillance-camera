@@ -22,9 +22,7 @@ export class InActiveCameraCommand extends Command {
 }
 
 @CommandHandler(InActiveCameraCommand)
-export class InActiveCameraCommandHandler
-  implements ICommandHandler<InActiveCameraCommand>
-{
+export class InActiveCameraCommandHandler implements ICommandHandler<InActiveCameraCommand> {
   constructor(
     @Inject(CAMERA_REPOSITORY)
     private readonly cameraRepo: CameraRepository,
@@ -42,16 +40,17 @@ export class InActiveCameraCommandHandler
     ) {
       throw new Error('no camera exist with this id');
     }
+    const actorId = command.actorProps?.actorId;
+    if (!actorId) throw new Error('actorId is required');
     cameraEntity.inactive();
     await this.cameraRepo.update(cameraEntity);
-    const actorId = command.actorProps?.actorId;
     await this.processDependencies(cameraEntity, actorId);
     return command.id;
   }
 
   private async processDependencies(
     cameraEntity: CameraEntity,
-    actorId?: string,
+    actorId: string,
   ) {
     await this.cameraRunningConfigAndCommandService.stopAndRemoveAllRunningConfigs(
       cameraEntity,

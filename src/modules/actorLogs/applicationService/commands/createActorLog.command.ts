@@ -3,7 +3,7 @@ import {
   CommandProps,
 } from 'src/dddLib/applicationService/command.base';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import { BadRequestException, Inject } from '@nestjs/common';
+import { BadRequestException, forwardRef, Inject } from '@nestjs/common';
 import {
   ActorLogMessageProps,
   ActorLogRecordFormat,
@@ -42,6 +42,7 @@ export class CreateActorLogCommandHandler implements ICommandHandler<CreateActor
   constructor(
     @Inject(ACTOR_LOG_REPOSITORY)
     protected readonly actorLogRepo: ActorLogRepository,
+    @Inject(forwardRef(() => TenantAccessService))
     private readonly tenantAccessService: TenantAccessService,
   ) {}
 

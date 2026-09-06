@@ -47,7 +47,7 @@ export class CameraRunningConfigAndCommandService {
       return '';
     } else {
       const msgId = await this.videoDeviceConfigQueueService.addRepeatableMsg(
-        cameraEntity.generateFogSoftwareConfig(nvrEntity, softwareConfig, data),
+        cameraEntity.generateFogConfig(nvrEntity, softwareConfig, data),
       );
       await this.runAndLockConfig(cameraEntity, softwareConfig, msgId);
       return msgId;

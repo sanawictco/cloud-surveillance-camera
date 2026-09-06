@@ -22,16 +22,10 @@ import { DeleteNvrCommandHandler } from './applicationService/commands/nvr/delet
 import { InActiveNvrCommandHandler } from './applicationService/commands/nvr/inactiveNvr.command';
 import { RestoreNvrsToCacheCommandHandler } from './applicationService/commands/nvr/restoreNvrsToCache.command';
 import { UpdateNvrCommandHandler } from './applicationService/commands/nvr/updateNvr.command';
-import {
-  FindAllCamerasForTenantQueryHandler,
-} from './applicationService/queries/camera/findAllCameras.queryHandler';
+import { FindAllCamerasForTenantQueryHandler } from './applicationService/queries/camera/findAllCameras.queryHandler';
 import { FindAllDeletedCamerasByDeletedSerialNumbersQueryHandler } from './applicationService/queries/camera/findAllDeletedCamerasByDeletedSerialNumbers.queryHandler';
-import {
-  FindCameraByIdForTenantQueryHandler,
-} from './applicationService/queries/camera/findCameraById.queryHandler';
-import {
-  FindCameraByNameForTenantQueryHandler,
-} from './applicationService/queries/camera/findCameraByName.queryHandler';
+import { FindCameraByIdForTenantQueryHandler } from './applicationService/queries/camera/findCameraById.queryHandler';
+import { FindCameraByNameForTenantQueryHandler } from './applicationService/queries/camera/findCameraByName.queryHandler';
 import { FindCameraByNameAndNvrIdQueryHandler } from './applicationService/queries/camera/findCameraByNameAndNvrId.queryHandler';
 import {
   FindCameraBySerialNumberForTenantQueryHandler,
@@ -41,12 +35,8 @@ import {
   FindAllNvrsForTenantQueryHandler,
   FindAllNvrsQueryHandler,
 } from './applicationService/queries/nvr/findAllNvrs.queryHandler';
-import {
-  FindNvrByIdForTenantQueryHandler,
-} from './applicationService/queries/nvr/findNvrById.queryHandler';
-import {
-  FindNvrByNameForTenantQueryHandler,
-} from './applicationService/queries/nvr/findNvrByName.queryHandler';
+import { FindNvrByIdForTenantQueryHandler } from './applicationService/queries/nvr/findNvrById.queryHandler';
+import { FindNvrByNameForTenantQueryHandler } from './applicationService/queries/nvr/findNvrByName.queryHandler';
 import { FindNvrBySerialNumberQueryHandler } from './applicationService/queries/nvr/findNvrBySerialNumber.queryHandler';
 import { CameraActorLogService } from './applicationService/services/actorLogs/cameraActorLog.service';
 import { NvrActorLogService } from './applicationService/services/actorLogs/nvrActorLog.service';
