@@ -12,7 +12,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
 import { SWAGGER_AUTH_TOKEN } from 'src/utilities/swaggerRegisteration';
 import { NvrsHttpService } from '../applicationService/services/http/nvr.http.service';
 import { AutoRegisterRequestDto } from '../contracts/nvr/http/request/autoRegister.request.dto';
@@ -29,9 +29,11 @@ import {
 } from 'src/modules/tenantAccess/guards/employeeRoles.guard';
 import { EmployeeRoles } from 'src/extensions/sanawApi/dtos/employees/employeeRoles.enum';
 import { CameraIdsRequestDto } from '../contracts/camera/http/cameras.request.dto';
+import { ScanNvrRequestDto } from '../contracts/nvr/http/request/scanNvr.request.dto';
 
 @ApiBearerAuth(SWAGGER_AUTH_TOKEN)
 @ApiTags('/video-devices/nvrs')
+@ApiHeader({ name: 'X-Tenant-Id', required: true })
 @RequireEmployeeRoles(EmployeeRoles.Device_Dashboard)
 @UseGuards(ActiveTenantGuard, EmployeeRolesGuard)
 @Controller('/video-devices/nvrs')
@@ -53,6 +55,11 @@ export class NvrHttpController {
     @Param() params: OnlyIdParamRequestDto,
   ): Promise<GetNvrDependenciesResposeDto> {
     return this.nvrsHttpService.getDependencies(params.id);
+  }
+
+  @Get('/:serialNumber/scan')
+  scan(@Param() param: ScanNvrRequestDto) {
+    return this.nvrsHttpService.scan(param.serialNumber);
   }
 
   @Post('/')

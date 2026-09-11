@@ -6,7 +6,6 @@ describe('TenantEntity', () => {
     const tenant = TenantEntity.create({
       ownerId: '78c12077-7c5e-46f6-8a05-b3df96c94c2d',
       name: 'Sanaw',
-      slug: 'sanaw-cloud',
       status: TenantStatuses.ACTIVE,
       defaultTimezone: 'Asia/Tehran',
     });
@@ -14,7 +13,6 @@ describe('TenantEntity', () => {
     expect(tenant.getProps()).toMatchObject({
       ownerId: '78c12077-7c5e-46f6-8a05-b3df96c94c2d',
       name: 'Sanaw',
-      slug: 'sanaw-cloud',
       status: TenantStatuses.ACTIVE,
       defaultTimezone: 'Asia/Tehran',
     });
@@ -25,7 +23,6 @@ describe('TenantEntity', () => {
     const tenant = TenantEntity.create({
       ownerId,
       name: 'Sanaw',
-      slug: 'sanaw-cloud',
       status: TenantStatuses.ACTIVE,
       defaultTimezone: 'Asia/Tehran',
     });

@@ -7,14 +7,12 @@ export class TenantUpdatedDomainEvent
   implements UpdateTenantProps
 {
   readonly name?: string;
-  readonly slug?: string;
   readonly status?: TenantStatuses;
   readonly defaultTimezone?: string;
 
   constructor(props: DomainEventProps<TenantUpdatedDomainEvent>) {
     super(props);
     this.name = props.name;
-    this.slug = props.slug;
     this.status = props.status;
     this.defaultTimezone = props.defaultTimezone;
   }

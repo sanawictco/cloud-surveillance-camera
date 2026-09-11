@@ -10,7 +10,6 @@ import { EmployeeAccessHttpService } from './applicationService/employeeAccess.h
 import { TenantAccessService } from './applicationService/tenantAccess.service';
 import { ActiveTenantGuard } from './guards/activeTenant.guard';
 import { EmployeeRolesGuard } from './guards/employeeRoles.guard';
-import { MeController } from './me.controller';
 import { EmployeeController } from './controllers/employee.controller';
 import { CqrsModule } from '@nestjs/cqrs';
 import { tenantAccessCommandHandlers } from './applicationService/commands/tenantAccess.commands';
@@ -43,7 +42,7 @@ import { TenantsModule } from 'src/modules/tenants/tenants.module';
     ActiveTenantGuard,
     EmployeeRolesGuard,
   ],
-  controllers: [MeController, EmployeeController],
+  controllers: [EmployeeController],
   exports: [
     TenantAccessService,
     EmployeeAccessHttpService,

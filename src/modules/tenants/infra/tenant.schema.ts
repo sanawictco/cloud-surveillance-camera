@@ -13,9 +13,6 @@ export class TenantModel implements TenantProps {
   @Prop({ required: true })
   name: string;
 
-  @Prop({ required: true, unique: true })
-  slug: string;
-
   @Prop({ required: true, type: String, enum: Object.values(TenantStatuses) })
   status: TenantStatuses;
 
@@ -32,7 +29,6 @@ export class TenantModel implements TenantProps {
     this.id = props.id ?? '';
     this.ownerId = props.ownerId ?? '';
     this.name = props.name ?? '';
-    this.slug = props.slug ?? '';
     this.status = props.status ?? TenantStatuses.PROVISIONING;
     this.defaultTimezone = props.defaultTimezone ?? '';
     this.createdAt = props.createdAt ?? new Date();
@@ -41,3 +37,6 @@ export class TenantModel implements TenantProps {
 }
 
 export const TenantSchema = SchemaFactory.createForClass(TenantModel);
+// One owner cannot create two tenants sharing the same name; there is no
+// per-tenant uniqueness requirement on name across different owners.
+TenantSchema.index({ ownerId: 1, name: 1 }, { unique: true });

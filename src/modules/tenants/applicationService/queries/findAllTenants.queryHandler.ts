@@ -8,7 +8,6 @@ import { TenantRepository } from '../../infra/tenant.repository';
 interface TenantQueryFilter {
   ownerId: string;
   name: string | RegExp;
-  slug: string;
   status: TenantStatuses;
 }
 

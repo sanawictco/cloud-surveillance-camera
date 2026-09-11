@@ -9,7 +9,6 @@ function buildRepository() {
     id: tenantId,
     ownerId: userId,
     name: 'Sanaw',
-    slug: 'sanaw',
     status: TenantStatuses.ACTIVE,
   };
   const tenantsApi = {

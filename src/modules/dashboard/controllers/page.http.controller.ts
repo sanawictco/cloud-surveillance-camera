@@ -13,7 +13,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiQuery, ApiBearerAuth, ApiHeader } from '@nestjs/swagger';
 import { PagesHttpService } from '../applicationService/services/page.http.service';
 import {
   GetAllPagesResponseDto,
@@ -31,6 +31,7 @@ import {
 import { EmployeeRoles } from 'src/extensions/sanawApi/dtos/employees/employeeRoles.enum';
 @ApiBearerAuth(SWAGGER_AUTH_TOKEN)
 @ApiTags('/dashboard/pages')
+@ApiHeader({ name: 'X-Tenant-Id', required: true })
 @RequireEmployeeRoles(EmployeeRoles.Device_Dashboard)
 @UseGuards(ActiveTenantGuard, EmployeeRolesGuard)
 @Controller('/dashboard/pages')

@@ -67,7 +67,6 @@ export class FindMyTenantsQueryHandler implements IQueryHandler<FindMyTenantsQue
         new MyTenantResponseDto({
           tenantId: tenant.id,
           name: tenant.name,
-          slug: tenant.slug,
           status: tenant.status,
           employeeId: employee.id,
           roles: employee.roles,

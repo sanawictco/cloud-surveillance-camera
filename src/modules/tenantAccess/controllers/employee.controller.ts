@@ -10,7 +10,7 @@ import {
   HttpCode,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
 import { FindEmployeeRequestDto } from '../contracts/employee/findEmployee.request.dto';
 import { SWAGGER_AUTH_TOKEN } from 'src/utilities/swaggerRegisteration';
 import { OnlyIdParamRequestDto } from 'src/modules/shared/dtos/onlyIdParam.request.dto';
@@ -26,6 +26,7 @@ import { AddEmployeeRequestDto } from '../contracts/employee/addEmployee.request
 import { UpdateEmployeeRolesRequestDto } from '../contracts/employee/updateEmployeeRoles.request.dto';
 @ApiBearerAuth(SWAGGER_AUTH_TOKEN)
 @ApiTags('/employees')
+@ApiHeader({ name: 'X-Tenant-Id', required: true })
 @RequireEmployeeRoles(EmployeeRoles.Employee)
 @UseGuards(ActiveTenantGuard, EmployeeRolesGuard)
 @Controller('/employees')

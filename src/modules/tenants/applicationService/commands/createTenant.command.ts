@@ -15,7 +15,6 @@ import { TenantAccessService } from 'src/modules/tenantAccess/applicationService
 export class CreateTenantCommand extends Command implements CreateTenantProps {
   readonly ownerId: string;
   readonly name: string;
-  readonly slug: string;
   readonly status: TenantStatuses;
   readonly defaultTimezone: string;
 
@@ -23,7 +22,6 @@ export class CreateTenantCommand extends Command implements CreateTenantProps {
     super(props);
     this.ownerId = props.ownerId;
     this.name = props.name;
-    this.slug = props.slug;
     this.status = props.status;
     this.defaultTimezone = props.defaultTimezone;
   }
@@ -43,7 +41,6 @@ export class CreateTenantCommandHandler implements ICommandHandler<CreateTenantC
     const tenant = TenantEntity.create({
       ownerId: command.ownerId,
       name: command.name,
-      slug: command.slug,
       status: command.status,
       defaultTimezone: command.defaultTimezone,
     });

@@ -10,7 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
 import { SWAGGER_AUTH_TOKEN } from 'src/utilities/swaggerRegisteration';
 import { RequireAtLeastOneFieldPipe } from 'src/shared/requireAtLeastOneField.pipe';
 import { CameraResponseDto } from '../contracts/camera/http/camera.response.dto';
@@ -25,10 +25,11 @@ import {
 } from 'src/modules/tenantAccess/guards/employeeRoles.guard';
 import { EmployeeRoles } from 'src/extensions/sanawApi/dtos/employees/employeeRoles.enum';
 @ApiBearerAuth(SWAGGER_AUTH_TOKEN)
-@ApiTags('/devices/end-devices')
+@ApiTags('/video-devices/cameras')
+@ApiHeader({ name: 'X-Tenant-Id', required: true })
 @RequireEmployeeRoles(EmployeeRoles.Device_Dashboard)
 @UseGuards(ActiveTenantGuard, EmployeeRolesGuard)
-@Controller('/devices/end-devices')
+@Controller('/video-devices/cameras')
 export class CamerasHttpController {
   constructor(private readonly cameraService: CamerasHttpService) {}
   @Get('/')

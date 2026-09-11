@@ -6,7 +6,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
 import { SWAGGER_AUTH_TOKEN } from 'src/utilities/swaggerRegisteration';
 import { DashboardDataService } from '../applicationService/services/dashboardData.service';
 import { SendDataRequestDto } from '../contracts/sendData.request.dto';
@@ -18,6 +18,7 @@ import {
 import { EmployeeRoles } from 'src/extensions/sanawApi/dtos/employees/employeeRoles.enum';
 @ApiBearerAuth(SWAGGER_AUTH_TOKEN)
 @ApiTags('/dashboard/data')
+@ApiHeader({ name: 'X-Tenant-Id', required: true })
 @RequireEmployeeRoles(EmployeeRoles.Device_Dashboard)
 @UseGuards(ActiveTenantGuard, EmployeeRolesGuard)
 @Controller('/dashboard/data')

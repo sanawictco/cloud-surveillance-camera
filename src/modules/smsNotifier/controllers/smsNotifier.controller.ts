@@ -10,7 +10,7 @@ import {
   Delete,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
 import { UpdateSmsNotifierRequestDto } from '../contracts/smsNotifier/updateSmsNotifier.request.dto';
 import { CreateSmsNotifierRequestDto } from '../contracts/smsNotifier/createSmsNotifier.request.dto';
 import { SmsNotifierService } from '../applicationService/services/smsNotifier.service';
@@ -26,6 +26,7 @@ import { SWAGGER_AUTH_TOKEN } from 'src/utilities/swaggerRegisteration';
 
 @ApiBearerAuth(SWAGGER_AUTH_TOKEN)
 @ApiTags('/employees/sms-notifiers')
+@ApiHeader({ name: 'X-Tenant-Id', required: true })
 @RequireEmployeeRoles(EmployeeRoles.Employee)
 @UseGuards(ActiveTenantGuard, EmployeeRolesGuard)
 @Controller('/employees/sms-notifiers')

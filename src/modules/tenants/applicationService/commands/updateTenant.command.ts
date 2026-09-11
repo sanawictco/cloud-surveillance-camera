@@ -15,14 +15,12 @@ import { TenantActorLogService } from '../services/tenantActorLog.service';
 
 export class UpdateTenantCommand extends Command implements UpdateTenantProps {
   readonly name?: string;
-  readonly slug?: string;
   readonly status?: TenantStatuses;
   readonly defaultTimezone?: string;
 
   constructor(props: CommandProps<UpdateTenantCommand> & IdType) {
     super(props);
     this.name = props.name;
-    this.slug = props.slug;
     this.status = props.status;
     this.defaultTimezone = props.defaultTimezone;
   }
@@ -43,7 +41,6 @@ export class UpdateTenantCommandHandler implements ICommandHandler<UpdateTenantC
 
     tenantEntity.update({
       name: command.name,
-      slug: command.slug,
       status: command.status,
       defaultTimezone: command.defaultTimezone,
     });

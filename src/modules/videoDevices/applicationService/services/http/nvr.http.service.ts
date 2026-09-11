@@ -34,6 +34,10 @@ import { AutoRegisterBatchConfig } from 'src/modules/videoDevices/contracts/nvr/
 import { UserInfoService } from 'src/extensions/userInfo/userInfo.service';
 import { FindAllNvrsForTenantQuery } from '../../queries/nvr/findAllNvrs.queryHandler';
 import { CameraValidator } from '../validators/camera.validator';
+import {
+  NvrScanInfoData,
+  NvrScanInfoResponseDto,
+} from 'src/extensions/sanawApi/dtos/devices/response/nvrScanInfo.response.dto';
 
 @Injectable()
 export class NvrsHttpService {
@@ -63,6 +67,15 @@ export class NvrsHttpService {
       tenantId,
     );
     return this.nvrMapper.toResponse(nvrEntity);
+  }
+
+  async scan(serialNumber: string): Promise<NvrScanInfoData> {
+    await this.nvrValidator.checkExistsDuplicatedNvrBySerialNumber(
+      serialNumber,
+    );
+    const { data }: NvrScanInfoResponseDto =
+      await this.sanawApiVideoDeviceService.scan(serialNumber);
+    return data;
   }
 
   async create(body: CreateNvrRequestDto): Promise<string> {

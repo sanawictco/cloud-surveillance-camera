@@ -5,7 +5,6 @@ import { Name } from 'src/modules/shared/valueObjects/name.vo';
 import { TenantResponseDto } from '../contracts/tenant.response.dto';
 import { TenantEntity } from '../domain/tenant.entity';
 import { DefaultTimezone } from '../domain/valueObjects/defaultTimezone.vo';
-import { Slug } from '../domain/valueObjects/slug.vo';
 import { TenantStatus } from '../domain/valueObjects/tenantStatus.vo';
 import { TenantModel } from './tenant.schema';
 
@@ -27,7 +26,6 @@ export class TenantMapper implements Mapper<
       props: {
         ownerId: new BusinessId(record.ownerId),
         name: new Name(record.name),
-        slug: new Slug(record.slug),
         status: new TenantStatus(record.status),
         defaultTimezone: new DefaultTimezone(record.defaultTimezone),
       },

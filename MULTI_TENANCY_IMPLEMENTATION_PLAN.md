@@ -272,7 +272,7 @@ The verified tenant must then be stored in the synchronous request context.
 Add an identity-scoped endpoint that does not require an active tenant:
 
 ```http
-GET /me/tenants
+GET /tenants
 ```
 
 Suggested response:
@@ -281,7 +281,6 @@ Suggested response:
 interface MyTenantResponse {
   tenantId: string;
   name: string;
-  slug: string;
   status: TenantStatuses;
   employeeId: string;
   roles: EmployeeRoles[];
@@ -1530,7 +1529,7 @@ gates in this document also pass.
 
 - [x] Add tenant ID to `EmployeeModel` and use employees as the only tenant-membership records.
 - [x] Add unique `(tenantId, userId)` index.
-- [x] Add `GET /me/tenants`.
+- [x] Add `GET /tenants` (moved from `/me/tenants`).
 - [x] Require and validate `X-Tenant-Id` for tenant HTTP APIs.
 - [x] Validate employee access directly from MongoDB for each tenant HTTP request.
 - [x] Reuse tenant-scoped `EmployeeRoles` at controllers.

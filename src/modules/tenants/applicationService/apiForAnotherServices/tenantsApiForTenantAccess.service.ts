@@ -13,7 +13,6 @@ export interface TenantAccessView {
   id: string;
   ownerId: string;
   name: string;
-  slug: string;
   status: TenantStatuses;
 }
 

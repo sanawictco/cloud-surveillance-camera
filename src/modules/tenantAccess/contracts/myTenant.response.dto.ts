@@ -4,7 +4,6 @@ import { TenantStatuses } from 'src/modules/tenants/domain/valueObjects/tenantSt
 export class MyTenantResponseDto {
   tenantId: string;
   name: string;
-  slug: string;
   status: TenantStatuses;
   employeeId: string;
   roles: EmployeeRoles[];
@@ -13,7 +12,6 @@ export class MyTenantResponseDto {
   constructor(props: MyTenantResponseDto) {
     this.tenantId = props.tenantId;
     this.name = props.name;
-    this.slug = props.slug;
     this.status = props.status;
     this.employeeId = props.employeeId;
     this.roles = props.roles;

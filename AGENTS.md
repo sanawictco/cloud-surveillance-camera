@@ -103,7 +103,7 @@ src/modules/<name>/
 | `mongo` | Single Mongo connection; guards `connection.close()` so only the orchestrator can close it | — | 7 (always last — domain modules read from it during shutdown) | schema/query level, not here |
 | `bootChecks` | Fail-closed boot assertions (`main.ts`): no test-env in prod, MQTT prod security, Redis `noeviction` policy | plain functions, not a module | — | — |
 | `http` | Generic Axios wrapper: retry (3x on 5xx/network errors), request/response logging, error normalization | `@Global` | — | — |
-| `sanawApi` | Typed clients to sibling Sanaw microservices (employee/notification/device-registry), auth via `Workspace-<key>` header | — | — | `tenantId` passed as `workstationId` upstream |
+| `sanawApi` | Typed clients to sibling Sanaw microservices (employee/notification/device-registry), auth via `Workspace-<key>` header — except gateway-scoped device-registry routes (e.g. `manufactured-nvrs/scan`), which use `Gateway-<key>` (`SanawGatewayApiHeader()`), same underlying `SANAW_API_KEY` | — | — | `tenantId` passed as `workstationId` upstream |
 | `logger` | `nestjs-pino`; redacts auth headers/passwords/tokens; correlation-id from request headers | `@Global` | — | — |
 | `serviceProvider` | Facade bundling `Serializer/UserInfo/Logger/EventEmitter2/CommandBus/QueryBus/Translator/Scheduler/Http` into one injectable — the de facto shared kernel, used as `this.serviceProvider.*` throughout infra services | `@Global` | — | — |
 | `serialization` | `serialize/deserialize` interface | `@Global` | — | — |
@@ -132,7 +132,7 @@ The primary in-process mechanism is **not** an event bus — it's explicit facad
 3. **MQTT ↔ EventEmitter2 bridge.** `extensions/mqtt` is the sole MQTT client; inbound broker messages are re-emitted on the *same* `EventEmitter2` instance keyed by a topic-derived enum, and module controllers subscribe with `@OnEvent(SomeMqttTopicEnum.x)` (e.g. `videoDeviceConfigs.mqtt.controller.ts`, `page.mqtt.controller.ts`). Only topics with a live `@OnEvent` handler get subscribed at boot. Topic shape: `tenants/{tenantId}/nvrs/{nvrId}/{resource}/{to-fog|to-cloud}`, UUIDv4-validated segments (source of truth: `videoDevices`' `shared/deviceMqttTopics.ts`).
 4. **BullMQ queues.** Each domain queue is its own injected `QueueService<T>` instance (not a fixed registry) — e.g. `videoDeviceConfigQueue`, `pageConfigQueue`. Job ids use the tenant-scoped `buildDeviceJobId()` format, so entries are tenant-tagged even though the queue itself is shared infra.
 5. **WebSocket.** Tenant isolation = room membership: every authenticated socket joins `tenant:{tenantId}`; broadcasts only ever target that room; access is re-verified per send on sensitive channels (e.g. system-logs), force-disconnecting sockets that fail the check.
-6. **HTTP out to sibling Sanaw services.** `sanawApi` (typed clients, `Workspace-<key>` auth) for known Sanaw platform services; the generic `http` extension for anything without a typed client yet.
+6. **HTTP out to sibling Sanaw services.** `sanawApi` (typed clients, `Workspace-<key>` auth, or `Gateway-<key>` for gateway-scoped device-registry routes) for known Sanaw platform services; the generic `http` extension for anything without a typed client yet.
 7. **TDengine.** One shared database; tenant isolation is by supertable/tag + tenant-namespaced sub-table names (`ensureSuperTable(tenantId)`, `systemLogSubTableName(tenantId, type)`), not per-tenant databases.
 
 ### Multi-tenancy isolation strategy

@@ -12,7 +12,7 @@ import { UpdateTenantCommandHandler } from './applicationService/commands/update
 import { FindAllTenantsQueryHandler } from './applicationService/queries/findAllTenants.queryHandler';
 import { FindTenantByIdQueryHandler } from './applicationService/queries/findTenantById.queryHandler';
 import { FindTenantByNameQueryHandler } from './applicationService/queries/findTenantByName.queryHandler';
-import { FindTenantBySlugQueryHandler } from './applicationService/queries/findTenantBySlug.queryHandler';
+import { FindTenantByOwnerAndNameQueryHandler } from './applicationService/queries/findTenantByOwnerAndName.queryHandler';
 import { TenantInitService } from './applicationService/services/init.service';
 import { TenantActorLogService } from './applicationService/services/tenantActorLog.service';
 import { TENANT_REPOSITORY } from './infra/tenant.diToken';
@@ -20,6 +20,8 @@ import { TenantMapper } from './infra/tenant.mapper';
 import { TenantRepository } from './infra/tenant.repository';
 import { TenantModel, TenantSchema } from './infra/tenant.schema';
 import { TenantsApiForTenantAccessService } from './applicationService/apiForAnotherServices/tenantsApiForTenantAccess.service';
+import { TenantsController } from './tenants.controller';
+import { TenantsService } from './applicationService/services/tenants.service';
 
 const commandHandlers: Provider[] = [
   CreateTenantCommandHandler,
@@ -32,7 +34,7 @@ const queryHandlers: Provider[] = [
   FindAllTenantsQueryHandler,
   FindTenantByIdQueryHandler,
   FindTenantByNameQueryHandler,
-  FindTenantBySlugQueryHandler,
+  FindTenantByOwnerAndNameQueryHandler,
 ];
 
 @Module({
@@ -54,8 +56,9 @@ const queryHandlers: Provider[] = [
     { provide: TENANT_REPOSITORY, useClass: TenantRepository },
     TenantInitService,
     TenantsApiForTenantAccessService,
+    TenantsService,
   ],
-  controllers: [],
+  controllers: [TenantsController],
   exports: [TenantsApiForTenantAccessService],
 })
 export class TenantsModule {}

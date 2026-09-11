@@ -12,7 +12,6 @@ import {
   UpdateTenantProps,
 } from './tenant.type';
 import { DefaultTimezone } from './valueObjects/defaultTimezone.vo';
-import { Slug } from './valueObjects/slug.vo';
 import { TenantStatus, TenantStatuses } from './valueObjects/tenantStatus.vo';
 
 export class TenantEntity extends AggregateRoot<
@@ -31,7 +30,6 @@ export class TenantEntity extends AggregateRoot<
     const props: TenantValueObjects = {
       ownerId: new BusinessId(createTenantProps.ownerId),
       name: new Name(createTenantProps.name),
-      slug: new Slug(createTenantProps.slug),
       status: new TenantStatus(createTenantProps.status),
       defaultTimezone: new DefaultTimezone(createTenantProps.defaultTimezone),
     };
@@ -48,7 +46,6 @@ export class TenantEntity extends AggregateRoot<
   update(updateTenantProps: UpdateTenantProps): TenantEntity {
     const updateTenantValueObjects: Partial<TenantValueObjects> = {
       name: this.createValueObjectIfDefined(updateTenantProps.name, Name),
-      slug: this.createValueObjectIfDefined(updateTenantProps.slug, Slug),
       status: this.createValueObjectIfDefined(
         updateTenantProps.status,
         TenantStatus,

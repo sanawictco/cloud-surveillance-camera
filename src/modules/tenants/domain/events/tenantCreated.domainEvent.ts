@@ -8,7 +8,6 @@ export class TenantCreatedDomainEvent
 {
   readonly ownerId: string;
   readonly name: string;
-  readonly slug: string;
   readonly status: TenantStatuses;
   readonly defaultTimezone: string;
 
@@ -16,7 +15,6 @@ export class TenantCreatedDomainEvent
     super(props);
     this.ownerId = props.ownerId;
     this.name = props.name;
-    this.slug = props.slug;
     this.status = props.status;
     this.defaultTimezone = props.defaultTimezone;
   }

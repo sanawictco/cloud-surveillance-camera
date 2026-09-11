@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import axios from 'axios';
 import AppConfig from 'configs/app.config';
 import { AutoScanAllCamerasInformationResDto } from '../dtos/devices/response/allDevicesAutoScanInformation.response.dto';
-import { SanawApiHeader } from '../dtos/sanawApi.header';
+import { SanawApiHeader, SanawGatewayApiHeader } from '../dtos/sanawApi.header';
 import { NvrScanInfoResponseDto } from '../dtos/devices/response/nvrScanInfo.response.dto';
 import { NvrRegisterInfoResponseDto } from '../dtos/devices/response/nvrRegisterInfo.response.dto';
 
@@ -11,16 +11,13 @@ export class SanawApiVideoDeviceService {
   async scan(serialNumber: string): Promise<NvrScanInfoResponseDto> {
     const url = `${
       AppConfig().sanawApiURL
-    }/video-devices/manufactured-nvrs/get-auto-scan-information`;
+    }/video-devices/manufactured-nvrs/scan`;
 
     try {
-      const res = await axios.post(
-        url,
-        {
-          serialNumber,
-        },
-        { headers: SanawApiHeader() },
-      );
+      const res = await axios.get(url, {
+        params: { serialNumber },
+        headers: SanawGatewayApiHeader(),
+      });
       return {
         statusCode: 200,
         data: res.data,

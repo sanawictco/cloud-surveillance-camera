@@ -10,7 +10,6 @@ function command() {
   return new CreateTenantCommand({
     ownerId,
     name: 'Sanaw',
-    slug: 'sanaw-cloud',
     status: TenantStatuses.ACTIVE,
     defaultTimezone: 'Asia/Tehran',
   });
